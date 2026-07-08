@@ -1,0 +1,9 @@
+# Block ALL direct web access to uploaded customer documents.
+# Files are served only through the auth-gated Customers::file() endpoint.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

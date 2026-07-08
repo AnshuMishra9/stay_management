@@ -1,0 +1,80 @@
+/* ============================================================
+   Stay Management ERP — Rooms Master add-ons
+   Loaded AFTER erp.css. Only the few room-specific components
+   that the Customers Master didn't already need live here; all
+   base styling (cards, buttons, inputs, table, modal, badges)
+   is reused from erp.css.
+   ============================================================ */
+
+/* ---- Amenities checkbox grid (Add/Edit · Section 3) ---- */
+.erp-amenity-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
+    gap: 12px;
+}
+.erp-amenity-item { position: relative; cursor: pointer; display: block; }
+.erp-amenity-item input {
+    position: absolute; opacity: 0; width: 0; height: 0;
+}
+.erp-amenity-face {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-radius: 12px;
+    border: 1px solid var(--input-brd); background: #fff;
+    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, transform .12s ease;
+}
+.erp-amenity-item:hover .erp-amenity-face { border-color: #c9cff0; transform: translateY(-1px); }
+/* Each icon sits in a fixed tile. The tile equalises every amenity's footprint
+   so line icons and solid icons look uniform despite each SVG's own internal
+   padding; object-fit:contain scales the art to fit (never crops/distorts). */
+.erp-amenity-icon {
+    flex: 0 0 auto; width: 40px; height: 40px; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 10px; background: #fff; border: 1px solid var(--line);
+    font-size: 1.25rem;                 /* emoji/text fallback size */
+}
+.erp-amenity-img { width: 26px; height: 26px; object-fit: contain; display: block; }
+.erp-amenity-name { font-size: .9rem; font-weight: 600; color: var(--text); min-width: 0; }
+/* Checked: tint the tile to match the selected card. */
+.erp-amenity-item input:checked + .erp-amenity-face .erp-amenity-icon {
+    border-color: #d5d2fb; box-shadow: 0 2px 8px rgba(109,93,246,.14);
+}
+/* Checked state */
+.erp-amenity-item input:checked + .erp-amenity-face {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    box-shadow: 0 0 0 3px rgba(109,93,246,.14);
+}
+.erp-amenity-item input:checked + .erp-amenity-face .erp-amenity-name { color: var(--brand-dark); }
+.erp-amenity-item input:focus-visible + .erp-amenity-face { box-shadow: 0 0 0 3.5px rgba(109,93,246,.22); }
+
+/* ---- Inline checkbox row (Add/Edit · Section 2 flags) ---- */
+.erp-check-row { display: flex; flex-wrap: wrap; gap: 14px 26px; }
+
+/* ---- Amenity tags (detail modal) ---- */
+.erp-amenity-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.erp-amenity-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 999px; font-size: .82rem; font-weight: 600;
+    background: var(--brand-soft); color: var(--brand-dark); border: 1px solid #e0e0fd;
+}
+.erp-amenity-tag-img { width: 16px; height: 16px; object-fit: contain; flex: 0 0 auto; }
+
+/* ---- Status chips (list: housekeeping / condition) ---- */
+.erp-chip {
+    display: inline-flex; align-items: center;
+    padding: 4px 11px; border-radius: 999px; font-size: .76rem; font-weight: 700;
+    white-space: nowrap;
+}
+.erp-chip-green { background: var(--green-soft);       color: #15803d; }
+.erp-chip-blue  { background: #e0f2fe;                 color: #0369a1; }
+.erp-chip-amber { background: #fef3c7;                 color: #b45309; }
+.erp-chip-red   { background: var(--red-soft);         color: #be123c; }
+.erp-chip-grey  { background: var(--head);             color: var(--muted); }
+
+/* ---- Save button loading state (disable while saving) ---- */
+.erp-btn.is-loading { opacity: .75; pointer-events: none; }
+.erp-btn.is-loading::after {
+    content: ''; width: 14px; height: 14px; margin-left: 4px;
+    border: 2px solid rgba(255,255,255,.55); border-top-color: #fff;
+    border-radius: 50%; display: inline-block; animation: erp-spin .7s linear infinite;
+}

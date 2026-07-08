@@ -1,0 +1,78 @@
+/* ============================================================
+   Stay Management ERP — Searchable Select
+   Companion styles for assets/js/searchable-select.js.
+   Reuses the erp.css palette so it blends with .erp-select.
+   ============================================================ */
+
+.erp-ss { position: relative; }
+
+/* The native <select> stays in the DOM (form submit / no-JS) but is hidden
+   once JS enhances it. */
+.erp-ss-native.erp-ss-hidden {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); border: 0; opacity: 0; pointer-events: none;
+}
+
+/* Trigger looks exactly like an .erp-select (with the same chevron). */
+.erp-ss-trigger {
+    width: 100%; text-align: left; cursor: pointer;
+    display: flex; align-items: center;
+    font: inherit;
+}
+.erp-ss-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.erp-ss-trigger.erp-ss-placeholder .erp-ss-value,
+.erp-ss-value:empty { color: #9aa2bd; }
+.erp-ss.is-open .erp-ss-trigger {
+    border-color: var(--brand); box-shadow: 0 0 0 3.5px rgba(109,93,246,.16);
+}
+
+/* Dropdown panel */
+.erp-ss-panel {
+    position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; right: 0;
+    background: #fff; border: 1px solid var(--input-brd); border-radius: 12px;
+    box-shadow: var(--shadow-lg, 0 24px 55px rgba(30,35,60,.22));
+    padding: 8px; display: none;
+}
+.erp-ss.is-open .erp-ss-panel { display: block; }
+/* Flip upward when there isn't room below (near the bottom of a card). */
+.erp-ss.erp-ss--up .erp-ss-panel { top: auto; bottom: calc(100% + 6px); }
+
+/* Search box */
+.erp-ss-search-wrap { position: relative; margin-bottom: 6px; }
+.erp-ss-search-ic {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    width: 16px; height: 16px; color: var(--muted); pointer-events: none;
+}
+.erp-ss-search {
+    width: 100%; height: 40px; border: 1px solid var(--input-brd); border-radius: 9px;
+    padding: 8px 12px 8px 34px; font-size: .9rem; color: var(--text); outline: none;
+    background: var(--head);
+}
+.erp-ss-search:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(109,93,246,.14); background: #fff; }
+
+/* Options list */
+.erp-ss-list {
+    list-style: none; margin: 0; padding: 0; max-height: 246px; overflow-y: auto;
+}
+.erp-ss-opt {
+    padding: 9px 12px; border-radius: 8px; font-size: .9rem; color: var(--text);
+    cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.erp-ss-opt:hover,
+.erp-ss-opt.is-active { background: var(--brand-soft); color: var(--brand-dark); }
+.erp-ss-opt.is-selected { font-weight: 700; color: var(--brand-dark); }
+.erp-ss-opt-empty { color: var(--muted); }   /* the "All / Select" reset row */
+.erp-ss-opt.is-selected::after {
+    content: '✓'; float: right; color: var(--brand); font-weight: 700;
+}
+.erp-ss-empty { padding: 12px; text-align: center; color: var(--muted); font-size: .88rem; }
+
+/* "Showing 9 of N · type to search" hint */
+.erp-ss-hint {
+    margin-top: 6px; padding: 7px 10px; font-size: .76rem; color: var(--muted);
+    text-align: center; border-top: 1px solid var(--line);
+}
+
+/* Custom scrollbar (subtle) */
+.erp-ss-list::-webkit-scrollbar { width: 8px; }
+.erp-ss-list::-webkit-scrollbar-thumb { background: #d9def0; border-radius: 8px; }

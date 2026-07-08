@@ -1,0 +1,26 @@
+/* ============================================================
+   Calibri web fonts
+   Font files live in assets/fonts/, so paths are relative to
+   this file: ../fonts/<file>.woff
+   ============================================================ */
+
+@font-face {
+    font-family: 'Calibri Regular';
+    font-style: normal;
+    font-weight: normal;
+    src: local('Calibri'), url('../fonts/Calibri.woff') format('woff');
+}
+
+@font-face {
+    font-family: 'Calibri Light';
+    font-style: normal;
+    font-weight: 300;
+    src: local('Calibri Light'), url('../fonts/Calibrilight.woff') format('woff');
+}
+
+@font-face {
+    font-family: 'Calibri Bold';
+    font-style: normal;
+    font-weight: 700;
+    src: local('Calibri Bold'), url('../fonts/Calibribold.woff') format('woff');
+}
