@@ -1,0 +1,20 @@
+    @font-face {
+    font-family: 'Calibri Regular';
+    font-style: normal;
+    font-weight: normal;
+    src: local('Calibri Regular'), url('Calibri.woff') format('woff');
+    }
+
+    @font-face {
+    font-family: 'Calibri Light';
+    font-style: normal;
+    font-weight: normal;
+    src: local('Calibri Light'), url('Calibrilight.woff') format('woff');
+    }
+
+    @font-face {
+    font-family: 'Calibri Bold';
+    font-style: normal;
+    font-weight: normal;
+    src: local('Calibri Bold'), url('Calibribold.woff') format('woff');
+    }

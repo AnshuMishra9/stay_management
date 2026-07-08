@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "c:\\Users\\91958\\.claude\\projects\\c--xampp-htdocs-stay-management\\memory"
+    ],
+    "allow": [
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root -N -e 'USE stay_management; SHOW COLUMNS FROM customers;')",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root -N -e 'USE stay_management; SELECT COUNT\\(*\\) FROM customers;')",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root -N -e 'USE stay_management; SHOW TABLES;')"
+    ]
+  }
+}
