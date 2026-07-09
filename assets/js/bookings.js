@@ -1,7 +1,8 @@
 /* ============================================================
    Stay Management ERP — Booking Details (AngularJS 1.x)
    Booking-centric list over customers with live server-side
-   filtering by check-in/out date, status, channel and search.
+   filtering: search, status, channel, and two date-range pickers
+   (check-in range + check-out range) powered by flatpickr.
    ============================================================ */
 (function () {
     'use strict';
@@ -13,6 +14,7 @@
         var vm = this;
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
         var debounce = null;
+        var fpCheckin = null, fpCheckout = null;
 
         vm.bookings = [];
         vm.loading  = true;
@@ -52,8 +54,40 @@
 
         vm.clearFilters = function () {
             angular.forEach(vm.filters, function (v, k) { vm.filters[k] = ''; });
+            if (fpCheckin)  { fpCheckin.clear(false); }   // reset picker, don't fire onChange
+            if (fpCheckout) { fpCheckout.clear(false); }
             vm.load();
         };
+
+        // ---- Date-range pickers (flatpickr) ----
+        // A single range widget fills two filter keys (…_from / …_to).
+        function ymd(d) {
+            return d.getFullYear() + '-' +
+                ('0' + (d.getMonth() + 1)).slice(-2) + '-' +
+                ('0' + d.getDate()).slice(-2);
+        }
+
+        function initRange(id, fromKey, toKey) {
+            var el = document.getElementById(id);
+            if (!el || typeof flatpickr === 'undefined') { return null; }
+            return flatpickr(el, {
+                mode: 'range',
+                dateFormat: 'Y-m-d',
+                allowInput: false,
+                onChange: function (dates) {
+                    if (dates.length === 1) { return; }   // wait for the 2nd date of the range
+                    vm.filters[fromKey] = dates.length ? ymd(dates[0]) : '';
+                    vm.filters[toKey]   = dates.length ? ymd(dates[dates.length - 1]) : '';
+                    $timeout(function () { vm.load(); });  // apply inside a digest
+                }
+            });
+        }
+
+        // Init after the view is in the DOM.
+        $timeout(function () {
+            fpCheckin  = initRange('bk_checkin_range',  'checkin_from',  'checkin_to');
+            fpCheckout = initRange('bk_checkout_range', 'checkout_from', 'checkout_to');
+        });
 
         // Initial load
         vm.load();
