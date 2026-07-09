@@ -6,6 +6,8 @@
     <title>Booking Details &middot; Stay Management</title>
 
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/flatpickr.min.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/flatpickr.min.css') ?>">
     <style>[ng-cloak]{display:none!important;}</style>
     <script>window.APP_BASE = "<?= base_url() ?>";</script>
 </head>
@@ -63,20 +65,12 @@
                     </select>
                 </div>
                 <div class="erp-field">
-                    <label>Check-In From</label>
-                    <input class="erp-input" type="date" ng-model="vm.filters.checkin_from" ng-change="vm.onFilter()">
+                    <label>Check-In Date <span class="erp-muted" style="font-weight:400;">(1 date or range)</span></label>
+                    <input class="erp-input" id="bk_checkin_range" type="text" placeholder="Pick 1 or 2 dates" readonly>
                 </div>
                 <div class="erp-field">
-                    <label>Check-In To</label>
-                    <input class="erp-input" type="date" ng-model="vm.filters.checkin_to" ng-change="vm.onFilter()">
-                </div>
-                <div class="erp-field">
-                    <label>Check-Out From</label>
-                    <input class="erp-input" type="date" ng-model="vm.filters.checkout_from" ng-change="vm.onFilter()">
-                </div>
-                <div class="erp-field">
-                    <label>Check-Out To</label>
-                    <input class="erp-input" type="date" ng-model="vm.filters.checkout_to" ng-change="vm.onFilter()">
+                    <label>Check-Out Date <span class="erp-muted" style="font-weight:400;">(further filter)</span></label>
+                    <input class="erp-input" id="bk_checkout_range" type="text" placeholder="Pick 1 or 2 dates" readonly>
                 </div>
                 <div class="erp-field">
                     <label>&nbsp;</label>
@@ -147,6 +141,8 @@
 </div>
 
 <script src="<?= base_url('assets/js/angular.min.js') ?>"></script>
-<script src="<?= base_url('assets/js/bookings.js') ?>"></script>
+<script src="<?= base_url('assets/js/flatpickr.min.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/flatpickr.min.js') ?>"></script>
+<script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
+<script src="<?= base_url('assets/js/bookings.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/bookings.js') ?>"></script>
 </body>
 </html>

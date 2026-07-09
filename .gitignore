@@ -8,6 +8,13 @@ application/logs/*
 
 !application/*/.htaccess
 
+# User-uploaded files — customer Aadhar/PAN docs & room images (PII).
+# Never commit these; keep only the folder skeleton + deny-all .htaccess.
+/secure_uploads/customers/*
+/secure_uploads/rooms/*
+!/secure_uploads/customers/index.html
+!/secure_uploads/rooms/index.html
+
 composer.lock
 tests/mocks/database/ci_test.sqlite
 
