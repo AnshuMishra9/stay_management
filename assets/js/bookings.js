@@ -72,7 +72,10 @@
             if (!el || typeof flatpickr === 'undefined') { return null; }
             return flatpickr(el, {
                 mode: 'range',
-                dateFormat: 'Y-m-d',
+                dateFormat: 'Y-m-d',        // internal value (kept as-is for the backend)
+                altInput: true,             // show a friendly formatted field to the user
+                altFormat: 'd/m/Y',         // user sees dd/mm/yyyy  (e.g. 11/07/2026)
+                altInputClass: 'erp-input', // keep the ERP input styling on the visible field
                 allowInput: false,
                 onChange: function (dates) {
                     if (dates.length === 1) { return; }   // wait for the 2nd date of the range

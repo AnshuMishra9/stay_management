@@ -6,8 +6,8 @@
     <title>Booking Details &middot; Stay Management</title>
 
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/flatpickr.min.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/flatpickr.min.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/flatpickr.min.css') ?>">
     <style>[ng-cloak]{display:none!important;}</style>
     <script>window.APP_BASE = "<?= base_url() ?>";</script>
 </head>
@@ -141,8 +141,8 @@
 </div>
 
 <script src="<?= base_url('assets/js/angular.min.js') ?>"></script>
-<script src="<?= base_url('assets/js/flatpickr.min.js') ?>"></script>
-<script src="<?= base_url('assets/js/searchable-select.js') ?>"></script>
-<script src="<?= base_url('assets/js/bookings.js') ?>"></script>
+<script src="<?= base_url('assets/js/flatpickr.min.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/flatpickr.min.js') ?>"></script>
+<script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
+<script src="<?= base_url('assets/js/bookings.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/bookings.js') ?>"></script>
 </body>
 </html>
