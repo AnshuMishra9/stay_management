@@ -65,12 +65,12 @@
                     </select>
                 </div>
                 <div class="erp-field">
-                    <label>Check-In Date Range</label>
-                    <input class="erp-input" id="bk_checkin_range" type="text" placeholder="Any check-in date" readonly>
+                    <label>Check-In Date <span class="erp-muted" style="font-weight:400;">(1 date or range)</span></label>
+                    <input class="erp-input" id="bk_checkin_range" type="text" placeholder="Pick 1 or 2 dates" readonly>
                 </div>
                 <div class="erp-field">
-                    <label>Check-Out Date Range <span class="erp-muted" style="font-weight:400;">(further filter)</span></label>
-                    <input class="erp-input" id="bk_checkout_range" type="text" placeholder="Any check-out date" readonly>
+                    <label>Check-Out Date <span class="erp-muted" style="font-weight:400;">(further filter)</span></label>
+                    <input class="erp-input" id="bk_checkout_range" type="text" placeholder="Pick 1 or 2 dates" readonly>
                 </div>
                 <div class="erp-field">
                     <label>&nbsp;</label>

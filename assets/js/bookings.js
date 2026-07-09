@@ -70,6 +70,19 @@
         function initRange(id, fromKey, toKey) {
             var el = document.getElementById(id);
             if (!el || typeof flatpickr === 'undefined') { return null; }
+
+            // Apply the current selection to the filters:
+            //   2 dates -> full range   |   1 date -> that single day (from == to)
+            //   0 dates -> cleared. A no-op guard avoids redundant reloads.
+            function apply(dates) {
+                var from = dates.length ? ymd(dates[0]) : '';
+                var to   = dates.length ? ymd(dates[dates.length - 1]) : '';
+                if (vm.filters[fromKey] === from && vm.filters[toKey] === to) { return; }
+                vm.filters[fromKey] = from;
+                vm.filters[toKey]   = to;
+                $timeout(function () { vm.load(); });   // apply inside a digest
+            }
+
             return flatpickr(el, {
                 mode: 'range',
                 dateFormat: 'Y-m-d',        // internal value (kept as-is for the backend)
@@ -78,10 +91,10 @@
                 altInputClass: 'erp-input', // keep the ERP input styling on the visible field
                 allowInput: false,
                 onChange: function (dates) {
-                    if (dates.length === 1) { return; }   // wait for the 2nd date of the range
-                    vm.filters[fromKey] = dates.length ? ymd(dates[0]) : '';
-                    vm.filters[toKey]   = dates.length ? ymd(dates[dates.length - 1]) : '';
-                    $timeout(function () { vm.load(); });  // apply inside a digest
+                    if (dates.length === 2) { apply(dates); }   // instant apply on a full range
+                },
+                onClose: function (dates) {
+                    apply(dates);   // finalize on close — this is what makes a SINGLE date work
                 }
             });
         }
