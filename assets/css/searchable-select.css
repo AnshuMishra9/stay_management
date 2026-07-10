@@ -17,7 +17,9 @@
 .erp-ss-trigger {
     width: 100%; text-align: left; cursor: pointer;
     display: flex; align-items: center;
-    font: inherit;
+    font-family: inherit; font-weight: 500;
+    /* Don't inherit the table-header <th>'s bold/uppercase when used as a filter. */
+    text-transform: none; letter-spacing: normal;
 }
 .erp-ss-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .erp-ss-trigger.erp-ss-placeholder .erp-ss-value,
@@ -32,6 +34,8 @@
     background: #fff; border: 1px solid var(--input-brd); border-radius: 12px;
     box-shadow: var(--shadow-lg, 0 24px 55px rgba(30,35,60,.22));
     padding: 8px; display: none;
+    /* Reset the heavy/uppercase style that leaks in from a table-header <th>. */
+    font-weight: 500; text-transform: none; letter-spacing: normal;
 }
 .erp-ss.is-open .erp-ss-panel { display: block; }
 /* Flip upward when there isn't room below (near the bottom of a card). */
@@ -60,7 +64,7 @@
 }
 .erp-ss-opt:hover,
 .erp-ss-opt.is-active { background: var(--brand-soft); color: var(--brand-dark); }
-.erp-ss-opt.is-selected { font-weight: 700; color: var(--brand-dark); }
+.erp-ss-opt.is-selected { font-weight: 600; color: var(--brand-dark); }
 .erp-ss-opt-empty { color: var(--muted); }   /* the "All / Select" reset row */
 .erp-ss-opt.is-selected::after {
     content: '✓'; float: right; color: var(--brand); font-weight: 700;
