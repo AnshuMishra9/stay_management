@@ -39,7 +39,7 @@ angular.module('erpQuery', []).factory('erpQuery', ['$http', function ($http) {
     'use strict';
 
     var PREFIX   = 'erpq:';        // sessionStorage key prefix
-    var STALE_MS = 30 * 1000;      // default freshness window (30s)
+    var STALE_MS = 10 * 60 * 1000; // default freshness window (10 min)
 
     function serialize(params) {
         if (!params) { return ''; }
