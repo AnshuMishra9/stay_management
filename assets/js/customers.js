@@ -5,13 +5,21 @@
 (function () {
     'use strict';
 
-    angular.module('customersApp', [])
-        .controller('CustomersController', ['$http', '$timeout', CustomersController]);
+    angular.module('customersApp', ['erpQuery'])
+        .controller('CustomersController', ['$http', '$timeout', 'erpQuery', CustomersController]);
 
-    function CustomersController($http, $timeout) {
+    function CustomersController($http, $timeout, erpQuery) {
         var vm = this;
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
         var debounce = null;
+
+        // After a save/redirect (flash present) the cached data is stale — drop it once.
+        // Bookings read the same rows, so clear that namespace too.
+        if (window.APP_FRESH) {
+            erpQuery.invalidate('customers');
+            erpQuery.invalidate('bookings');
+            window.APP_FRESH = false;
+        }
 
         vm.customers = [];
         vm.loading   = true;
@@ -35,15 +43,12 @@
         vm.bookingLabel = function (s) { return (BOOKING_STATUS[s] && BOOKING_STATUS[s].label) || s; };
         vm.bookingClass = function (s) { return (BOOKING_STATUS[s] && BOOKING_STATUS[s].cls) || ''; };
 
-        // ---- API ----
+        // ---- API (cached: instant from cache, revalidated in the background) ----
         vm.load = function () {
-            vm.loading = true;
-            $http.get(base + 'customers/list_ajax', { params: vm.filters })
-                .then(function (res) {
-                    vm.customers = (res.data && res.data.data) ? res.data.data : [];
-                })
-                .catch(function () { vm.customers = []; })
-                .finally(function () { vm.loading = false; });
+            erpQuery.fetch('customers', base + 'customers/list_ajax', vm.filters, {}, {
+                data:    function (rows) { vm.customers = rows; },
+                loading: function (b)    { vm.loading = b; }
+            });
         };
 
         // Debounced reload — fires 300ms after the last keystroke/selection.
@@ -87,6 +92,9 @@
             $http.post(base + 'customers/delete/' + c.id)
                 .then(function (res) {
                     if (res.data && res.data.status) {
+                        // Data changed → drop the cached lists (customers + bookings share rows).
+                        erpQuery.invalidate('customers');
+                        erpQuery.invalidate('bookings');
                         // Drop the row locally for instant feedback, then resync.
                         var i = vm.customers.indexOf(c);
                         if (i > -1) { vm.customers.splice(i, 1); }

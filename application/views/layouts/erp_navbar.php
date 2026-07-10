@@ -2,12 +2,12 @@
 /**
  * Shared ERP top navigation.
  *
- *   $active = 'customers' | 'rooms'   -> highlight the current tab
- *   $back   = URL (optional)          -> show a mobile-only "Back" button
+ *   $active = 'customers' | 'rooms' | 'bookings'  -> highlight the current tab
+ *   $back   = URL (optional)                      -> show a mobile-only "Back" button
  *
- * The brand logo links to the landing/root page. On the landing page itself
- * (Customers) it is rendered as a non-clickable element so clicking it does
- * nothing (avoids a pointless page reload). Requires assets/css/erp.css.
+ * Layout: a slim STICKY top bar (brand + logout) and, below it, an IN-PAGE
+ * master tab bar (Customer / Room / Booking) that scrolls with the page and
+ * scrolls horizontally when the tabs overflow. Requires assets/css/erp.css.
  */
 $active     = isset($active) ? $active : '';
 $back       = isset($back) ? $back : '';
@@ -49,3 +49,15 @@ $brand_inner =
         <?php endif; ?>
     </div>
 </nav>
+
+<!-- In-page tab bar (scrolls with content; scrolls horizontally when tabs overflow) -->
+<div class="erp-subnav">
+    <div class="erp-subnav-inner">
+        <a class="erp-tab <?= $active === 'bookings' ? 'active' : '' ?>" href="<?= site_url('customers/bookings') ?>">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+            </svg>
+            Booking Details
+        </a>
+    </div>
+</div>

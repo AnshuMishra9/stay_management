@@ -6,9 +6,12 @@
     <title>Customers Master &middot; Stay Management</title>
 
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
     <style>[ng-cloak]{display:none!important;}</style>
-    <script>window.APP_BASE = "<?= base_url() ?>";</script>
+    <script>
+        window.APP_BASE = "<?= base_url() ?>";
+        window.APP_FRESH = <?= ! empty($flash) ? 'true' : 'false' ?>;   // a save just happened -> bypass cache once
+    </script>
 </head>
 
 <body class="erp-body" ng-controller="CustomersController as vm">
@@ -31,14 +34,11 @@
                 <p class="erp-sub">View, search and manage customers</p>
             </div>
             <div class="erp-head-actions">
-                <a href="<?= site_url('customers/bookings') ?>" class="erp-btn erp-btn-soft">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
-                    Booking Details
-                </a>
-                <a href="<?= site_url('customers/form') ?>" class="erp-btn erp-btn-soft">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                    Add Customer
-                </a>
+                <button type="button" class="erp-filter-clear" ng-click="vm.clearFilters()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                    Clear
+                </button>
+                <div class="erp-head-total" ng-cloak>Total Customers:&nbsp; {{ vm.customers.length }}</div>
             </div>
         </div>
 
@@ -49,81 +49,12 @@
             </div>
         <?php endif; ?>
 
-        <!-- Filters -->
-        <div class="erp-filters">
-            <div class="erp-filter-grid">
-                <div class="erp-field">
-                    <label>Customer ID</label>
-                    <input class="erp-input" ng-model="vm.filters.customer_code" ng-change="vm.onFilter()" placeholder="ID">
-                </div>
-                <div class="erp-field">
-                    <label>Name</label>
-                    <input class="erp-input" ng-model="vm.filters.name" ng-change="vm.onFilter()" placeholder="Name">
-                </div>
-                <div class="erp-field">
-                    <label>Owner</label>
-                    <input class="erp-input" ng-model="vm.filters.owner" ng-change="vm.onFilter()" placeholder="Owner">
-                </div>
-                <div class="erp-field">
-                    <label>Mobile</label>
-                    <input class="erp-input" ng-model="vm.filters.phone" ng-change="vm.onFilter()" placeholder="Mobile">
-                </div>
-                <div class="erp-field">
-                    <label>City</label>
-                    <input class="erp-input" ng-model="vm.filters.city" ng-change="vm.onFilter()" placeholder="City">
-                </div>
-                <div class="erp-field">
-                    <label>District</label>
-                    <input class="erp-input" ng-model="vm.filters.district" ng-change="vm.onFilter()" placeholder="District">
-                </div>
-                <div class="erp-field">
-                    <label>State</label>
-                    <select class="erp-select" ng-model="vm.filters.state" ng-change="vm.onFilter()">
-                        <option value="">All</option>
-                        <?php foreach ($states as $s): ?>
-                            <option value="<?= html_escape($s) ?>"><?= html_escape($s) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="erp-field">
-                    <label>Type</label>
-                    <select class="erp-select" ng-model="vm.filters.customer_type" ng-change="vm.onFilter()">
-                        <option value="">All</option>
-                        <?php foreach ($types as $t): ?>
-                            <option value="<?= html_escape($t) ?>"><?= html_escape($t) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="erp-field">
-                    <label>Booking Status</label>
-                    <select class="erp-select" ng-model="vm.filters.booking_status" ng-change="vm.onFilter()">
-                        <option value="">All</option>
-                        <?php foreach ($booking_statuses as $bval => $blabel): ?>
-                            <option value="<?= $bval ?>"><?= $blabel ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="erp-field">
-                    <label>Active</label>
-                    <select class="erp-select" ng-model="vm.filters.status" ng-change="vm.onFilter()">
-                        <option value="">All</option>
-                        <option value="1">Active</option>
-                        <option value="0">Inactive</option>
-                    </select>
-                </div>
-                <div class="erp-field">
-                    <label>&nbsp;</label>
-                    <button type="button" class="erp-btn erp-btn-ghost" ng-click="vm.clearFilters()" style="width:100%;justify-content:center;height:42px;">Clear</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Table -->
+        <!-- Table (filters sit in the header row, right under each column name) -->
         <div class="erp-table-scroll">
             <table class="erp-table">
                 <thead>
                     <tr>
-                        <th>Customer ID</th>
+                        <th>Booking ID</th>
                         <th>Customer Name</th>
                         <th>Owner / Contact</th>
                         <th>Mobile</th>
@@ -138,6 +69,50 @@
                         <th>Country</th>
                         <th>Status</th>
                         <th>Actions</th>
+                    </tr>
+                    <tr class="erp-filter-row">
+                        <th><input class="erp-input" ng-model="vm.filters.customer_code" ng-change="vm.onFilter()" placeholder="Booking ID"></th>
+                        <th><input class="erp-input" ng-model="vm.filters.name" ng-change="vm.onFilter()" placeholder="Name"></th>
+                        <th><input class="erp-input" ng-model="vm.filters.owner" ng-change="vm.onFilter()" placeholder="Owner"></th>
+                        <th><input class="erp-input" ng-model="vm.filters.phone" ng-change="vm.onFilter()" placeholder="Mobile"></th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <select class="erp-select" ng-model="vm.filters.customer_type" ng-change="vm.onFilter()">
+                                <option value="">All</option>
+                                <?php foreach ($types as $t): ?>
+                                    <option value="<?= html_escape($t) ?>"><?= html_escape($t) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </th>
+                        <th>
+                            <select class="erp-select" ng-model="vm.filters.booking_status" ng-change="vm.onFilter()">
+                                <option value="">All</option>
+                                <?php foreach ($booking_statuses as $bval => $blabel): ?>
+                                    <option value="<?= $bval ?>"><?= $blabel ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </th>
+                        <th></th>
+                        <th><input class="erp-input" ng-model="vm.filters.city" ng-change="vm.onFilter()" placeholder="City"></th>
+                        <th><input class="erp-input" ng-model="vm.filters.district" ng-change="vm.onFilter()" placeholder="District"></th>
+                        <th>
+                            <select class="erp-select" ng-model="vm.filters.state" ng-change="vm.onFilter()">
+                                <option value="">All</option>
+                                <?php foreach ($states as $s): ?>
+                                    <option value="<?= html_escape($s) ?>"><?= html_escape($s) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </th>
+                        <th></th>
+                        <th>
+                            <select class="erp-select" ng-model="vm.filters.status" ng-change="vm.onFilter()">
+                                <option value="">All</option>
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
+                            </select>
+                        </th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -254,7 +229,8 @@
 </div>
 
 <script src="<?= base_url('assets/js/angular.min.js') ?>"></script>
-<script src="<?= base_url('assets/js/customers.js') ?>"></script>
-<script src="<?= base_url('assets/js/searchable-select.js') ?>"></script>
+<script src="<?= base_url('assets/js/erp-query.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/erp-query.js') ?>"></script>
+<script src="<?= base_url('assets/js/customers.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/customers.js') ?>"></script>
+<script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
 </body>
 </html>

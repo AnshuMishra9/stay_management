@@ -6,13 +6,19 @@
 (function () {
     'use strict';
 
-    angular.module('roomsApp', [])
-        .controller('RoomsController', ['$http', '$timeout', RoomsController]);
+    angular.module('roomsApp', ['erpQuery'])
+        .controller('RoomsController', ['$http', '$timeout', 'erpQuery', RoomsController]);
 
-    function RoomsController($http, $timeout) {
+    function RoomsController($http, $timeout, erpQuery) {
         var vm = this;
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
         var debounce = null;
+
+        // After a save/redirect (flash present) the cached data is stale — drop it once.
+        if (window.APP_FRESH) {
+            erpQuery.invalidate('rooms');
+            window.APP_FRESH = false;
+        }
 
         vm.rooms     = [];
         vm.loading   = true;
@@ -23,15 +29,12 @@
             housekeeping_status: '', room_condition: '', smoking: '', status: ''
         };
 
-        // ---- API ----
+        // ---- API (cached: instant from cache, revalidated in the background) ----
         vm.load = function () {
-            vm.loading = true;
-            $http.get(base + 'rooms/list_ajax', { params: vm.filters })
-                .then(function (res) {
-                    vm.rooms = (res.data && res.data.data) ? res.data.data : [];
-                })
-                .catch(function () { vm.rooms = []; })
-                .finally(function () { vm.loading = false; });
+            erpQuery.fetch('rooms', base + 'rooms/list_ajax', vm.filters, {}, {
+                data:    function (rows) { vm.rooms = rows; },
+                loading: function (b)    { vm.loading = b; }
+            });
         };
 
         // Debounced reload — fires 300ms after the last keystroke/selection.
@@ -113,6 +116,7 @@
             $http.post(base + 'rooms/delete/' + r.id)
                 .then(function (res) {
                     if (res.data && res.data.status) {
+                        erpQuery.invalidate('rooms');   // data changed → drop cached lists
                         // Drop the row locally for instant feedback.
                         var i = vm.rooms.indexOf(r);
                         if (i > -1) { vm.rooms.splice(i, 1); }

@@ -7,10 +7,10 @@
 (function () {
     'use strict';
 
-    angular.module('bookingsApp', [])
-        .controller('BookingsController', ['$http', '$timeout', BookingsController]);
+    angular.module('bookingsApp', ['erpQuery'])
+        .controller('BookingsController', ['$http', '$timeout', 'erpQuery', BookingsController]);
 
-    function BookingsController($http, $timeout) {
+    function BookingsController($http, $timeout, erpQuery) {
         var vm = this;
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
         var debounce = null;
@@ -35,15 +35,12 @@
         vm.bookingLabel = function (s) { return (BOOKING_STATUS[s] && BOOKING_STATUS[s].label) || s; };
         vm.bookingClass = function (s) { return (BOOKING_STATUS[s] && BOOKING_STATUS[s].cls) || ''; };
 
-        // ---- API ----
+        // ---- API (cached: instant from cache, revalidated in the background) ----
         vm.load = function () {
-            vm.loading = true;
-            $http.get(base + 'customers/bookings_ajax', { params: vm.filters })
-                .then(function (res) {
-                    vm.bookings = (res.data && res.data.data) ? res.data.data : [];
-                })
-                .catch(function () { vm.bookings = []; })
-                .finally(function () { vm.loading = false; });
+            erpQuery.fetch('bookings', base + 'customers/bookings_ajax', vm.filters, {}, {
+                data:    function (rows) { vm.bookings = rows; },
+                loading: function (b)    { vm.loading = b; }
+            });
         };
 
         // Debounced reload — fires 300ms after the last keystroke/selection.
@@ -90,6 +87,7 @@
                 altFormat: 'd/m/Y',         // user sees dd/mm/yyyy  (e.g. 11/07/2026)
                 altInputClass: 'erp-input', // keep the ERP input styling on the visible field
                 allowInput: false,
+                appendTo: document.body,    // render the calendar on <body> so the table's scroll box can't clip it
                 onChange: function (dates) {
                     if (dates.length === 2) { apply(dates); }   // instant apply on a full range
                 },

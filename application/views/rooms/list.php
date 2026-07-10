@@ -7,9 +7,12 @@
 
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/rooms.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/rooms.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
     <style>[ng-cloak]{display:none!important;}</style>
-    <script>window.APP_BASE = "<?= base_url() ?>";</script>
+    <script>
+        window.APP_BASE = "<?= base_url() ?>";
+        window.APP_FRESH = <?= ! empty($flash) ? 'true' : 'false' ?>;   // a save just happened -> bypass cache once
+    </script>
 </head>
 
 <body class="erp-body" ng-controller="RoomsController as vm">
@@ -32,6 +35,11 @@
                 <p class="erp-sub">View, search and manage rooms</p>
             </div>
             <div class="erp-head-actions">
+                <button type="button" class="erp-filter-clear" ng-click="vm.clearFilters()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                    Clear
+                </button>
+                <div class="erp-head-total" ng-cloak>Total Rooms:&nbsp; {{ vm.rooms.length }}</div>
                 <a href="<?= site_url('rooms/form') ?>" class="erp-btn erp-btn-primary">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                     Add Room
@@ -46,76 +54,7 @@
             </div>
         <?php endif; ?>
 
-        <!-- Filters -->
-        <div class="erp-filters">
-            <div class="erp-filter-grid">
-                <div class="erp-field">
-                    <label>Room No</label>
-                    <input class="erp-input" ng-model="vm.filters.room_no" ng-change="vm.onFilter()" placeholder="Room No">
-                </div>
-                <div class="erp-field">
-                    <label>Room Name</label>
-                    <input class="erp-input" ng-model="vm.filters.room_name" ng-change="vm.onFilter()" placeholder="Name">
-                </div>
-                <div class="erp-field">
-                    <label>Category</label>
-                    <select class="erp-select" ng-model="vm.filters.category_id" ng-change="vm.onFilter()">
-                        <option value="">All</option>
-                        <?php foreach ($categories as $c): ?>
-                            <option value="<?= (int) $c->category_id ?>"><?= html_escape($c->category_name) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="erp-field">
-                    <label>Floor</label>
-                    <input class="erp-input" ng-model="vm.filters.floor_no" ng-change="vm.onFilter()" placeholder="Floor">
-                </div>
-                <div class="erp-field">
-                    <label>Wing</label>
-                    <input class="erp-input" ng-model="vm.filters.wing" ng-change="vm.onFilter()" placeholder="Wing">
-                </div>
-                <div class="erp-field">
-                    <label>Housekeeping</label>
-                    <select class="erp-select" ng-model="vm.filters.housekeeping_status" ng-change="vm.onFilter()">
-                        <option value="">All</option>
-                        <?php foreach ($hk_statuses as $s): ?>
-                            <option value="<?= html_escape($s) ?>"><?= html_escape($s) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="erp-field">
-                    <label>Condition</label>
-                    <select class="erp-select" ng-model="vm.filters.room_condition" ng-change="vm.onFilter()">
-                        <option value="">All</option>
-                        <?php foreach ($conditions as $c): ?>
-                            <option value="<?= html_escape($c) ?>"><?= html_escape($c) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="erp-field">
-                    <label>Smoking</label>
-                    <select class="erp-select" ng-model="vm.filters.smoking" ng-change="vm.onFilter()">
-                        <option value="">All</option>
-                        <option value="1">Smoking</option>
-                        <option value="0">Non-Smoking</option>
-                    </select>
-                </div>
-                <div class="erp-field">
-                    <label>Status</label>
-                    <select class="erp-select" ng-model="vm.filters.status" ng-change="vm.onFilter()">
-                        <option value="">All</option>
-                        <option value="1">Active</option>
-                        <option value="0">Inactive</option>
-                    </select>
-                </div>
-                <div class="erp-field">
-                    <label>&nbsp;</label>
-                    <button type="button" class="erp-btn erp-btn-ghost" ng-click="vm.clearFilters()" style="width:100%;justify-content:center;height:42px;">Clear</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Table -->
+        <!-- Table (filters sit in the header row, right under each column name) -->
         <div class="erp-table-scroll">
             <table class="erp-table">
                 <thead>
@@ -133,6 +72,54 @@
                         <th>Status</th>
                         <th>Added By</th>
                         <th>Actions</th>
+                    </tr>
+                    <tr class="erp-filter-row">
+                        <th><input class="erp-input" ng-model="vm.filters.room_no" ng-change="vm.onFilter()" placeholder="Room No"></th>
+                        <th><input class="erp-input" ng-model="vm.filters.room_name" ng-change="vm.onFilter()" placeholder="Name"></th>
+                        <th>
+                            <select class="erp-select" ng-model="vm.filters.category_id" ng-change="vm.onFilter()">
+                                <option value="">All</option>
+                                <?php foreach ($categories as $c): ?>
+                                    <option value="<?= (int) $c->category_id ?>"><?= html_escape($c->category_name) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </th>
+                        <th><input class="erp-input" ng-model="vm.filters.floor_no" ng-change="vm.onFilter()" placeholder="Floor"></th>
+                        <th><input class="erp-input" ng-model="vm.filters.wing" ng-change="vm.onFilter()" placeholder="Wing"></th>
+                        <th>
+                            <select class="erp-select" ng-model="vm.filters.smoking" ng-change="vm.onFilter()" title="Smoking">
+                                <option value="">Smoking: All</option>
+                                <option value="1">Smoking</option>
+                                <option value="0">Non-Smoking</option>
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <select class="erp-select" ng-model="vm.filters.housekeeping_status" ng-change="vm.onFilter()">
+                                <option value="">All</option>
+                                <?php foreach ($hk_statuses as $s): ?>
+                                    <option value="<?= html_escape($s) ?>"><?= html_escape($s) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </th>
+                        <th>
+                            <select class="erp-select" ng-model="vm.filters.room_condition" ng-change="vm.onFilter()">
+                                <option value="">All</option>
+                                <?php foreach ($conditions as $c): ?>
+                                    <option value="<?= html_escape($c) ?>"><?= html_escape($c) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </th>
+                        <th>
+                            <select class="erp-select" ng-model="vm.filters.status" ng-change="vm.onFilter()">
+                                <option value="">All</option>
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -276,7 +263,8 @@
 </div>
 
 <script src="<?= base_url('assets/js/angular.min.js') ?>"></script>
-<script src="<?= base_url('assets/js/rooms.js') ?>"></script>
-<script src="<?= base_url('assets/js/searchable-select.js') ?>"></script>
+<script src="<?= base_url('assets/js/erp-query.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/erp-query.js') ?>"></script>
+<script src="<?= base_url('assets/js/rooms.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/rooms.js') ?>"></script>
+<script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
 </body>
 </html>
