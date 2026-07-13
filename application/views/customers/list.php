@@ -54,15 +54,13 @@
             <table class="erp-table">
                 <thead>
                     <tr>
-                        <th>Booking ID</th>
+                        <th>Customer ID</th>
                         <th>Customer Name</th>
                         <th>Owner / Contact</th>
                         <th>Mobile</th>
                         <th>Alt Mobile</th>
                         <th>Email</th>
                         <th>Type</th>
-                        <th>Booking</th>
-                        <th>Checked-In At</th>
                         <th>City</th>
                         <th>District</th>
                         <th>State</th>
@@ -71,7 +69,7 @@
                         <th>Actions</th>
                     </tr>
                     <tr class="erp-filter-row">
-                        <th><input class="erp-input" ng-model="vm.filters.customer_code" ng-change="vm.onFilter()" placeholder="Booking ID"></th>
+                        <th><input class="erp-input" ng-model="vm.filters.customer_code" ng-change="vm.onFilter()" placeholder="Customer ID"></th>
                         <th><input class="erp-input" ng-model="vm.filters.name" ng-change="vm.onFilter()" placeholder="Name"></th>
                         <th><input class="erp-input" ng-model="vm.filters.owner" ng-change="vm.onFilter()" placeholder="Owner"></th>
                         <th><input class="erp-input" ng-model="vm.filters.phone" ng-change="vm.onFilter()" placeholder="Mobile"></th>
@@ -85,15 +83,6 @@
                                 <?php endforeach; ?>
                             </select>
                         </th>
-                        <th>
-                            <select class="erp-select" ng-model="vm.filters.booking_status" ng-change="vm.onFilter()">
-                                <option value="">All</option>
-                                <?php foreach ($booking_statuses as $bval => $blabel): ?>
-                                    <option value="<?= $bval ?>"><?= $blabel ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </th>
-                        <th></th>
                         <th><input class="erp-input" ng-model="vm.filters.city" ng-change="vm.onFilter()" placeholder="City"></th>
                         <th><input class="erp-input" ng-model="vm.filters.district" ng-change="vm.onFilter()" placeholder="District"></th>
                         <th>
@@ -124,11 +113,6 @@
                         <td>{{ c.alt_phone || '—' }}</td>
                         <td>{{ c.email || '—' }}</td>
                         <td>{{ c.customer_type || '—' }}</td>
-                        <td>
-                            <span class="erp-badge" ng-class="vm.bookingClass(c.booking_status)" ng-if="c.booking_status">{{ vm.bookingLabel(c.booking_status) }}</span>
-                            <span class="erp-muted" ng-if="!c.booking_status">—</span>
-                        </td>
-                        <td>{{ c.checked_in_at || '—' }}</td>
                         <td>{{ c.city || '—' }}</td>
                         <td>{{ c.district || '—' }}</td>
                         <td>{{ c.state || '—' }}</td>

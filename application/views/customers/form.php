@@ -1,29 +1,39 @@
 <?php
 /**
  * Add / Edit Customer form.
- * $customer   -> row object when editing, NULL when adding
+ * $customer   -> customers row when editing, NULL when adding
+ * $booking    -> that customer's booking_details row (NULL if none / adding)
  * $next_code  -> customer code to display (existing or next generated)
  * $type_opts / $state_opts / $country_opts -> dropdown option arrays
+ *
+ * NOTE: booking fields live in `booking_details` (a customer can have MANY
+ * bookings), so they are read with $bval() from $booking — NOT from $customer.
  */
 $is_edit = ($customer !== NULL);
 $posted  = ($this->input->server('REQUEST_METHOD') === 'POST');
+$booking = isset($booking) ? $booking : NULL;
 
-// Helper: current value for a field (posted value wins on validation failure).
+// CUSTOMER field value (posted value wins on validation failure).
 // Return RAW (html_escape=FALSE); the template escapes once at output.
 $val = function ($field, $fallback = '') use ($customer) {
     return set_value($field, $customer ? ($customer->$field ?? '') : $fallback, FALSE);
 };
+// BOOKING field value — reads from the booking_details row.
+$bval = function ($field, $fallback = '') use ($booking) {
+    return set_value($field, $booking ? ($booking->$field ?? '') : $fallback, FALSE);
+};
+
 $sel_type    = $val('customer_type');
 $sel_state   = $val('state');
 $sel_country = $val('country', 'India');
-$sel_channel = $val('booking_channel_id');
-$sel_roomcat = $val('room_category_id');
-$sel_status  = $val('booking_status');
+$sel_channel = $bval('booking_channel_id');
+$sel_roomcat = $bval('room_category_id');
+$sel_status  = $bval('booking_status');
 $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer ? (int) $customer->is_active : 1);
 
 // Format a stored DATETIME ("Y-m-d H:i:s") for a datetime-local input ("Y-m-d\TH:i").
-$dtlocal = function ($field) use ($val) {
-    $v = $val($field);
+$dtlocal = function ($field) use ($bval) {
+    $v = $bval($field);
     return $v ? str_replace(' ', 'T', substr($v, 0, 16)) : '';
 };
 ?>
@@ -209,40 +219,40 @@ $dtlocal = function ($field) use ($val) {
                 </div>
                 <div class="erp-form-field">
                     <label>Booking By <span class="erp-muted" style="font-weight:400;">(who booked)</span></label>
-                    <input class="erp-input" type="text" name="booking_by" maxlength="150" value="<?= html_escape($val('booking_by')) ?>">
+                    <input class="erp-input" type="text" name="booking_by" maxlength="150" value="<?= html_escape($bval('booking_by')) ?>">
                 </div>
             </div>
 
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
                     <label>Guest Name</label>
-                    <input class="erp-input" type="text" name="guest_name" maxlength="150" value="<?= html_escape($val('guest_name')) ?>">
+                    <input class="erp-input" type="text" name="guest_name" maxlength="150" value="<?= html_escape($bval('guest_name')) ?>">
                 </div>
                 <div class="erp-form-field">
                     <label>Guest Mobile No</label>
-                    <input class="erp-input" type="text" name="guest_mobile_no" maxlength="20" value="<?= html_escape($val('guest_mobile_no')) ?>">
+                    <input class="erp-input" type="text" name="guest_mobile_no" maxlength="20" value="<?= html_escape($bval('guest_mobile_no')) ?>">
                 </div>
             </div>
 
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
                     <label>Guest Contact No</label>
-                    <input class="erp-input" type="text" name="guest_contact_no" maxlength="20" value="<?= html_escape($val('guest_contact_no')) ?>">
+                    <input class="erp-input" type="text" name="guest_contact_no" maxlength="20" value="<?= html_escape($bval('guest_contact_no')) ?>">
                 </div>
                 <div class="erp-form-field">
                     <label>Property Name</label>
-                    <input class="erp-input" type="text" name="property_name" maxlength="150" value="<?= html_escape($val('property_name')) ?>">
+                    <input class="erp-input" type="text" name="property_name" maxlength="150" value="<?= html_escape($bval('property_name')) ?>">
                 </div>
             </div>
 
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
                     <label>Scheduled Check-In Date <span class="erp-muted" style="font-weight:400;">(planned arrival)</span></label>
-                    <input class="erp-input" type="date" id="bk_checkin" name="scheduled_check_in_date" value="<?= html_escape($val('scheduled_check_in_date')) ?>">
+                    <input class="erp-input" type="date" id="bk_checkin" name="scheduled_check_in_date" value="<?= html_escape($bval('scheduled_check_in_date')) ?>">
                 </div>
                 <div class="erp-form-field">
                     <label>Scheduled Check-Out Date <span class="erp-muted" style="font-weight:400;">(planned departure)</span></label>
-                    <input class="erp-input" type="date" id="bk_checkout" name="scheduled_check_out_date" value="<?= html_escape($val('scheduled_check_out_date')) ?>">
+                    <input class="erp-input" type="date" id="bk_checkout" name="scheduled_check_out_date" value="<?= html_escape($bval('scheduled_check_out_date')) ?>">
                 </div>
             </div>
 
@@ -260,11 +270,11 @@ $dtlocal = function ($field) use ($val) {
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
                     <label>Length of Stay <span class="erp-muted" style="font-weight:400;">(nights, auto)</span></label>
-                    <input class="erp-input" type="number" id="bk_los" name="length_of_stay" value="<?= html_escape($val('length_of_stay')) ?>" readonly>
+                    <input class="erp-input" type="number" id="bk_los" name="length_of_stay" value="<?= html_escape($bval('length_of_stay')) ?>" readonly>
                 </div>
                 <div class="erp-form-field">
                     <label>Total Guests</label>
-                    <input class="erp-input" type="number" min="0" name="total_guest" value="<?= html_escape($val('total_guest')) ?>">
+                    <input class="erp-input" type="number" min="0" name="total_guest" value="<?= html_escape($bval('total_guest')) ?>">
                 </div>
             </div>
 
@@ -280,29 +290,29 @@ $dtlocal = function ($field) use ($val) {
                 </div>
                 <div class="erp-form-field">
                     <label>Room Quantity</label>
-                    <input class="erp-input" type="number" min="0" name="room_quantity" value="<?= html_escape($val('room_quantity')) ?>">
+                    <input class="erp-input" type="number" min="0" name="room_quantity" value="<?= html_escape($bval('room_quantity')) ?>">
                 </div>
             </div>
 
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
                     <label>Total Units <span class="erp-muted" style="font-weight:400;">(total rooms booked)</span></label>
-                    <input class="erp-input" type="number" min="0" name="total_unit" value="<?= html_escape($val('total_unit')) ?>">
+                    <input class="erp-input" type="number" min="0" name="total_unit" value="<?= html_escape($bval('total_unit')) ?>">
                 </div>
                 <div class="erp-form-field">
                     <label>Total Amount</label>
-                    <input class="erp-input" type="number" step="0.01" min="0" id="bk_total" name="total_amount" value="<?= html_escape($val('total_amount')) ?>">
+                    <input class="erp-input" type="number" step="0.01" min="0" id="bk_total" name="total_amount" value="<?= html_escape($bval('total_amount')) ?>">
                 </div>
             </div>
 
             <div class="erp-grid-2">
                 <div class="erp-form-field">
                     <label>Amount Paid</label>
-                    <input class="erp-input" type="number" step="0.01" min="0" id="bk_paid" name="amount_paid" value="<?= html_escape($val('amount_paid')) ?>">
+                    <input class="erp-input" type="number" step="0.01" min="0" id="bk_paid" name="amount_paid" value="<?= html_escape($bval('amount_paid')) ?>">
                 </div>
                 <div class="erp-form-field">
                     <label>Remaining Amount <span class="erp-muted" style="font-weight:400;">(auto)</span></label>
-                    <input class="erp-input" type="number" step="0.01" id="bk_remaining" name="remaining_amount" value="<?= html_escape($val('remaining_amount')) ?>" readonly>
+                    <input class="erp-input" type="number" step="0.01" id="bk_remaining" name="remaining_amount" value="<?= html_escape($bval('remaining_amount')) ?>" readonly>
                 </div>
             </div>
         </div>

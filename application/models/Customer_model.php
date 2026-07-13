@@ -15,11 +15,11 @@ class Customer_model extends CI_Model
     /** Prefix used when auto-generating the human-facing customer code. */
     const CODE_PREFIX = 'CUST';
 
-    /** Columns shown in the list grid (kept lean — no Aadhar/PAN here). */
+    /** Columns shown in the list grid (customer info only — bookings live in
+     *  `booking_details`, so no booking columns here). */
     protected $list_columns = array(
         'id', 'customer_code', 'customer_name', 'owner_name', 'phone', 'alt_phone',
         'email', 'customer_type', 'city', 'district', 'state', 'country', 'is_active',
-        'booking_status', 'checked_in_at',
     );
 
     // ---------------------------------------------------------------------
@@ -59,11 +59,6 @@ class Customer_model extends CI_Model
         if ( ! empty($filters['customer_type'])) {
             $this->db->where('customer_type', $filters['customer_type']);
         }
-        // Booking lifecycle stage (enquiry / confirmed / checked_in / …).
-        if ( ! empty($filters['booking_status'])) {
-            $this->db->where('booking_status', $filters['booking_status']);
-        }
-
         // Status filter: '1' active, '0' inactive, '' or 'all' => no filter.
         if (isset($filters['status']) && $filters['status'] !== '' && $filters['status'] !== 'all') {
             $this->db->where('is_active', (int) $filters['status']);
@@ -173,51 +168,103 @@ class Customer_model extends CI_Model
     }
 
     /**
-     * Booking-centric list — one row per customer, focused on their booking /
-     * stay details and filtered by booking-specific criteria. Left-joined to
-     * booking_channels so the channel NAME (not just its id) is available.
+     * Booking-centric list — reads from the normalized `booking_details` table
+     * (one customer -> many bookings), joined to `customers` so we know WHOSE
+     * booking it is, and to `booking_channels` for the channel NAME.
      *
      * @param  array $filters  Keys: q, booking_status, booking_channel_id,
      *                         checkin_from, checkin_to, checkout_from, checkout_to.
-     * @return array
+     * @return array  rows with `id` (booking id), `booking_number`, `customer_id`,
+     *                `customer_code`, `customer_name`, + booking columns.
      */
     public function get_bookings(array $filters = array())
     {
         $this->db
-            ->select('c.id, c.customer_code, c.customer_name, c.phone,
-                      c.guest_name, c.guest_mobile_no, c.booking_status,
-                      c.booking_channel_id, bc.channel_name,
-                      c.scheduled_check_in_date, c.scheduled_check_out_date,
-                      c.checked_in_at, c.checked_out_at, c.length_of_stay,
-                      c.total_guest, c.total_amount, c.amount_paid, c.remaining_amount')
-            ->from($this->table.' c')
-            ->join('booking_channels bc', 'bc.channel_id = c.booking_channel_id', 'left');
+            ->select('b.id, b.booking_number, b.customer_id,
+                      c.customer_code, c.customer_name, c.phone,
+                      b.guest_name, b.guest_mobile_no, b.booking_status,
+                      b.booking_channel_id, bc.channel_name,
+                      b.scheduled_check_in_date, b.scheduled_check_out_date,
+                      b.checked_in_at, b.checked_out_at, b.length_of_stay,
+                      b.total_guest, b.total_amount, b.amount_paid, b.remaining_amount')
+            ->from('booking_details b')
+            ->join($this->table.' c', 'c.id = b.customer_id', 'inner')
+            ->join('booking_channels bc', 'bc.channel_id = b.booking_channel_id', 'left');
 
-        // Free-text search across customer name / guest name / customer code.
+        // Free-text search across booking number / customer / guest.
         if (isset($filters['q']) && $filters['q'] !== '') {
             $this->db->group_start()
-                ->like('c.customer_name', $filters['q'])
-                ->or_like('c.guest_name', $filters['q'])
+                ->like('b.booking_number', $filters['q'])
+                ->or_like('c.customer_name', $filters['q'])
+                ->or_like('b.guest_name', $filters['q'])
                 ->or_like('c.customer_code', $filters['q'])
                 ->group_end();
         }
         if ( ! empty($filters['booking_status'])) {
-            $this->db->where('c.booking_status', $filters['booking_status']);
+            $this->db->where('b.booking_status', $filters['booking_status']);
         }
         if ( ! empty($filters['booking_channel_id'])) {
-            $this->db->where('c.booking_channel_id', (int) $filters['booking_channel_id']);
+            $this->db->where('b.booking_channel_id', (int) $filters['booking_channel_id']);
         }
         // Scheduled check-in / check-out DATE ranges (inclusive).
-        if ( ! empty($filters['checkin_from']))  { $this->db->where('c.scheduled_check_in_date >=',  $filters['checkin_from']); }
-        if ( ! empty($filters['checkin_to']))    { $this->db->where('c.scheduled_check_in_date <=',  $filters['checkin_to']); }
-        if ( ! empty($filters['checkout_from'])) { $this->db->where('c.scheduled_check_out_date >=', $filters['checkout_from']); }
-        if ( ! empty($filters['checkout_to']))   { $this->db->where('c.scheduled_check_out_date <=', $filters['checkout_to']); }
+        if ( ! empty($filters['checkin_from']))  { $this->db->where('b.scheduled_check_in_date >=',  $filters['checkin_from']); }
+        if ( ! empty($filters['checkin_to']))    { $this->db->where('b.scheduled_check_in_date <=',  $filters['checkin_to']); }
+        if ( ! empty($filters['checkout_from'])) { $this->db->where('b.scheduled_check_out_date >=', $filters['checkout_from']); }
+        if ( ! empty($filters['checkout_to']))   { $this->db->where('b.scheduled_check_out_date <=', $filters['checkout_to']); }
 
         // Dated bookings first (newest arrival), un-dated rows last.
         return $this->db
-            ->order_by('c.scheduled_check_in_date IS NULL ASC, c.scheduled_check_in_date DESC, c.id DESC', '', FALSE)
+            ->order_by('b.scheduled_check_in_date IS NULL ASC, b.scheduled_check_in_date DESC, b.id DESC', '', FALSE)
             ->get()
             ->result();
+    }
+
+    /**
+     * The (latest) booking row for a customer, or NULL. Used to prefill the
+     * booking section of the Add/Edit customer form.
+     */
+    public function booking_for_customer($customer_id)
+    {
+        return $this->db
+            ->where('customer_id', (int) $customer_id)
+            ->order_by('id', 'DESC')->limit(1)
+            ->get('booking_details')->row();
+    }
+
+    /** Next human-facing booking number, e.g. BKG00007 (max suffix + 1). */
+    public function next_booking_number()
+    {
+        $row  = $this->db->query('SELECT COALESCE(MAX(CAST(SUBSTRING(booking_number, 4) AS UNSIGNED)), 0) AS maxn FROM booking_details')->row();
+        $next = ((int) ($row ? $row->maxn : 0)) + 1;
+        return 'BKG'.str_pad((string) $next, 5, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Upsert a customer's booking into booking_details: update their existing
+     * (latest) booking if any, otherwise insert a new one with a booking_number.
+     *
+     * @param  int   $customer_id
+     * @param  array $data   booking columns (no id / customer_id / booking_number)
+     * @return int   booking id
+     */
+    public function save_booking($customer_id, array $data)
+    {
+        $data['customer_id'] = (int) $customer_id;
+        $existing = $this->db
+            ->select('id')->where('customer_id', (int) $customer_id)
+            ->order_by('id', 'DESC')->limit(1)
+            ->get('booking_details')->row();
+
+        if ($existing) {
+            $data['updated_at'] = date('Y-m-d H:i:s');
+            $this->db->where('id', $existing->id)->update('booking_details', $data);
+            return (int) $existing->id;
+        }
+
+        $data['booking_number'] = $this->next_booking_number();
+        $data['created_at']     = date('Y-m-d H:i:s');
+        $this->db->insert('booking_details', $data);
+        return (int) $this->db->insert_id();
     }
 
     // ---------------------------------------------------------------------
@@ -232,18 +279,13 @@ class Customer_model extends CI_Model
      */
     public function next_code()
     {
-        $row = $this->db
-            ->select('customer_code')
-            ->like('customer_code', self::CODE_PREFIX, 'after')
-            ->order_by('id', 'DESC')
-            ->limit(1)
-            ->get($this->table)
-            ->row();
-
-        $next = 1;
-        if ($row && preg_match('/(\d+)$/', $row->customer_code, $m)) {
-            $next = (int) $m[1] + 1;
-        }
+        // Highest numeric suffix + 1 (gap-tolerant AND independent of insert
+        // order — codes like CUST00018 may belong to a lower-id row).
+        $row  = $this->db->query(
+            'SELECT COALESCE(MAX(CAST(SUBSTRING(customer_code, '.(strlen(self::CODE_PREFIX) + 1).') AS UNSIGNED)), 0) AS maxn '
+            .'FROM '.$this->table.' WHERE customer_code LIKE '.$this->db->escape(self::CODE_PREFIX.'%')
+        )->row();
+        $next = ((int) ($row ? $row->maxn : 0)) + 1;
 
         return self::CODE_PREFIX.str_pad((string) $next, 5, '0', STR_PAD_LEFT);
     }

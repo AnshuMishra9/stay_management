@@ -25,23 +25,11 @@
         vm.loading   = true;
         vm.showModal = false;
         vm.detail    = {};
+        // Customer-only filters — bookings live on the Booking Details page.
         vm.filters   = {
             customer_code: '', name: '', owner: '', phone: '',
-            city: '', district: '', state: '', customer_type: '',
-            booking_status: '', status: ''
+            city: '', district: '', state: '', customer_type: '', status: ''
         };
-
-        // Booking status value -> { label, css class } for the list badge.
-        var BOOKING_STATUS = {
-            enquiry:     { label: 'Enquiry',     cls: 'erp-badge-enquiry' },
-            confirmed:   { label: 'Confirmed',   cls: 'erp-badge-confirmed' },
-            checked_in:  { label: 'Checked In',  cls: 'erp-badge-checkedin' },
-            checked_out: { label: 'Checked Out', cls: 'erp-badge-checkedout' },
-            cancelled:   { label: 'Cancelled',   cls: 'erp-badge-cancelled' },
-            no_show:     { label: 'No Show',     cls: 'erp-badge-noshow' }
-        };
-        vm.bookingLabel = function (s) { return (BOOKING_STATUS[s] && BOOKING_STATUS[s].label) || s; };
-        vm.bookingClass = function (s) { return (BOOKING_STATUS[s] && BOOKING_STATUS[s].cls) || ''; };
 
         // ---- API (cached: instant from cache, revalidated in the background) ----
         vm.load = function () {

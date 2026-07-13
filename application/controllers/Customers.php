@@ -48,7 +48,6 @@ class Customers extends Secure_Controller
         $data = array(
             'types'  => $this->Customer_model->distinct_values('customer_type'),
             'states' => $this->Customer_model->distinct_values('state'),
-            'booking_statuses' => $this->_booking_status_options(),
             'flash'  => $this->session->flashdata('customer_msg'),
         );
         $this->load->view('customers/list', $data);
@@ -71,6 +70,8 @@ class Customers extends Secure_Controller
 
         $data = array(
             'customer'   => $customer,
+            // The customer's booking now lives in booking_details (1 customer -> many).
+            'booking'    => $customer ? $this->Customer_model->booking_for_customer($customer->id) : NULL,
             'next_code'  => $customer ? $customer->customer_code : $this->Customer_model->next_code(),
             'type_opts'  => $this->_type_options(),
             'state_opts' => $this->_state_options(),
@@ -113,7 +114,6 @@ class Customers extends Secure_Controller
             'district'      => $this->input->get('district'),
             'state'         => $this->input->get('state'),
             'customer_type' => $this->input->get('customer_type'),
-            'booking_status' => $this->input->get('booking_status'),
             'status'        => $this->input->get('status'),
         );
 
@@ -190,6 +190,7 @@ class Customers extends Secure_Controller
             // Re-render the form with errors + submitted values.
             $data = array(
                 'customer'     => $existing,
+                'booking'      => $existing ? $this->Customer_model->booking_for_customer($existing->id) : NULL,
                 'next_code'    => $is_edit ? $existing->customer_code : $this->Customer_model->next_code(),
                 'type_opts'    => $this->_type_options(),
                 'state_opts'   => $this->_state_options(),
@@ -227,8 +228,15 @@ class Customers extends Secure_Controller
             'pan_number'    => $this->input->post('pan_number', TRUE),
             'pan_name'      => $this->input->post('pan_name', TRUE),
             'is_active'     => $this->input->post('is_active') !== NULL ? 1 : 0,
+        );
+        if ($is_edit) {
+            $data['is_active'] = (int) $this->input->post('is_active');
+        }
 
-            // ----- Booking / stay details (flat on the customer row) -----
+        // --- Booking fields ------------------------------------------------
+        // These do NOT live on the customer row: a customer can have MANY
+        // bookings, so they go into `booking_details` (FK -> customers.id).
+        $booking = array(
             'booking_channel_id' => $this->input->post('booking_channel_id') ?: NULL,
             'booking_status'     => $this->_booking_status($this->input->post('booking_status')),
             'booking_by'         => $this->input->post('booking_by', TRUE),
@@ -247,26 +255,23 @@ class Customers extends Secure_Controller
             'total_amount'       => $this->_num($this->input->post('total_amount')),
             'amount_paid'        => $this->_num($this->input->post('amount_paid')),
         );
-        if ($is_edit) {
-            $data['is_active'] = (int) $this->input->post('is_active');
-        }
 
         // Server-side derived fields (never trust the client for these).
-        $data['length_of_stay']   = $this->_nights($data['scheduled_check_in_date'], $data['scheduled_check_out_date']);
-        $data['remaining_amount'] = ($data['total_amount'] !== NULL || $data['amount_paid'] !== NULL)
-            ? round((float) $data['total_amount'] - (float) $data['amount_paid'], 2)
+        $booking['length_of_stay']   = $this->_nights($booking['scheduled_check_in_date'], $booking['scheduled_check_out_date']);
+        $booking['remaining_amount'] = ($booking['total_amount'] !== NULL || $booking['amount_paid'] !== NULL)
+            ? round((float) $booking['total_amount'] - (float) $booking['amount_paid'], 2)
             : NULL;
 
         // Auto-stamp the ACTUAL check-in / check-out time from the booking status,
         // so setting the status to "Checked In" records *when* it happened without
         // making the user type a timestamp. An explicit posted time is respected.
         $now = date('Y-m-d H:i:s');
-        if ($data['booking_status'] === 'checked_in' && empty($data['checked_in_at'])) {
-            $data['checked_in_at'] = $now;
+        if ($booking['booking_status'] === 'checked_in' && empty($booking['checked_in_at'])) {
+            $booking['checked_in_at'] = $now;
         }
-        if ($data['booking_status'] === 'checked_out') {
-            if (empty($data['checked_in_at']))  { $data['checked_in_at']  = $now; }  // can't leave without arriving
-            if (empty($data['checked_out_at'])) { $data['checked_out_at'] = $now; }
+        if ($booking['booking_status'] === 'checked_out') {
+            if (empty($booking['checked_in_at']))  { $booking['checked_in_at']  = $now; }  // can't leave without arriving
+            if (empty($booking['checked_out_at'])) { $booking['checked_out_at'] = $now; }
         }
 
         // --- File uploads (replace old file if a new one is provided) ----
@@ -288,12 +293,16 @@ class Customers extends Secure_Controller
         // --- Persist -----------------------------------------------------
         if ($is_edit) {
             $this->Customer_model->update($id, $data);
+            $cust_id = $id;
             $msg = 'Customer "'.$data['customer_name'].'" updated successfully.';
         } else {
             $data['customer_code'] = $code;
-            $this->Customer_model->insert($data);
+            $cust_id = $this->Customer_model->insert($data);
             $msg = 'Customer "'.$data['customer_name'].'" ('.$code.') added successfully.';
         }
+
+        // Booking goes into its own table (customer -> many bookings).
+        $this->_sync_booking($cust_id, $booking);
 
         $this->session->set_flashdata('customer_msg', array('type' => 'success', 'text' => $msg));
         redirect('customers');
@@ -466,6 +475,23 @@ class Customers extends Secure_Controller
     private function _booking_status($v)
     {
         return in_array($v, self::BOOKING_STATUSES, TRUE) ? $v : NULL;
+    }
+
+    /**
+     * Upsert the customer's booking into `booking_details`.
+     * Skips creating an empty booking when the form carried no booking info.
+     */
+    private function _sync_booking($customer_id, array $booking)
+    {
+        $has = ! empty($booking['booking_status'])
+            || ! empty($booking['scheduled_check_in_date'])
+            || ! empty($booking['booking_channel_id'])
+            || ! empty($booking['guest_name']);
+        if ( ! $has) {
+            return;
+        }
+
+        $this->Customer_model->save_booking($customer_id, $booking);
     }
 
     /** Static dropdown option lists (extend as needed). */

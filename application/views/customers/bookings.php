@@ -49,7 +49,8 @@
             <table class="erp-table">
                 <thead>
                     <tr>
-                        <th>Booking ID</th>
+                        <th>Booking No</th>
+                        <th>Customer ID</th>
                         <th>Customer Name</th>
                         <th>Guest Name</th>
                         <th>Guest Mobile</th>
@@ -66,7 +67,8 @@
                         <th>Actions</th>
                     </tr>
                     <tr class="erp-filter-row">
-                        <th><input class="erp-input" ng-model="vm.filters.q" ng-change="vm.onFilter()" placeholder="Search ID / name"></th>
+                        <th><input class="erp-input" ng-model="vm.filters.q" ng-change="vm.onFilter()" placeholder="Search booking / customer"></th>
+                        <th></th>
                         <th></th>
                         <th></th>
                         <th></th>
@@ -99,8 +101,9 @@
                 </thead>
                 <tbody>
                     <tr ng-repeat="c in vm.bookings" ng-cloak>
+                        <td class="cell-strong">{{ c.booking_number }}</td>
                         <td class="cell-strong">{{ c.customer_code }}</td>
-                        <td class="cell-strong">{{ c.customer_name }}</td>
+                        <td>{{ c.customer_name }}</td>
                         <td>{{ c.guest_name || '—' }}</td>
                         <td>{{ c.guest_mobile_no || '—' }}</td>
                         <td>{{ c.channel_name || '—' }}</td>
@@ -118,7 +121,7 @@
                         <td>{{ c.remaining_amount || '—' }}</td>
                         <td>
                             <span class="erp-actions">
-                                <a class="erp-icon-btn erp-icon-edit" title="Edit booking" href="<?= site_url('customers/form') ?>/{{ c.id }}">
+                                <a class="erp-icon-btn erp-icon-edit" title="Edit booking" href="<?= site_url('customers/form') ?>/{{ c.customer_id }}">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </a>
                             </span>
