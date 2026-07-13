@@ -27,8 +27,8 @@
         vm.detail    = {};
         // Customer-only filters — bookings live on the Booking Details page.
         vm.filters   = {
-            customer_code: '', name: '', owner: '', phone: '',
-            city: '', district: '', state: '', customer_type: '', status: ''
+            customer_code: '', name: '', phone: '',
+            city: '', district: '', state: '', status: ''
         };
 
         // ---- API (cached: instant from cache, revalidated in the background) ----

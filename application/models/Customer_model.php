@@ -18,8 +18,8 @@ class Customer_model extends CI_Model
     /** Columns shown in the list grid (customer info only — bookings live in
      *  `booking_details`, so no booking columns here). */
     protected $list_columns = array(
-        'id', 'customer_code', 'customer_name', 'owner_name', 'phone', 'alt_phone',
-        'email', 'customer_type', 'city', 'district', 'state', 'country', 'is_active',
+        'id', 'customer_code', 'customer_name', 'phone', 'alt_phone',
+        'email', 'city', 'district', 'state', 'country', 'is_active',
     );
 
     // ---------------------------------------------------------------------
@@ -29,8 +29,8 @@ class Customer_model extends CI_Model
     /**
      * Return customers matching the supplied filters (AND logic).
      *
-     * @param  array $filters  Keys: customer_code, name, owner, phone, city,
-     *                         district, state, customer_type, status.
+     * @param  array $filters  Keys: customer_code, name, phone, city,
+     *                         district, state, status.
      * @return array           Array of row objects (list columns only).
      */
     public function get_filtered(array $filters = array())
@@ -41,7 +41,6 @@ class Customer_model extends CI_Model
         $like_map = array(
             'customer_code' => 'customer_code',
             'name'          => 'customer_name',
-            'owner'         => 'owner_name',
             'phone'         => 'phone',
             'city'          => 'city',
             'district'      => 'district',
@@ -55,9 +54,6 @@ class Customer_model extends CI_Model
         // Exact-match filters.
         if ( ! empty($filters['state'])) {
             $this->db->where('state', $filters['state']);
-        }
-        if ( ! empty($filters['customer_type'])) {
-            $this->db->where('customer_type', $filters['customer_type']);
         }
         // Status filter: '1' active, '0' inactive, '' or 'all' => no filter.
         if (isset($filters['status']) && $filters['status'] !== '' && $filters['status'] !== 'all') {
@@ -86,6 +82,26 @@ class Customer_model extends CI_Model
     }
 
     /**
+     * Find a customer by their mobile number — used by the Booking form so
+     * typing a known mobile pulls up that customer's saved details.
+     *
+     * @param  string $phone
+     * @return object|null
+     */
+    public function get_by_phone($phone)
+    {
+        $phone = trim((string) $phone);
+        if ($phone === '') {
+            return NULL;
+        }
+        return $this->db
+            ->where('phone', $phone)
+            ->order_by('id', 'DESC')->limit(1)
+            ->get($this->table)
+            ->row();
+    }
+
+    /**
      * Distinct non-empty values of a column, for building filter dropdowns.
      *
      * @param  string $column  Whitelisted column name.
@@ -94,7 +110,7 @@ class Customer_model extends CI_Model
     public function distinct_values($column)
     {
         // Whitelist to keep the identifier safe.
-        $allowed = array('customer_type', 'state', 'country', 'city', 'district');
+        $allowed = array('state', 'country', 'city', 'district');
         if ( ! in_array($column, $allowed, TRUE)) {
             return array();
         }
@@ -221,13 +237,13 @@ class Customer_model extends CI_Model
 
     /**
      * The (latest) booking row for a customer, or NULL. Used to prefill the
-     * booking section of the Add/Edit customer form.
+     * booking section when editing an existing booking.
      */
-    public function booking_for_customer($customer_id)
+    public function get_booking($booking_id)
     {
         return $this->db
-            ->where('customer_id', (int) $customer_id)
-            ->order_by('id', 'DESC')->limit(1)
+            ->where('id', (int) $booking_id)
+            ->limit(1)
             ->get('booking_details')->row();
     }
 
@@ -240,31 +256,27 @@ class Customer_model extends CI_Model
     }
 
     /**
-     * Upsert a customer's booking into booking_details: update their existing
-     * (latest) booking if any, otherwise insert a new one with a booking_number.
+     * Create a NEW booking for a customer (a customer can have many).
      *
      * @param  int   $customer_id
-     * @param  array $data   booking columns (no id / customer_id / booking_number)
-     * @return int   booking id
+     * @param  array $data  booking columns
+     * @return int   new booking id
      */
-    public function save_booking($customer_id, array $data)
+    public function create_booking($customer_id, array $data)
     {
-        $data['customer_id'] = (int) $customer_id;
-        $existing = $this->db
-            ->select('id')->where('customer_id', (int) $customer_id)
-            ->order_by('id', 'DESC')->limit(1)
-            ->get('booking_details')->row();
-
-        if ($existing) {
-            $data['updated_at'] = date('Y-m-d H:i:s');
-            $this->db->where('id', $existing->id)->update('booking_details', $data);
-            return (int) $existing->id;
-        }
-
+        $data['customer_id']    = (int) $customer_id;
         $data['booking_number'] = $this->next_booking_number();
         $data['created_at']     = date('Y-m-d H:i:s');
         $this->db->insert('booking_details', $data);
         return (int) $this->db->insert_id();
+    }
+
+    /** Update an existing booking (booking_number / customer stay put). */
+    public function update_booking($booking_id, array $data)
+    {
+        unset($data['booking_number'], $data['customer_id'], $data['id']);
+        $data['updated_at'] = date('Y-m-d H:i:s');
+        return $this->db->where('id', (int) $booking_id)->update('booking_details', $data);
     }
 
     // ---------------------------------------------------------------------

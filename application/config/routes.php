@@ -69,8 +69,12 @@ $route['customers/add']          = 'customers/form';
 $route['customers/edit/(:num)']  = 'customers/form/$1';
 
 // Booking Details (booking-centric view over customers)
-$route['customers/bookings']       = 'customers/bookings';
-$route['customers/bookings_list']  = 'customers/bookings_ajax';
+$route['customers/bookings']            = 'customers/bookings';
+$route['customers/bookings_list']       = 'customers/bookings_ajax';
+$route['customers/booking_form']        = 'customers/booking_form';        // new booking
+$route['customers/booking_form/(:num)'] = 'customers/booking_form/$1';     // edit booking
+$route['customers/booking_save']        = 'customers/booking_save';
+$route['customers/lookup']              = 'customers/lookup';              // [AJAX] customer by mobile
 
 // Rooms Master (Room Manager)
 $route['rooms']              = 'rooms/index';

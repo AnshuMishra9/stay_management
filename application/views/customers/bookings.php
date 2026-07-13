@@ -37,12 +37,19 @@
                     Clear
                 </button>
                 <div class="erp-head-total" ng-cloak>Total Bookings:&nbsp; {{ vm.bookings.length }}</div>
-                <a href="<?= site_url('customers/form') ?>" class="erp-btn erp-btn-soft">
+                <a href="<?= site_url('customers/booking_form') ?>" class="erp-btn erp-btn-soft">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                     New Booking
                 </a>
             </div>
         </div>
+
+        <!-- Flash message (after saving a booking) -->
+        <?php if ( ! empty($flash)): ?>
+            <div class="erp-alert erp-alert-<?= html_escape($flash['type']) ?>">
+                <?= html_escape($flash['text']) ?>
+            </div>
+        <?php endif; ?>
 
         <!-- Table (filters sit in the header row, right under each column name) -->
         <div class="erp-table-scroll">
@@ -121,7 +128,7 @@
                         <td>{{ c.remaining_amount || '—' }}</td>
                         <td>
                             <span class="erp-actions">
-                                <a class="erp-icon-btn erp-icon-edit" title="Edit booking" href="<?= site_url('customers/form') ?>/{{ c.customer_id }}">
+                                <a class="erp-icon-btn erp-icon-edit" title="Edit booking" href="<?= site_url('customers/booking_form') ?>/{{ c.id }}">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </a>
                             </span>

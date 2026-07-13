@@ -46,7 +46,6 @@ class Customers extends Secure_Controller
     public function index()
     {
         $data = array(
-            'types'  => $this->Customer_model->distinct_values('customer_type'),
             'states' => $this->Customer_model->distinct_values('state'),
             'flash'  => $this->session->flashdata('customer_msg'),
         );
@@ -54,7 +53,8 @@ class Customers extends Secure_Controller
     }
 
     /**
-     * Add / Edit form. Pass an id to edit; omit to add.
+     * Add / Edit CUSTOMER form (customer fields only — no booking here).
+     * Pass an id to edit; omit to add.
      */
     public function form($id = NULL)
     {
@@ -69,16 +69,10 @@ class Customers extends Secure_Controller
         }
 
         $data = array(
-            'customer'   => $customer,
-            // The customer's booking now lives in booking_details (1 customer -> many).
-            'booking'    => $customer ? $this->Customer_model->booking_for_customer($customer->id) : NULL,
-            'next_code'  => $customer ? $customer->customer_code : $this->Customer_model->next_code(),
-            'type_opts'  => $this->_type_options(),
-            'state_opts' => $this->_state_options(),
+            'customer'     => $customer,
+            'next_code'    => $customer ? $customer->customer_code : $this->Customer_model->next_code(),
+            'state_opts'   => $this->_state_options(),
             'country_opts' => $this->_country_options(),
-            'channel_opts'  => $this->Customer_model->booking_channels(),
-            'room_cat_opts' => $this->Customer_model->room_categories(),
-            'status_opts'   => $this->_booking_status_options(),
         );
         $this->load->view('customers/form', $data);
     }
@@ -92,8 +86,41 @@ class Customers extends Secure_Controller
         $data = array(
             'booking_statuses' => $this->_booking_status_options(),
             'channel_opts'     => $this->Customer_model->booking_channels(),
+            'flash'            => $this->session->flashdata('booking_msg'),
         );
         $this->load->view('customers/bookings', $data);
+    }
+
+    /**
+     * New / Edit BOOKING form. Pass a booking id to edit; omit for a new one.
+     * The first field is the customer's MOBILE NO — typing a number already in
+     * `customers` pulls that customer's saved details in (editable; saving the
+     * form writes any edits back to the customers table).
+     */
+    public function booking_form($booking_id = NULL)
+    {
+        $booking  = NULL;
+        $customer = NULL;
+
+        if ($booking_id !== NULL) {
+            $booking = $this->Customer_model->get_booking($booking_id);
+            if ( ! $booking) {
+                show_404();
+                return;
+            }
+            $customer = $this->Customer_model->get_by_id($booking->customer_id);
+        }
+
+        $data = array(
+            'booking'       => $booking,
+            'customer'      => $customer,
+            'state_opts'    => $this->_state_options(),
+            'country_opts'  => $this->_country_options(),
+            'channel_opts'  => $this->Customer_model->booking_channels(),
+            'room_cat_opts' => $this->Customer_model->room_categories(),
+            'status_opts'   => $this->_booking_status_options(),
+        );
+        $this->load->view('customers/booking_form', $data);
     }
 
     // ---------------------------------------------------------------------
@@ -108,18 +135,31 @@ class Customers extends Secure_Controller
         $filters = array(
             'customer_code' => $this->input->get('customer_code'),
             'name'          => $this->input->get('name'),
-            'owner'         => $this->input->get('owner'),
             'phone'         => $this->input->get('phone'),
             'city'          => $this->input->get('city'),
             'district'      => $this->input->get('district'),
             'state'         => $this->input->get('state'),
-            'customer_type' => $this->input->get('customer_type'),
             'status'        => $this->input->get('status'),
         );
 
         $rows = $this->Customer_model->get_filtered($filters);
 
         return $this->_json(array('status' => TRUE, 'data' => $rows));
+    }
+
+    /**
+     * [AJAX] Look a customer up by MOBILE NO, so the Booking form can auto-fill
+     * an existing customer's saved details the moment the number is typed.
+     */
+    public function lookup()
+    {
+        $customer = $this->Customer_model->get_by_phone($this->input->get('phone'));
+
+        if ( ! $customer) {
+            return $this->_json(array('status' => TRUE, 'found' => FALSE));
+        }
+
+        return $this->_json(array('status' => TRUE, 'found' => TRUE, 'data' => $customer));
     }
 
     /**
@@ -190,14 +230,9 @@ class Customers extends Secure_Controller
             // Re-render the form with errors + submitted values.
             $data = array(
                 'customer'     => $existing,
-                'booking'      => $existing ? $this->Customer_model->booking_for_customer($existing->id) : NULL,
                 'next_code'    => $is_edit ? $existing->customer_code : $this->Customer_model->next_code(),
-                'type_opts'    => $this->_type_options(),
                 'state_opts'   => $this->_state_options(),
                 'country_opts' => $this->_country_options(),
-                'channel_opts'  => $this->Customer_model->booking_channels(),
-                'room_cat_opts' => $this->Customer_model->room_categories(),
-                'status_opts'   => $this->_booking_status_options(),
             );
             $this->load->view('customers/form', $data);
             return;
@@ -206,15 +241,13 @@ class Customers extends Secure_Controller
         // Immutable code: keep on edit, generate fresh on add (never trust POST).
         $code = $is_edit ? $existing->customer_code : $this->Customer_model->next_code();
 
-        // --- Scalar fields ----------------------------------------------
+        // --- Scalar fields (CUSTOMER only — bookings are a separate form) --
         $data = array(
             'customer_name' => $this->input->post('customer_name', TRUE),
-            'owner_name'    => $this->input->post('owner_name', TRUE),
             'phone'         => $this->input->post('phone', TRUE),        // Mobile No
             'alt_phone'     => $this->input->post('alt_phone', TRUE),
             'landline_no'   => $this->input->post('landline_no', TRUE),
             'email'         => $this->input->post('email', TRUE),
-            'customer_type' => $this->input->post('customer_type', TRUE),
             'address1'      => $this->input->post('address1', TRUE),
             'address2'      => $this->input->post('address2', TRUE),
             'city'          => $this->input->post('city', TRUE),
@@ -231,47 +264,6 @@ class Customers extends Secure_Controller
         );
         if ($is_edit) {
             $data['is_active'] = (int) $this->input->post('is_active');
-        }
-
-        // --- Booking fields ------------------------------------------------
-        // These do NOT live on the customer row: a customer can have MANY
-        // bookings, so they go into `booking_details` (FK -> customers.id).
-        $booking = array(
-            'booking_channel_id' => $this->input->post('booking_channel_id') ?: NULL,
-            'booking_status'     => $this->_booking_status($this->input->post('booking_status')),
-            'booking_by'         => $this->input->post('booking_by', TRUE),
-            'guest_name'         => $this->input->post('guest_name', TRUE),
-            'guest_mobile_no'    => $this->input->post('guest_mobile_no', TRUE),
-            'guest_contact_no'   => $this->input->post('guest_contact_no', TRUE),
-            'property_name'      => $this->input->post('property_name', TRUE),
-            'scheduled_check_in_date'  => $this->input->post('scheduled_check_in_date') ?: NULL,
-            'scheduled_check_out_date' => $this->input->post('scheduled_check_out_date') ?: NULL,
-            'checked_in_at'      => $this->_datetime($this->input->post('checked_in_at')),
-            'checked_out_at'     => $this->_datetime($this->input->post('checked_out_at')),
-            'total_guest'        => $this->_int($this->input->post('total_guest')),
-            'room_category_id'   => $this->input->post('room_category_id') ?: NULL,
-            'room_quantity'      => $this->_int($this->input->post('room_quantity')),
-            'total_unit'         => $this->_int($this->input->post('total_unit')),
-            'total_amount'       => $this->_num($this->input->post('total_amount')),
-            'amount_paid'        => $this->_num($this->input->post('amount_paid')),
-        );
-
-        // Server-side derived fields (never trust the client for these).
-        $booking['length_of_stay']   = $this->_nights($booking['scheduled_check_in_date'], $booking['scheduled_check_out_date']);
-        $booking['remaining_amount'] = ($booking['total_amount'] !== NULL || $booking['amount_paid'] !== NULL)
-            ? round((float) $booking['total_amount'] - (float) $booking['amount_paid'], 2)
-            : NULL;
-
-        // Auto-stamp the ACTUAL check-in / check-out time from the booking status,
-        // so setting the status to "Checked In" records *when* it happened without
-        // making the user type a timestamp. An explicit posted time is respected.
-        $now = date('Y-m-d H:i:s');
-        if ($booking['booking_status'] === 'checked_in' && empty($booking['checked_in_at'])) {
-            $booking['checked_in_at'] = $now;
-        }
-        if ($booking['booking_status'] === 'checked_out') {
-            if (empty($booking['checked_in_at']))  { $booking['checked_in_at']  = $now; }  // can't leave without arriving
-            if (empty($booking['checked_out_at'])) { $booking['checked_out_at'] = $now; }
         }
 
         // --- File uploads (replace old file if a new one is provided) ----
@@ -293,19 +285,98 @@ class Customers extends Secure_Controller
         // --- Persist -----------------------------------------------------
         if ($is_edit) {
             $this->Customer_model->update($id, $data);
-            $cust_id = $id;
             $msg = 'Customer "'.$data['customer_name'].'" updated successfully.';
         } else {
             $data['customer_code'] = $code;
-            $cust_id = $this->Customer_model->insert($data);
+            $this->Customer_model->insert($data);
             $msg = 'Customer "'.$data['customer_name'].'" ('.$code.') added successfully.';
         }
 
-        // Booking goes into its own table (customer -> many bookings).
-        $this->_sync_booking($cust_id, $booking);
-
         $this->session->set_flashdata('customer_msg', array('type' => 'success', 'text' => $msg));
         redirect('customers');
+    }
+
+    /**
+     * Save a BOOKING (new or edit) from the Booking form.
+     *
+     * The mobile number identifies the customer:
+     *   - number already in `customers`  -> that customer is reused, and any
+     *     edits made to their details on this form UPDATE the customer row.
+     *   - number is new                  -> a new customer is created.
+     * Then the booking itself is inserted (new) or updated (edit) in
+     * `booking_details` — one customer can hold many bookings.
+     */
+    public function booking_save()
+    {
+        $booking_id = (int) $this->input->post('booking_id');
+        $booking_id = $booking_id > 0 ? $booking_id : NULL;
+
+        // --- Validation --------------------------------------------------
+        $this->load->library('form_validation');
+        $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
+        $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
+        $this->form_validation->set_rules('email', 'Email', 'trim|valid_email|max_length[150]');
+
+        if ($this->form_validation->run() === FALSE) {
+            $existing = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+            $data = array(
+                'booking'       => $existing,
+                'customer'      => $existing ? $this->Customer_model->get_by_id($existing->customer_id) : NULL,
+                'state_opts'    => $this->_state_options(),
+                'country_opts'  => $this->_country_options(),
+                'channel_opts'  => $this->Customer_model->booking_channels(),
+                'room_cat_opts' => $this->Customer_model->room_categories(),
+                'status_opts'   => $this->_booking_status_options(),
+            );
+            $this->load->view('customers/booking_form', $data);
+            return;
+        }
+
+        $phone = trim($this->input->post('phone', TRUE));
+
+        // --- Customer: reuse the one on this mobile, else create one -------
+        // Only fields actually submitted are written, so a form that doesn't
+        // carry a field can never blank out what the customer already has.
+        $cdata  = array('phone' => $phone);
+        $fields = array(
+            'customer_name', 'alt_phone', 'landline_no', 'email',
+            'address1', 'address2', 'city', 'district',
+            'pincode', 'zip_code', 'state', 'country',
+            'aadhar_number', 'aadhar_name', 'pan_number', 'pan_name',
+        );
+        foreach ($fields as $f) {
+            if ($this->input->post($f) !== NULL) {
+                $cdata[$f] = $this->input->post($f, TRUE);
+            }
+        }
+
+        $customer = $this->Customer_model->get_by_phone($phone);
+
+        if ($customer) {
+            $this->Customer_model->update($customer->id, $cdata);   // edits flow back to `customers`
+            $cust_id = (int) $customer->id;
+        } else {
+            $cdata['customer_code'] = $this->Customer_model->next_code();
+            $cdata['is_active']     = 1;
+            $cust_id = $this->Customer_model->insert($cdata);
+        }
+
+        // --- Booking -------------------------------------------------------
+        $booking = $this->_booking_from_post();
+
+        if ($booking_id) {
+            $this->Customer_model->update_booking($booking_id, $booking);
+            $bkg = $this->Customer_model->get_booking($booking_id);
+            $msg = 'Booking '.($bkg ? $bkg->booking_number : '').' updated successfully.';
+        } else {
+            $new_id = $this->Customer_model->create_booking($cust_id, $booking);
+            $bkg    = $this->Customer_model->get_booking($new_id);
+            $name   = isset($cdata['customer_name']) ? $cdata['customer_name'] : $phone;
+            $msg    = 'Booking '.($bkg ? $bkg->booking_number : '').' created for "'.$name.'".';
+        }
+
+        $this->session->set_flashdata('booking_msg', array('type' => 'success', 'text' => $msg));
+        redirect('customers/bookings');
     }
 
     /**
@@ -478,28 +549,53 @@ class Customers extends Secure_Controller
     }
 
     /**
-     * Upsert the customer's booking into `booking_details`.
-     * Skips creating an empty booking when the form carried no booking info.
+     * Build a `booking_details` row from POST: raw booking fields + the
+     * server-derived ones (nights, remaining amount) + the check-in/check-out
+     * auto-stamp driven by the booking status.
      */
-    private function _sync_booking($customer_id, array $booking)
+    private function _booking_from_post()
     {
-        $has = ! empty($booking['booking_status'])
-            || ! empty($booking['scheduled_check_in_date'])
-            || ! empty($booking['booking_channel_id'])
-            || ! empty($booking['guest_name']);
-        if ( ! $has) {
-            return;
+        $booking = array(
+            'booking_channel_id' => $this->input->post('booking_channel_id') ?: NULL,
+            'booking_status'     => $this->_booking_status($this->input->post('booking_status')),
+            'booking_by'         => $this->input->post('booking_by', TRUE),
+            'guest_name'         => $this->input->post('guest_name', TRUE),
+            'guest_mobile_no'    => $this->input->post('guest_mobile_no', TRUE),
+            'guest_contact_no'   => $this->input->post('guest_contact_no', TRUE),
+            'property_name'      => $this->input->post('property_name', TRUE),
+            'scheduled_check_in_date'  => $this->input->post('scheduled_check_in_date') ?: NULL,
+            'scheduled_check_out_date' => $this->input->post('scheduled_check_out_date') ?: NULL,
+            'checked_in_at'      => $this->_datetime($this->input->post('checked_in_at')),
+            'checked_out_at'     => $this->_datetime($this->input->post('checked_out_at')),
+            'total_guest'        => $this->_int($this->input->post('total_guest')),
+            'room_category_id'   => $this->input->post('room_category_id') ?: NULL,
+            'room_quantity'      => $this->_int($this->input->post('room_quantity')),
+            'total_unit'         => $this->_int($this->input->post('total_unit')),
+            'total_amount'       => $this->_num($this->input->post('total_amount')),
+            'amount_paid'        => $this->_num($this->input->post('amount_paid')),
+        );
+
+        // Derived server-side (never trust the client for these).
+        $booking['length_of_stay']   = $this->_nights($booking['scheduled_check_in_date'], $booking['scheduled_check_out_date']);
+        $booking['remaining_amount'] = ($booking['total_amount'] !== NULL || $booking['amount_paid'] !== NULL)
+            ? round((float) $booking['total_amount'] - (float) $booking['amount_paid'], 2)
+            : NULL;
+
+        // Setting the status to "Checked In"/"Checked Out" records *when* it
+        // happened, without making the user type a timestamp.
+        $now = date('Y-m-d H:i:s');
+        if ($booking['booking_status'] === 'checked_in' && empty($booking['checked_in_at'])) {
+            $booking['checked_in_at'] = $now;
+        }
+        if ($booking['booking_status'] === 'checked_out') {
+            if (empty($booking['checked_in_at']))  { $booking['checked_in_at']  = $now; }  // can't leave without arriving
+            if (empty($booking['checked_out_at'])) { $booking['checked_out_at'] = $now; }
         }
 
-        $this->Customer_model->save_booking($customer_id, $booking);
+        return $booking;
     }
 
     /** Static dropdown option lists (extend as needed). */
-    private function _type_options()
-    {
-        return array('Retail Customer', 'Wholesale Customer', 'Corporate', 'Agent', 'Walk-in');
-    }
-
     private function _state_options()
     {
         // Prefer the full states master (state_details); fall back to a small

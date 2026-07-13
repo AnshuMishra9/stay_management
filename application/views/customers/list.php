@@ -39,6 +39,10 @@
                     Clear
                 </button>
                 <div class="erp-head-total" ng-cloak>Total Customers:&nbsp; {{ vm.customers.length }}</div>
+                <a href="<?= site_url('customers/form') ?>" class="erp-btn erp-btn-soft">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    Add Customer
+                </a>
             </div>
         </div>
 
@@ -56,11 +60,9 @@
                     <tr>
                         <th>Customer ID</th>
                         <th>Customer Name</th>
-                        <th>Owner / Contact</th>
                         <th>Mobile</th>
                         <th>Alt Mobile</th>
                         <th>Email</th>
-                        <th>Type</th>
                         <th>City</th>
                         <th>District</th>
                         <th>State</th>
@@ -71,18 +73,9 @@
                     <tr class="erp-filter-row">
                         <th><input class="erp-input" ng-model="vm.filters.customer_code" ng-change="vm.onFilter()" placeholder="Customer ID"></th>
                         <th><input class="erp-input" ng-model="vm.filters.name" ng-change="vm.onFilter()" placeholder="Name"></th>
-                        <th><input class="erp-input" ng-model="vm.filters.owner" ng-change="vm.onFilter()" placeholder="Owner"></th>
                         <th><input class="erp-input" ng-model="vm.filters.phone" ng-change="vm.onFilter()" placeholder="Mobile"></th>
                         <th></th>
                         <th></th>
-                        <th>
-                            <select class="erp-select" ng-model="vm.filters.customer_type" ng-change="vm.onFilter()">
-                                <option value="">All</option>
-                                <?php foreach ($types as $t): ?>
-                                    <option value="<?= html_escape($t) ?>"><?= html_escape($t) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </th>
                         <th><input class="erp-input" ng-model="vm.filters.city" ng-change="vm.onFilter()" placeholder="City"></th>
                         <th><input class="erp-input" ng-model="vm.filters.district" ng-change="vm.onFilter()" placeholder="District"></th>
                         <th>
@@ -108,11 +101,9 @@
                     <tr ng-repeat="c in vm.customers" ng-cloak>
                         <td class="cell-strong">{{ c.customer_code }}</td>
                         <td class="cell-strong">{{ c.customer_name }}</td>
-                        <td>{{ c.owner_name || '—' }}</td>
                         <td>{{ c.phone }}</td>
                         <td>{{ c.alt_phone || '—' }}</td>
                         <td>{{ c.email || '—' }}</td>
-                        <td>{{ c.customer_type || '—' }}</td>
                         <td>{{ c.city || '—' }}</td>
                         <td>{{ c.district || '—' }}</td>
                         <td>{{ c.state || '—' }}</td>
@@ -162,8 +153,6 @@
 
             <div class="erp-section-title">Customer Info</div>
             <div class="erp-detail-grid">
-                <div class="erp-detail-item"><div class="k">Owner / Contact</div><div class="v">{{ vm.detail.owner_name || '—' }}</div></div>
-                <div class="erp-detail-item"><div class="k">Customer Type</div><div class="v">{{ vm.detail.customer_type || '—' }}</div></div>
                 <div class="erp-detail-item"><div class="k">Mobile No</div><div class="v">{{ vm.detail.phone }}</div></div>
                 <div class="erp-detail-item"><div class="k">Alt Mobile No</div><div class="v">{{ vm.detail.alt_phone || '—' }}</div></div>
                 <div class="erp-detail-item"><div class="k">Landline No</div><div class="v">{{ vm.detail.landline_no || '—' }}</div></div>

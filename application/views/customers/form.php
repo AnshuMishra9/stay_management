@@ -1,41 +1,24 @@
 <?php
 /**
- * Add / Edit Customer form.
- * $customer   -> customers row when editing, NULL when adding
- * $booking    -> that customer's booking_details row (NULL if none / adding)
- * $next_code  -> customer code to display (existing or next generated)
- * $type_opts / $state_opts / $country_opts -> dropdown option arrays
+ * Add / Edit CUSTOMER form — customer fields ONLY.
+ * Bookings are made on their own form (customers/booking_form), because one
+ * customer can have MANY bookings.
  *
- * NOTE: booking fields live in `booking_details` (a customer can have MANY
- * bookings), so they are read with $bval() from $booking — NOT from $customer.
+ * $customer   -> customers row when editing, NULL when adding
+ * $next_code  -> customer code to display (existing or next generated)
+ * $state_opts / $country_opts -> dropdown option arrays
  */
 $is_edit = ($customer !== NULL);
 $posted  = ($this->input->server('REQUEST_METHOD') === 'POST');
-$booking = isset($booking) ? $booking : NULL;
 
-// CUSTOMER field value (posted value wins on validation failure).
+// Current value for a field (posted value wins on validation failure).
 // Return RAW (html_escape=FALSE); the template escapes once at output.
 $val = function ($field, $fallback = '') use ($customer) {
     return set_value($field, $customer ? ($customer->$field ?? '') : $fallback, FALSE);
 };
-// BOOKING field value — reads from the booking_details row.
-$bval = function ($field, $fallback = '') use ($booking) {
-    return set_value($field, $booking ? ($booking->$field ?? '') : $fallback, FALSE);
-};
-
-$sel_type    = $val('customer_type');
 $sel_state   = $val('state');
 $sel_country = $val('country', 'India');
-$sel_channel = $bval('booking_channel_id');
-$sel_roomcat = $bval('room_category_id');
-$sel_status  = $bval('booking_status');
 $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer ? (int) $customer->is_active : 1);
-
-// Format a stored DATETIME ("Y-m-d H:i:s") for a datetime-local input ("Y-m-d\TH:i").
-$dtlocal = function ($field) use ($bval) {
-    $v = $bval($field);
-    return $v ? str_replace(' ', 'T', substr($v, 0, 16)) : '';
-};
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -44,11 +27,10 @@ $dtlocal = function ($field) use ($bval) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $is_edit ? 'Edit' : 'Add' ?> Customer &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
 </head>
 <body class="erp-body">
 
-<!-- Top navigation (with mobile Back button) -->
 <?php $this->load->view('layouts/erp_navbar', array('active' => 'customers', 'back' => site_url('customers'))); ?>
 
 <div class="erp-wrap">
@@ -83,22 +65,6 @@ $dtlocal = function ($field) use ($bval) {
                     <label>Customer Name <span class="req">*</span></label>
                     <input class="erp-input" type="text" name="customer_name" required maxlength="150" value="<?= html_escape($val('customer_name')) ?>">
                     <?= form_error('customer_name', '<div class="erp-error">', '</div>') ?>
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Owner Name / Contact Person</label>
-                    <input class="erp-input" type="text" name="owner_name" maxlength="150" value="<?= html_escape($val('owner_name')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Customer Type</label>
-                    <select class="erp-select" name="customer_type">
-                        <option value="">Select</option>
-                        <?php foreach ($type_opts as $opt): ?>
-                            <option value="<?= html_escape($opt) ?>" <?= $sel_type === $opt ? 'selected' : '' ?>><?= html_escape($opt) ?></option>
-                        <?php endforeach; ?>
-                    </select>
                 </div>
             </div>
 
@@ -151,7 +117,6 @@ $dtlocal = function ($field) use ($bval) {
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
                     <label>State</label>
-                    <!-- Auto-enhanced into a searchable combobox by searchable-select.js -->
                     <select class="erp-select" name="state">
                         <option value="">Select</option>
                         <?php foreach ($state_opts as $opt): ?>
@@ -187,132 +152,6 @@ $dtlocal = function ($field) use ($bval) {
                         <input type="checkbox" name="is_active" value="1" <?= $active ? 'checked' : '' ?>>
                         Active customer
                     </label>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== Booking Details ===== -->
-        <div class="erp-form-section">
-            <div class="erp-section-title">Booking Details</div>
-
-            <div class="erp-grid-1" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Booking Status <span class="erp-muted" style="font-weight:400;">(has the booking come / has the guest checked in?)</span></label>
-                    <select class="erp-select" id="bk_status" name="booking_status">
-                        <option value="">— Not set —</option>
-                        <?php foreach ($status_opts as $sval => $slabel): ?>
-                            <option value="<?= $sval ?>" <?= $sel_status === $sval ? 'selected' : '' ?>><?= $slabel ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Booking Channel</label>
-                    <select class="erp-select" name="booking_channel_id">
-                        <option value="">Select</option>
-                        <?php foreach ($channel_opts as $ch): ?>
-                            <option value="<?= (int) $ch->channel_id ?>" <?= (string) $sel_channel === (string) $ch->channel_id ? 'selected' : '' ?>><?= html_escape($ch->channel_name) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="erp-form-field">
-                    <label>Booking By <span class="erp-muted" style="font-weight:400;">(who booked)</span></label>
-                    <input class="erp-input" type="text" name="booking_by" maxlength="150" value="<?= html_escape($bval('booking_by')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Guest Name</label>
-                    <input class="erp-input" type="text" name="guest_name" maxlength="150" value="<?= html_escape($bval('guest_name')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Guest Mobile No</label>
-                    <input class="erp-input" type="text" name="guest_mobile_no" maxlength="20" value="<?= html_escape($bval('guest_mobile_no')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Guest Contact No</label>
-                    <input class="erp-input" type="text" name="guest_contact_no" maxlength="20" value="<?= html_escape($bval('guest_contact_no')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Property Name</label>
-                    <input class="erp-input" type="text" name="property_name" maxlength="150" value="<?= html_escape($bval('property_name')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Scheduled Check-In Date <span class="erp-muted" style="font-weight:400;">(planned arrival)</span></label>
-                    <input class="erp-input" type="date" id="bk_checkin" name="scheduled_check_in_date" value="<?= html_escape($bval('scheduled_check_in_date')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Scheduled Check-Out Date <span class="erp-muted" style="font-weight:400;">(planned departure)</span></label>
-                    <input class="erp-input" type="date" id="bk_checkout" name="scheduled_check_out_date" value="<?= html_escape($bval('scheduled_check_out_date')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Actual Checked-In At <span class="erp-muted" style="font-weight:400;">(auto-set on "Checked In")</span></label>
-                    <input class="erp-input" type="datetime-local" name="checked_in_at" value="<?= html_escape($dtlocal('checked_in_at')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Actual Checked-Out At <span class="erp-muted" style="font-weight:400;">(auto-set on "Checked Out")</span></label>
-                    <input class="erp-input" type="datetime-local" name="checked_out_at" value="<?= html_escape($dtlocal('checked_out_at')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Length of Stay <span class="erp-muted" style="font-weight:400;">(nights, auto)</span></label>
-                    <input class="erp-input" type="number" id="bk_los" name="length_of_stay" value="<?= html_escape($bval('length_of_stay')) ?>" readonly>
-                </div>
-                <div class="erp-form-field">
-                    <label>Total Guests</label>
-                    <input class="erp-input" type="number" min="0" name="total_guest" value="<?= html_escape($bval('total_guest')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Room Category</label>
-                    <select class="erp-select" name="room_category_id">
-                        <option value="">Select</option>
-                        <?php foreach ($room_cat_opts as $rc): ?>
-                            <option value="<?= (int) $rc->category_id ?>" <?= (string) $sel_roomcat === (string) $rc->category_id ? 'selected' : '' ?>><?= html_escape($rc->category_name) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="erp-form-field">
-                    <label>Room Quantity</label>
-                    <input class="erp-input" type="number" min="0" name="room_quantity" value="<?= html_escape($bval('room_quantity')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Total Units <span class="erp-muted" style="font-weight:400;">(total rooms booked)</span></label>
-                    <input class="erp-input" type="number" min="0" name="total_unit" value="<?= html_escape($bval('total_unit')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Total Amount</label>
-                    <input class="erp-input" type="number" step="0.01" min="0" id="bk_total" name="total_amount" value="<?= html_escape($bval('total_amount')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2">
-                <div class="erp-form-field">
-                    <label>Amount Paid</label>
-                    <input class="erp-input" type="number" step="0.01" min="0" id="bk_paid" name="amount_paid" value="<?= html_escape($bval('amount_paid')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Remaining Amount <span class="erp-muted" style="font-weight:400;">(auto)</span></label>
-                    <input class="erp-input" type="number" step="0.01" id="bk_remaining" name="remaining_amount" value="<?= html_escape($bval('remaining_amount')) ?>" readonly>
                 </div>
             </div>
         </div>
@@ -377,32 +216,6 @@ $dtlocal = function ($field) use ($bval) {
     </form>
 </div>
 
-<script src="<?= base_url('assets/js/searchable-select.js') ?>"></script>
-<script>
-/* Booking Details — auto-calc Length of Stay and Remaining Amount. */
-(function () {
-    var ci = document.getElementById('bk_checkin'), co = document.getElementById('bk_checkout'),
-        los = document.getElementById('bk_los'),
-        total = document.getElementById('bk_total'), paid = document.getElementById('bk_paid'),
-        rem = document.getElementById('bk_remaining');
-    function num(el) { var v = parseFloat(el && el.value); return isNaN(v) ? 0 : v; }
-    function calcLOS() {
-        if (ci.value && co.value) {
-            var d = Math.round((new Date(co.value) - new Date(ci.value)) / 86400000);
-            los.value = d >= 0 ? d : '';
-        } else { los.value = ''; }
-    }
-    function calcRem() {
-        if ((total && total.value !== '') || (paid && paid.value !== '')) {
-            rem.value = (num(total) - num(paid)).toFixed(2);
-        } else { rem.value = ''; }
-    }
-    if (ci && co) { ci.addEventListener('change', calcLOS); co.addEventListener('change', calcLOS); }
-    if (total && paid) {
-        total.addEventListener('input', calcRem);
-        paid.addEventListener('input', calcRem);
-    }
-})();
-</script>
+<script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
 </body>
 </html>
