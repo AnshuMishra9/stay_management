@@ -84,11 +84,10 @@ $dtlocal = function ($field) use ($bval) {
 
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
-                    <label>Mobile No <span class="req">*</span> <span class="erp-muted" style="font-weight:400;">(existing customer loads automatically)</span></label>
+                    <label>Mobile No <span class="req">*</span></label>
                     <input class="erp-input" type="text" id="bf_phone" name="phone" required maxlength="20"
                            autocomplete="off" value="<?= html_escape($val('phone')) ?>">
                     <?= form_error('phone', '<div class="erp-error">', '</div>') ?>
-                    <div id="bf_lookup_msg" class="erp-existing-file" style="display:none;"></div>
                 </div>
                 <div class="erp-form-field">
                     <label>Customer Name <span class="req">*</span></label>

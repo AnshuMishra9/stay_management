@@ -13,7 +13,6 @@
     var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
 
     var phoneEl = document.getElementById('bf_phone');
-    var msgEl   = document.getElementById('bf_lookup_msg');
 
     // Customer fields the lookup fills in (name attribute -> element).
     var FIELDS = [
@@ -34,13 +33,6 @@
         el.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    function note(text, kind) {
-        if (!msgEl) { return; }
-        if (!text) { msgEl.style.display = 'none'; return; }
-        msgEl.style.display = '';
-        msgEl.innerHTML = '<span class="' + (kind === 'found' ? 'erp-doc-link' : 'erp-muted') + '">' + text + '</span>';
-    }
-
     // ---- Mobile lookup ----
     var lookupTimer = null;
     var autofilled  = false;   // did WE fill the fields? (so we can clear them)
@@ -48,7 +40,7 @@
     function lookup() {
         var phone = (phoneEl.value || '').trim();
 
-        if (phone.length < 6) { note(''); return; }
+        if (phone.length < 6) { return; }
 
         var xhr = new XMLHttpRequest();
         xhr.open('GET', base + 'customers/lookup?phone=' + encodeURIComponent(phone), true);
@@ -59,16 +51,11 @@
             if (res && res.found && res.data) {
                 FIELDS.forEach(function (f) { setField(f, res.data[f]); });
                 autofilled = true;
-                note('Existing customer <strong>' + (res.data.customer_code || '') + '</strong> loaded — '
-                     + 'editing these details will update their record.', 'found');
-            } else {
+            } else if (autofilled) {
                 // Unknown number: clear anything WE auto-filled so the previous
                 // customer's details don't get saved onto a new customer.
-                if (autofilled) {
-                    FIELDS.forEach(function (f) { setField(f, ''); });
-                    autofilled = false;
-                }
-                note('New mobile number — a new customer will be created.', 'new');
+                FIELDS.forEach(function (f) { setField(f, ''); });
+                autofilled = false;
             }
         };
         xhr.send();
