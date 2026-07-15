@@ -19,10 +19,9 @@ class Room_model extends CI_Model
 
     /** Columns shown in the list grid (kept lean — joined with category name). */
     protected $list_columns = array(
-        'r.id', 'r.room_code', 'r.room_no', 'r.room_name', 'r.category_id',
-        'c.category_name', 'r.floor_no', 'r.wing', 'r.bed_type', 'r.max_adults',
-        'r.max_children', 'r.selling_price', 'r.housekeeping_status',
-        'r.room_condition', 'r.smoking', 'r.is_active', 'r.created_by', 'r.created_at',
+        'r.id', 'r.room_code', 'r.room_no', 'r.category_id',
+        'c.category_name', 'r.floor_no', 'r.selling_price',
+        'r.housekeeping_status', 'r.is_active', 'r.created_by', 'r.created_at',
     );
 
     // ---------------------------------------------------------------------
@@ -33,9 +32,8 @@ class Room_model extends CI_Model
      * Return rooms matching the supplied filters (AND logic), joined with the
      * category name.
      *
-     * @param  array $filters  Keys: room_no, room_name, category_id, floor_no,
-     *                         wing, housekeeping_status, room_condition,
-     *                         smoking, status.
+     * @param  array $filters  Keys: room_no, category_id, floor_no,
+     *                         housekeeping_status, status.
      * @return array           Array of row objects (list columns only).
      */
     public function get_filtered(array $filters = array())
@@ -48,9 +46,7 @@ class Room_model extends CI_Model
         // Partial (LIKE) text filters.
         $like_map = array(
             'room_no'   => 'r.room_no',
-            'room_name' => 'r.room_name',
             'floor_no'  => 'r.floor_no',
-            'wing'      => 'r.wing',
         );
         foreach ($like_map as $key => $column) {
             if (isset($filters[$key]) && $filters[$key] !== '') {
@@ -65,12 +61,6 @@ class Room_model extends CI_Model
         if ( ! empty($filters['housekeeping_status'])) {
             $this->db->where('r.housekeeping_status', $filters['housekeeping_status']);
         }
-        if ( ! empty($filters['room_condition'])) {
-            $this->db->where('r.room_condition', $filters['room_condition']);
-        }
-        if (isset($filters['smoking']) && $filters['smoking'] !== '') {
-            $this->db->where('r.smoking', (int) $filters['smoking']);
-        }
 
         // Status filter: '1' active, '0' inactive, '' or 'all' => no filter.
         if (isset($filters['status']) && $filters['status'] !== '' && $filters['status'] !== 'all') {
@@ -84,63 +74,21 @@ class Room_model extends CI_Model
     }
 
     /**
-     * Fetch a single room (all columns + category/tax names + amenity ids)
-     * by primary key.
+     * Fetch a single room (all columns + category name) by primary key.
      *
      * @param  int $id
      * @return object|null
      */
     public function get_by_id($id)
     {
-        $room = $this->db
-            ->select('r.*, c.category_name, t.tax_name, t.tax_percentage')
+        return $this->db
+            ->select('r.*, c.category_name')
             ->from($this->table.' r')
             ->join('room_categories c', 'c.category_id = r.category_id', 'left')
-            ->join('taxes t', 't.tax_id = r.tax_id', 'left')
             ->where('r.id', (int) $id)
             ->limit(1)
             ->get()
             ->row();
-
-        if ($room) {
-            $room->amenity_ids = $this->room_amenity_ids($room->id);
-        }
-        return $room;
-    }
-
-    /**
-     * IDs of amenities linked to a room.
-     *
-     * @param  int $room_id
-     * @return array  Array of int amenity ids.
-     */
-    public function room_amenity_ids($room_id)
-    {
-        $rows = $this->db
-            ->select('amenity_id')
-            ->where('room_id', (int) $room_id)
-            ->get('room_amenities')
-            ->result();
-
-        return array_map(function ($r) { return (int) $r->amenity_id; }, $rows);
-    }
-
-    /**
-     * Amenity names linked to a room (for the detail modal).
-     *
-     * @param  int $room_id
-     * @return array  Array of {amenity_name, icon} objects.
-     */
-    public function room_amenities($room_id)
-    {
-        return $this->db
-            ->select('a.amenity_name, a.icon')
-            ->from('room_amenities ra')
-            ->join('amenities a', 'a.amenity_id = ra.amenity_id')
-            ->where('ra.room_id', (int) $room_id)
-            ->order_by('a.amenity_name', 'ASC')
-            ->get()
-            ->result();
     }
 
     /** Active categories for dropdowns / filters. */
@@ -154,26 +102,6 @@ class Room_model extends CI_Model
             ->result();
     }
 
-    /** Active taxes for the pricing dropdown. */
-    public function all_taxes()
-    {
-        return $this->db
-            ->where('status', 1)
-            ->order_by('tax_percentage', 'ASC')
-            ->get('taxes')
-            ->result();
-    }
-
-    /** Active amenities for the checkbox grid. */
-    public function all_amenities()
-    {
-        return $this->db
-            ->where('status', 1)
-            ->order_by('amenity_name', 'ASC')
-            ->get('amenities')
-            ->result();
-    }
-
     /**
      * Distinct non-empty values of a whitelisted column, for filter dropdowns.
      *
@@ -182,7 +110,7 @@ class Room_model extends CI_Model
      */
     public function distinct_values($column)
     {
-        $allowed = array('floor_no', 'wing', 'housekeeping_status', 'room_condition');
+        $allowed = array('floor_no', 'housekeeping_status');
         if ( ! in_array($column, $allowed, TRUE)) {
             return array();
         }
@@ -250,47 +178,33 @@ class Room_model extends CI_Model
     // ---------------------------------------------------------------------
 
     /**
-     * Insert a new room + its amenity links (single transaction).
+     * Insert a new room.
      *
-     * @param  array $data          Room row columns.
-     * @param  array $amenity_ids   Selected amenity ids.
+     * @param  array $data  Room row columns.
      * @return int   New room id.
      */
-    public function insert(array $data, array $amenity_ids = array())
+    public function insert(array $data)
     {
         $data['created_at'] = date('Y-m-d H:i:s');
-
-        $this->db->trans_start();
         $this->db->insert($this->table, $data);
-        $id = (int) $this->db->insert_id();
-        $this->_sync_amenities($id, $amenity_ids);
-        $this->db->trans_complete();
-
-        return $id;
+        return (int) $this->db->insert_id();
     }
 
     /**
-     * Update an existing room + re-sync its amenity links (single transaction).
+     * Update an existing room.
      *
      * @param  int   $id
      * @param  array $data
-     * @param  array $amenity_ids
-     * @return bool  Transaction success.
+     * @return bool
      */
-    public function update($id, array $data, array $amenity_ids = array())
+    public function update($id, array $data)
     {
         $data['updated_at'] = date('Y-m-d H:i:s');
-
-        $this->db->trans_start();
-        $this->db->where('id', (int) $id)->update($this->table, $data);
-        $this->_sync_amenities((int) $id, $amenity_ids);
-        $this->db->trans_complete();
-
-        return $this->db->trans_status();
+        return $this->db->where('id', (int) $id)->update($this->table, $data);
     }
 
     /**
-     * Delete a room row. room_amenities rows cascade via FK.
+     * Delete a room row.
      *
      * @param  int $id
      * @return bool
@@ -298,26 +212,5 @@ class Room_model extends CI_Model
     public function delete($id)
     {
         return $this->db->delete($this->table, array('id' => (int) $id));
-    }
-
-    /**
-     * Replace a room's amenity links with the supplied set.
-     *
-     * @param int   $room_id
-     * @param array $amenity_ids
-     */
-    private function _sync_amenities($room_id, array $amenity_ids)
-    {
-        $this->db->delete('room_amenities', array('room_id' => $room_id));
-
-        $rows = array();
-        foreach (array_unique(array_map('intval', $amenity_ids)) as $aid) {
-            if ($aid > 0) {
-                $rows[] = array('room_id' => $room_id, 'amenity_id' => $aid);
-            }
-        }
-        if ($rows) {
-            $this->db->insert_batch('room_amenities', $rows);
-        }
     }
 }

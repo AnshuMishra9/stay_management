@@ -25,8 +25,8 @@
         vm.showModal = false;
         vm.detail    = {};
         vm.filters   = {
-            room_no: '', room_name: '', category_id: '', floor_no: '', wing: '',
-            housekeeping_status: '', room_condition: '', smoking: '', status: ''
+            room_no: '', category_id: '', floor_no: '',
+            housekeeping_status: '', status: ''
         };
 
         // ---- API (cached: instant from cache, revalidated in the background) ----
@@ -49,39 +49,11 @@
         };
 
         // ---- Display helpers ----
-        // Build an icon URL when `icon` is an image filename (svg/png/…);
-        // returns null for emoji/text so the caller can fall back to text.
-        vm.iconUrl = function (icon) {
-            if (icon && /\.(svg|png|jpe?g|webp|gif)$/i.test(icon)) {
-                return base + 'assets/icons/' + encodeURIComponent(icon);
-            }
-            return null;
-        };
-
-        vm.occupancy = function (r) {
-            var a = parseInt(r.max_adults, 10) || 0;
-            var c = parseInt(r.max_children, 10) || 0;
-            if (!a && !c) { return '—'; }
-            return a + 'A' + (c ? ' + ' + c + 'C' : '');
-        };
-
         vm.hkClass = function (s) {
             switch (s) {
-                case 'Clean':          return 'erp-chip-green';
-                case 'Inspected':      return 'erp-chip-blue';
-                case 'Dirty':          return 'erp-chip-amber';
-                case 'Out of Service': return 'erp-chip-red';
-                default:               return 'erp-chip-grey';
-            }
-        };
-
-        vm.condClass = function (s) {
-            switch (s) {
-                case 'Good':              return 'erp-chip-green';
-                case 'Fair':              return 'erp-chip-amber';
-                case 'Under Maintenance': return 'erp-chip-blue';
-                case 'Damaged':           return 'erp-chip-red';
-                default:                  return 'erp-chip-grey';
+                case 'Available':     return 'erp-chip-green';
+                case 'Not Available': return 'erp-chip-red';
+                default:              return 'erp-chip-grey';
             }
         };
 
@@ -91,7 +63,6 @@
                 .then(function (res) {
                     if (res.data && res.data.status) {
                         vm.detail = res.data.data;
-                        if (!vm.detail.amenities) { vm.detail.amenities = []; }
                         vm.showModal = true;
                     } else {
                         alert((res.data && res.data.message) || 'Unable to load room.');
@@ -109,7 +80,7 @@
         vm.deleteRoom = function (r) {
             var ok = window.confirm(
                 'Delete room "' + r.room_no + '" (' + r.room_code + ')?\n\n' +
-                'This also removes its uploaded image and cannot be undone.'
+                'This cannot be undone.'
             );
             if (!ok) { return; }
 

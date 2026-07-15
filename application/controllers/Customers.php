@@ -46,7 +46,6 @@ class Customers extends Secure_Controller
     public function index()
     {
         $data = array(
-            'states' => $this->Customer_model->distinct_values('state'),
             'flash'  => $this->session->flashdata('customer_msg'),
         );
         $this->load->view('customers/list', $data);
@@ -69,10 +68,11 @@ class Customers extends Secure_Controller
         }
 
         $data = array(
-            'customer'     => $customer,
-            'next_code'    => $customer ? $customer->customer_code : $this->Customer_model->next_code(),
-            'state_opts'   => $this->_state_options(),
-            'country_opts' => $this->_country_options(),
+            'customer'       => $customer,
+            'next_code'      => $customer ? $customer->customer_code : $this->Customer_model->next_code(),
+            'country_opts'   => $this->_country_options(),
+            'identity_types' => $this->_identity_types(),
+            'identities'     => $customer ? $this->Customer_model->get_identities($customer->id) : array(),
         );
         $this->load->view('customers/form', $data);
     }
@@ -114,10 +114,10 @@ class Customers extends Secure_Controller
         $data = array(
             'booking'       => $booking,
             'customer'      => $customer,
-            'state_opts'    => $this->_state_options(),
             'country_opts'  => $this->_country_options(),
             'channel_opts'  => $this->Customer_model->booking_channels(),
             'room_cat_opts' => $this->Customer_model->room_categories(),
+            'room_opts'     => $this->Customer_model->available_rooms($booking_id),
             'status_opts'   => $this->_booking_status_options(),
         );
         $this->load->view('customers/booking_form', $data);
@@ -136,9 +136,6 @@ class Customers extends Secure_Controller
             'customer_code' => $this->input->get('customer_code'),
             'name'          => $this->input->get('name'),
             'phone'         => $this->input->get('phone'),
-            'city'          => $this->input->get('city'),
-            'district'      => $this->input->get('district'),
-            'state'         => $this->input->get('state'),
             'status'        => $this->input->get('status'),
         );
 
@@ -193,11 +190,16 @@ class Customers extends Secure_Controller
             return $this->_json(array('status' => FALSE, 'message' => 'Customer not found.'));
         }
 
-        // Attach streamed-document URLs only when a file exists.
-        $customer->aadhar_url = $customer->aadhar_card_path
-            ? site_url('customers/file/'.$customer->id.'/aadhar') : NULL;
-        $customer->pan_url = $customer->pan_card_path
-            ? site_url('customers/file/'.$customer->id.'/pan') : NULL;
+        // Attach identity proofs (with a label + streamed-document URL each).
+        $labels = $this->_identity_types();
+        $customer->identities = array_map(function ($idn) use ($labels) {
+            return array(
+                'identity_type'   => $idn->identity_type,
+                'type_label'      => isset($labels[$idn->identity_type]) ? $labels[$idn->identity_type] : $idn->identity_type,
+                'identity_number' => $idn->identity_number,
+                'document_url'    => $idn->document_path ? site_url('customers/identity_file/'.$idn->id) : NULL,
+            );
+        }, $this->Customer_model->get_identities($customer->id));
 
         return $this->_json(array('status' => TRUE, 'data' => $customer));
     }
@@ -224,15 +226,15 @@ class Customers extends Secure_Controller
         $this->load->library('form_validation');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
-        $this->form_validation->set_rules('email', 'Email', 'trim|valid_email|max_length[150]');
 
         if ($this->form_validation->run() === FALSE) {
             // Re-render the form with errors + submitted values.
             $data = array(
-                'customer'     => $existing,
-                'next_code'    => $is_edit ? $existing->customer_code : $this->Customer_model->next_code(),
-                'state_opts'   => $this->_state_options(),
-                'country_opts' => $this->_country_options(),
+                'customer'       => $existing,
+                'next_code'      => $is_edit ? $existing->customer_code : $this->Customer_model->next_code(),
+                'country_opts'   => $this->_country_options(),
+                'identity_types' => $this->_identity_types(),
+                'identities'     => $existing ? $this->Customer_model->get_identities($existing->id) : array(),
             );
             $this->load->view('customers/form', $data);
             return;
@@ -245,52 +247,27 @@ class Customers extends Secure_Controller
         $data = array(
             'customer_name' => $this->input->post('customer_name', TRUE),
             'phone'         => $this->input->post('phone', TRUE),        // Mobile No
-            'alt_phone'     => $this->input->post('alt_phone', TRUE),
-            'landline_no'   => $this->input->post('landline_no', TRUE),
-            'email'         => $this->input->post('email', TRUE),
-            'address1'      => $this->input->post('address1', TRUE),
-            'address2'      => $this->input->post('address2', TRUE),
-            'city'          => $this->input->post('city', TRUE),
-            'district'      => $this->input->post('district', TRUE),
             'pincode'       => $this->input->post('pincode', TRUE),
-            'zip_code'      => $this->input->post('zip_code', TRUE),
-            'state'         => $this->input->post('state', TRUE),
             'country'       => $this->input->post('country', TRUE),
-            'aadhar_number' => $this->input->post('aadhar_number', TRUE),
-            'aadhar_name'   => $this->input->post('aadhar_name', TRUE),
-            'pan_number'    => $this->input->post('pan_number', TRUE),
-            'pan_name'      => $this->input->post('pan_name', TRUE),
             'is_active'     => $this->input->post('is_active') !== NULL ? 1 : 0,
         );
         if ($is_edit) {
             $data['is_active'] = (int) $this->input->post('is_active');
         }
 
-        // --- File uploads (replace old file if a new one is provided) ----
-        $upload_error = NULL;
-        $aadhar_path  = $this->_handle_upload('aadhar_card', $code, 'aadhar_card',
-                            $existing ? $existing->aadhar_card_path : NULL, $upload_error);
-        $pan_path     = $this->_handle_upload('pan_card', $code, 'pan_card',
-                            $existing ? $existing->pan_card_path : NULL, $upload_error);
-
-        if ($upload_error !== NULL) {
-            $this->session->set_flashdata('customer_msg', array('type' => 'danger', 'text' => $upload_error));
-            redirect($is_edit ? 'customers/form/'.$id : 'customers/form');
-            return;
-        }
-
-        if ($aadhar_path !== NULL) { $data['aadhar_card_path'] = $aadhar_path; }
-        if ($pan_path    !== NULL) { $data['pan_card_path']    = $pan_path; }
-
-        // --- Persist -----------------------------------------------------
+        // --- Persist customer ------------------------------------------------
         if ($is_edit) {
             $this->Customer_model->update($id, $data);
+            $cust_id = $id;
             $msg = 'Customer "'.$data['customer_name'].'" updated successfully.';
         } else {
             $data['customer_code'] = $code;
-            $this->Customer_model->insert($data);
+            $cust_id = $this->Customer_model->insert($data);
             $msg = 'Customer "'.$data['customer_name'].'" ('.$code.') added successfully.';
         }
+
+        // --- Identity proofs (dynamic rows + their uploaded documents) -------
+        $this->_save_identities($cust_id, $code);
 
         $this->session->set_flashdata('customer_msg', array('type' => 'success', 'text' => $msg));
         redirect('customers');
@@ -315,17 +292,16 @@ class Customers extends Secure_Controller
         $this->load->library('form_validation');
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
-        $this->form_validation->set_rules('email', 'Email', 'trim|valid_email|max_length[150]');
 
         if ($this->form_validation->run() === FALSE) {
             $existing = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
             $data = array(
                 'booking'       => $existing,
                 'customer'      => $existing ? $this->Customer_model->get_by_id($existing->customer_id) : NULL,
-                'state_opts'    => $this->_state_options(),
                 'country_opts'  => $this->_country_options(),
                 'channel_opts'  => $this->Customer_model->booking_channels(),
                 'room_cat_opts' => $this->Customer_model->room_categories(),
+                'room_opts'     => $this->Customer_model->available_rooms($booking_id),
                 'status_opts'   => $this->_booking_status_options(),
             );
             $this->load->view('customers/booking_form', $data);
@@ -338,12 +314,7 @@ class Customers extends Secure_Controller
         // Only fields actually submitted are written, so a form that doesn't
         // carry a field can never blank out what the customer already has.
         $cdata  = array('phone' => $phone);
-        $fields = array(
-            'customer_name', 'alt_phone', 'landline_no', 'email',
-            'address1', 'address2', 'city', 'district',
-            'pincode', 'zip_code', 'state', 'country',
-            'aadhar_number', 'aadhar_name', 'pan_number', 'pan_name',
-        );
+        $fields = array('customer_name', 'pincode', 'country');
         foreach ($fields as $f) {
             if ($this->input->post($f) !== NULL) {
                 $cdata[$f] = $this->input->post($f, TRUE);
@@ -409,24 +380,19 @@ class Customers extends Secure_Controller
     // ---------------------------------------------------------------------
 
     /**
-     * Stream an uploaded Aadhar/PAN document. Files live outside the public
-     * tree; access is only possible here, behind the auth guard.
+     * Stream an uploaded identity-proof document by its identity id. Files live
+     * outside the public tree; access is only possible here, behind the guard.
      *
-     * @param int    $id
-     * @param string $type  'aadhar' | 'pan'
+     * @param int $identity_id
      */
-    public function file($id = NULL, $type = NULL)
+    public function identity_file($identity_id = NULL)
     {
-        $customer = $id ? $this->Customer_model->get_by_id($id) : NULL;
-        if ( ! $customer) { show_404(); return; }
-
-        $column = ($type === 'aadhar') ? 'aadhar_card_path'
-                : (($type === 'pan')   ? 'pan_card_path' : NULL);
-        if ($column === NULL || empty($customer->$column)) { show_404(); return; }
+        $identity = $identity_id ? $this->Customer_model->get_identity($identity_id) : NULL;
+        if ( ! $identity || empty($identity->document_path)) { show_404(); return; }
 
         // Resolve + confine the path to the secure base (defence in depth).
-        $rel  = str_replace(array('\\', '..'), array('/', ''), $customer->$column);
-        $abs  = SECURE_UPLOAD_PATH.str_replace('/', DIRECTORY_SEPARATOR, $rel);
+        $rel = str_replace(array('\\', '..'), array('/', ''), $identity->document_path);
+        $abs = SECURE_UPLOAD_PATH.str_replace('/', DIRECTORY_SEPARATOR, $rel);
 
         if ( ! is_file($abs)) { show_404(); return; }
 
@@ -456,7 +422,7 @@ class Customers extends Secure_Controller
      *
      * @param  string      $field      $_FILES field name
      * @param  string      $code       customer_code (folder name)
-     * @param  string      $base_name  logical name (aadhar_card / pan_card)
+     * @param  string      $base_name  logical file name (e.g. identity_12)
      * @param  string|null $old_path   existing stored path (to be replaced)
      * @param  string|null $error      out-param, populated on failure
      * @return string|null
@@ -503,6 +469,92 @@ class Customers extends Secure_Controller
         return 'customers/'.$code.'/'.$info['file_name'];
     }
 
+    /**
+     * Persist the dynamic identity-proof rows for a customer:
+     *   - existing rows are updated, new rows inserted
+     *   - a freshly uploaded document replaces that row's file
+     *   - rows removed on the form are deleted (with their files)
+     *
+     * @param int    $customer_id
+     * @param string $code  customer_code (upload folder)
+     */
+    private function _save_identities($customer_id, $code)
+    {
+        $types   = (array) $this->input->post('identity_type');
+        $numbers = (array) $this->input->post('identity_number');
+        $row_ids = (array) $this->input->post('identity_id');
+        $valid   = array_keys($this->_identity_types());
+
+        $keep = array();
+        foreach ($types as $i => $type) {
+            $type   = trim((string) $type);
+            $number = isset($numbers[$i]) ? trim((string) $numbers[$i]) : '';
+            $rid    = (isset($row_ids[$i]) && $row_ids[$i] !== '') ? (int) $row_ids[$i] : 0;
+            $hasfile = ! empty($_FILES['identity_document']['name'][$i]);
+
+            // A row is meaningful only when a valid identity type is chosen.
+            if ($type === '' || ! in_array($type, $valid, TRUE)) {
+                continue;
+            }
+
+            $existing_row = $rid ? $this->Customer_model->get_identity($rid) : NULL;
+            $belongs = $existing_row && (int) $existing_row->customer_id === (int) $customer_id;
+
+            $fields = array(
+                'identity_type'   => $type,
+                'identity_number' => $number !== '' ? $number : NULL,
+            );
+
+            if ($belongs) {
+                $this->Customer_model->update_identity($rid, $customer_id, $fields);
+                $iid = $rid;
+            } else {
+                $fields['customer_id'] = $customer_id;
+                $iid = $this->Customer_model->insert_identity($fields);
+            }
+            $keep[] = $iid;
+
+            if ($hasfile) {
+                $err  = NULL;
+                $old  = $belongs ? $existing_row->document_path : NULL;
+                $path = $this->_upload_identity_file($i, $code, 'identity_'.$iid, $old, $err);
+                if ($path !== NULL) {
+                    $this->Customer_model->update_identity($iid, $customer_id, array('document_path' => $path));
+                }
+            }
+        }
+
+        // Remove identity rows the user deleted on the form (and their files).
+        foreach ($this->Customer_model->identities_to_remove($customer_id, $keep) as $gone) {
+            if ( ! empty($gone->document_path)) {
+                $abs = SECURE_UPLOAD_PATH.str_replace('/', DIRECTORY_SEPARATOR, $gone->document_path);
+                if (is_file($abs)) { @unlink($abs); }
+            }
+            $this->Customer_model->delete_identity($gone->id, $customer_id);
+        }
+    }
+
+    /**
+     * Upload the indexed identity document (from the identity_document[] array)
+     * by re-mapping it to a single-file field the upload library can consume.
+     *
+     * @return string|null DB-relative path, or NULL when nothing uploaded.
+     */
+    private function _upload_identity_file($index, $code, $base_name, $old_path, &$error)
+    {
+        if (empty($_FILES['identity_document']['name'][$index])) {
+            return NULL;
+        }
+        $_FILES['identity_upload'] = array(
+            'name'     => $_FILES['identity_document']['name'][$index],
+            'type'     => $_FILES['identity_document']['type'][$index],
+            'tmp_name' => $_FILES['identity_document']['tmp_name'][$index],
+            'error'    => $_FILES['identity_document']['error'][$index],
+            'size'     => $_FILES['identity_document']['size'][$index],
+        );
+        return $this->_handle_upload('identity_upload', $code, $base_name, $old_path, $error);
+    }
+
     /** JSON output helper. */
     private function _json($payload)
     {
@@ -521,14 +573,6 @@ class Customers extends Secure_Controller
     private function _num($v)
     {
         return ($v === NULL || $v === '' || ! is_numeric($v)) ? NULL : (float) $v;
-    }
-
-    /** Nights between two Y-m-d dates (>= 0), or NULL if either is missing. */
-    private function _nights($check_in, $check_out)
-    {
-        if ( ! $check_in || ! $check_out) { return NULL; }
-        $days = (int) floor((strtotime($check_out) - strtotime($check_in)) / 86400);
-        return max(0, $days);
     }
 
     /**
@@ -555,16 +599,14 @@ class Customers extends Secure_Controller
      */
     private function _booking_from_post()
     {
+        // NOTE: scheduled_check_in_date / scheduled_check_out_date / length_of_stay
+        // are intentionally NOT written here — their inputs were removed from the
+        // form (view-only on the list), so we leave any stored values untouched.
         $booking = array(
             'booking_channel_id' => $this->input->post('booking_channel_id') ?: NULL,
             'booking_status'     => $this->_booking_status($this->input->post('booking_status')),
-            'booking_by'         => $this->input->post('booking_by', TRUE),
-            'guest_name'         => $this->input->post('guest_name', TRUE),
-            'guest_mobile_no'    => $this->input->post('guest_mobile_no', TRUE),
-            'guest_contact_no'   => $this->input->post('guest_contact_no', TRUE),
             'property_name'      => $this->input->post('property_name', TRUE),
-            'scheduled_check_in_date'  => $this->input->post('scheduled_check_in_date') ?: NULL,
-            'scheduled_check_out_date' => $this->input->post('scheduled_check_out_date') ?: NULL,
+            'room_id'            => $this->input->post('room_id') ?: NULL,   // allotted room
             'checked_in_at'      => $this->_datetime($this->input->post('checked_in_at')),
             'checked_out_at'     => $this->_datetime($this->input->post('checked_out_at')),
             'total_guest'        => $this->_int($this->input->post('total_guest')),
@@ -576,7 +618,6 @@ class Customers extends Secure_Controller
         );
 
         // Derived server-side (never trust the client for these).
-        $booking['length_of_stay']   = $this->_nights($booking['scheduled_check_in_date'], $booking['scheduled_check_out_date']);
         $booking['remaining_amount'] = ($booking['total_amount'] !== NULL || $booking['amount_paid'] !== NULL)
             ? round((float) $booking['total_amount'] - (float) $booking['amount_paid'], 2)
             : NULL;
@@ -596,23 +637,20 @@ class Customers extends Secure_Controller
     }
 
     /** Static dropdown option lists (extend as needed). */
-    private function _state_options()
-    {
-        // Prefer the full states master (state_details); fall back to a small
-        // built-in list if that table is empty/absent.
-        $states = $this->Customer_model->all_states();
-        if ( ! empty($states)) {
-            return $states;
-        }
-        return array(
-            'Andhra Pradesh', 'Delhi', 'Goa', 'Gujarat', 'Karnataka', 'Kerala',
-            'Maharashtra', 'Tamil Nadu', 'Telangana', 'Uttar Pradesh', 'West Bengal',
-        );
-    }
-
     private function _country_options()
     {
         return array('India', 'United Arab Emirates', 'United Kingdom', 'United States');
+    }
+
+    /** Identity-proof types: value => label (drives the ID Proof dropdown). */
+    private function _identity_types()
+    {
+        return array(
+            'aadhar'   => 'Aadhar Card',
+            'pan'      => 'PAN Card',
+            'passport' => 'Passport',
+            'voter_id' => 'Voter ID',
+        );
     }
 
     /** Booking status value => human label (order = lifecycle order). */

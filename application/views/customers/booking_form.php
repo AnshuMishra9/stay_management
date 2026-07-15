@@ -24,10 +24,10 @@ $bval = function ($field, $fallback = '') use ($booking) {
     return set_value($field, $booking ? ($booking->$field ?? '') : $fallback, FALSE);
 };
 
-$sel_state   = $val('state');
 $sel_country = $val('country', 'India');
 $sel_channel = $bval('booking_channel_id');
 $sel_roomcat = $bval('room_category_id');
+$sel_room    = $bval('room_id');
 $sel_status  = $bval('booking_status');
 
 // Stored DATETIME -> datetime-local input value.
@@ -96,68 +96,11 @@ $dtlocal = function ($field) use ($bval) {
                 </div>
             </div>
 
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Alt Mobile No</label>
-                    <input class="erp-input" type="text" name="alt_phone" maxlength="20" value="<?= html_escape($val('alt_phone')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Landline No</label>
-                    <input class="erp-input" type="text" name="landline_no" maxlength="20" value="<?= html_escape($val('landline_no')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Email</label>
-                    <input class="erp-input" type="email" name="email" maxlength="150" value="<?= html_escape($val('email')) ?>">
-                    <?= form_error('email', '<div class="erp-error">', '</div>') ?>
-                </div>
-                <div class="erp-form-field">
-                    <label>Address 1</label>
-                    <input class="erp-input" type="text" name="address1" maxlength="255" value="<?= html_escape($val('address1')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Address 2</label>
-                    <input class="erp-input" type="text" name="address2" maxlength="255" value="<?= html_escape($val('address2')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>City</label>
-                    <input class="erp-input" type="text" name="city" maxlength="100" value="<?= html_escape($val('city')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>District</label>
-                    <input class="erp-input" type="text" name="district" maxlength="100" value="<?= html_escape($val('district')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>State</label>
-                    <select class="erp-select" name="state">
-                        <option value="">Select</option>
-                        <?php foreach ($state_opts as $opt): ?>
-                            <option value="<?= html_escape($opt) ?>" <?= $sel_state === $opt ? 'selected' : '' ?>><?= html_escape($opt) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
+            <div class="erp-grid-2">
                 <div class="erp-form-field">
                     <label>Pincode</label>
                     <input class="erp-input" type="text" name="pincode" maxlength="15" value="<?= html_escape($val('pincode')) ?>">
                 </div>
-                <div class="erp-form-field">
-                    <label>Zip Code</label>
-                    <input class="erp-input" type="text" name="zip_code" maxlength="15" value="<?= html_escape($val('zip_code')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
                     <label>Country</label>
                     <select class="erp-select" name="country">
@@ -166,28 +109,6 @@ $dtlocal = function ($field) use ($bval) {
                             <option value="<?= html_escape($opt) ?>" <?= $sel_country === $opt ? 'selected' : '' ?>><?= html_escape($opt) ?></option>
                         <?php endforeach; ?>
                     </select>
-                </div>
-                <div class="erp-form-field">
-                    <label>Aadhar Number</label>
-                    <input class="erp-input" type="text" name="aadhar_number" maxlength="20" value="<?= html_escape($val('aadhar_number')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Aadhar Name</label>
-                    <input class="erp-input" type="text" name="aadhar_name" maxlength="150" value="<?= html_escape($val('aadhar_name')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>PAN Number</label>
-                    <input class="erp-input" type="text" name="pan_number" maxlength="20" value="<?= html_escape($val('pan_number')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2">
-                <div class="erp-form-field">
-                    <label>PAN Name</label>
-                    <input class="erp-input" type="text" name="pan_name" maxlength="150" value="<?= html_escape($val('pan_name')) ?>">
                 </div>
             </div>
         </div>
@@ -219,28 +140,6 @@ $dtlocal = function ($field) use ($bval) {
                     </select>
                 </div>
                 <div class="erp-form-field">
-                    <label>Booking By <span class="erp-muted" style="font-weight:400;">(who booked)</span></label>
-                    <input class="erp-input" type="text" name="booking_by" maxlength="150" value="<?= html_escape($bval('booking_by')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Guest Name</label>
-                    <input class="erp-input" type="text" name="guest_name" maxlength="150" value="<?= html_escape($bval('guest_name')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Guest Mobile No</label>
-                    <input class="erp-input" type="text" name="guest_mobile_no" maxlength="20" value="<?= html_escape($bval('guest_mobile_no')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Guest Contact No</label>
-                    <input class="erp-input" type="text" name="guest_contact_no" maxlength="20" value="<?= html_escape($bval('guest_contact_no')) ?>">
-                </div>
-                <div class="erp-form-field">
                     <label>Property Name</label>
                     <input class="erp-input" type="text" name="property_name" maxlength="150" value="<?= html_escape($bval('property_name')) ?>">
                 </div>
@@ -248,13 +147,15 @@ $dtlocal = function ($field) use ($bval) {
 
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
-                    <label>Scheduled Check-In Date <span class="erp-muted" style="font-weight:400;">(planned arrival)</span></label>
-                    <input class="erp-input" type="date" id="bk_checkin" name="scheduled_check_in_date" value="<?= html_escape($bval('scheduled_check_in_date')) ?>">
+                    <label>Allot Room <span class="erp-muted" style="font-weight:400;">(only rooms not already assigned)</span></label>
+                    <select class="erp-select" name="room_id" data-search="always" data-placeholder="Select a room">
+                        <option value="">— No room —</option>
+                        <?php foreach ($room_opts as $rm): ?>
+                            <option value="<?= (int) $rm->id ?>" <?= (string) $sel_room === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
-                <div class="erp-form-field">
-                    <label>Scheduled Check-Out Date <span class="erp-muted" style="font-weight:400;">(planned departure)</span></label>
-                    <input class="erp-input" type="date" id="bk_checkout" name="scheduled_check_out_date" value="<?= html_escape($bval('scheduled_check_out_date')) ?>">
-                </div>
+                <div class="erp-form-field"></div>
             </div>
 
             <div class="erp-grid-2" style="margin-bottom:16px;">

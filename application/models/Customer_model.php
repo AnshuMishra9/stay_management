@@ -18,8 +18,8 @@ class Customer_model extends CI_Model
     /** Columns shown in the list grid (customer info only — bookings live in
      *  `booking_details`, so no booking columns here). */
     protected $list_columns = array(
-        'id', 'customer_code', 'customer_name', 'phone', 'alt_phone',
-        'email', 'city', 'district', 'state', 'country', 'is_active',
+        'id', 'customer_code', 'customer_name', 'phone',
+        'pincode', 'country', 'is_active',
     );
 
     // ---------------------------------------------------------------------
@@ -42,8 +42,6 @@ class Customer_model extends CI_Model
             'customer_code' => 'customer_code',
             'name'          => 'customer_name',
             'phone'         => 'phone',
-            'city'          => 'city',
-            'district'      => 'district',
         );
         foreach ($like_map as $key => $column) {
             if (isset($filters[$key]) && $filters[$key] !== '') {
@@ -51,10 +49,6 @@ class Customer_model extends CI_Model
             }
         }
 
-        // Exact-match filters.
-        if ( ! empty($filters['state'])) {
-            $this->db->where('state', $filters['state']);
-        }
         // Status filter: '1' active, '0' inactive, '' or 'all' => no filter.
         if (isset($filters['status']) && $filters['status'] !== '' && $filters['status'] !== 'all') {
             $this->db->where('is_active', (int) $filters['status']);
@@ -110,7 +104,7 @@ class Customer_model extends CI_Model
     public function distinct_values($column)
     {
         // Whitelist to keep the identifier safe.
-        $allowed = array('state', 'country', 'city', 'district');
+        $allowed = array('country');
         if ( ! in_array($column, $allowed, TRUE)) {
             return array();
         }
@@ -184,6 +178,35 @@ class Customer_model extends CI_Model
     }
 
     /**
+     * Rooms available to allot on a booking: active rooms NOT already
+     * allotted to another booking. When editing a booking, the room
+     * currently on THAT booking is kept in the list (so it stays selectable).
+     *
+     * @param  int|null $current_booking_id  booking being edited (excluded)
+     * @return array of {id, room_no}
+     */
+    public function available_rooms($current_booking_id = NULL)
+    {
+        if ( ! $this->db->table_exists('rooms')) {
+            return array();
+        }
+
+        // room_ids taken by OTHER bookings.
+        $this->db->select('room_id')->from('booking_details')->where('room_id IS NOT NULL');
+        if ($current_booking_id) {
+            $this->db->where('id !=', (int) $current_booking_id);
+        }
+        $taken = array_map(function ($r) { return (int) $r->room_id; },
+                           $this->db->get()->result());
+
+        $this->db->select('id, room_no')->from('rooms')->where('is_active', 1);
+        if ($taken) {
+            $this->db->where_not_in('id', $taken);
+        }
+        return $this->db->order_by('room_no', 'ASC')->get()->result();
+    }
+
+    /**
      * Booking-centric list — reads from the normalized `booking_details` table
      * (one customer -> many bookings), joined to `customers` so we know WHOSE
      * booking it is, and to `booking_channels` for the channel NAME.
@@ -198,21 +221,22 @@ class Customer_model extends CI_Model
         $this->db
             ->select('b.id, b.booking_number, b.customer_id,
                       c.customer_code, c.customer_name, c.phone,
-                      b.guest_name, b.guest_mobile_no, b.booking_status,
+                      b.booking_status,
                       b.booking_channel_id, bc.channel_name,
+                      b.room_id, r.room_no AS allotted_room_no,
                       b.scheduled_check_in_date, b.scheduled_check_out_date,
                       b.checked_in_at, b.checked_out_at, b.length_of_stay,
                       b.total_guest, b.total_amount, b.amount_paid, b.remaining_amount')
             ->from('booking_details b')
             ->join($this->table.' c', 'c.id = b.customer_id', 'inner')
-            ->join('booking_channels bc', 'bc.channel_id = b.booking_channel_id', 'left');
+            ->join('booking_channels bc', 'bc.channel_id = b.booking_channel_id', 'left')
+            ->join('rooms r', 'r.id = b.room_id', 'left');
 
-        // Free-text search across booking number / customer / guest.
+        // Free-text search across booking number / customer.
         if (isset($filters['q']) && $filters['q'] !== '') {
             $this->db->group_start()
                 ->like('b.booking_number', $filters['q'])
                 ->or_like('c.customer_name', $filters['q'])
-                ->or_like('b.guest_name', $filters['q'])
                 ->or_like('c.customer_code', $filters['q'])
                 ->group_end();
         }
@@ -343,5 +367,81 @@ class Customer_model extends CI_Model
     public function delete($id)
     {
         return $this->db->delete($this->table, array('id' => (int) $id));
+    }
+
+    // ---------------------------------------------------------------------
+    //  Identity proofs  (customer_identities — one customer -> many)
+    // ---------------------------------------------------------------------
+
+    /**
+     * All identity-proof rows for a customer (Aadhar / PAN / Passport / …).
+     *
+     * @param  int $customer_id
+     * @return array of {id, identity_type, identity_number, document_path}
+     */
+    public function get_identities($customer_id)
+    {
+        return $this->db
+            ->select('id, identity_type, identity_number, document_path')
+            ->where('customer_id', (int) $customer_id)
+            ->order_by('id', 'ASC')
+            ->get('customer_identities')
+            ->result();
+    }
+
+    /** A single identity row (used by the secure document stream). */
+    public function get_identity($id)
+    {
+        return $this->db
+            ->where('id', (int) $id)
+            ->limit(1)
+            ->get('customer_identities')
+            ->row();
+    }
+
+    /** Insert one identity row; returns its new id. */
+    public function insert_identity(array $data)
+    {
+        $data['created_at'] = date('Y-m-d H:i:s');
+        $this->db->insert('customer_identities', $data);
+        return (int) $this->db->insert_id();
+    }
+
+    /** Update one identity row (scoped to its customer for safety). */
+    public function update_identity($id, $customer_id, array $data)
+    {
+        $data['updated_at'] = date('Y-m-d H:i:s');
+        return $this->db
+            ->where('id', (int) $id)
+            ->where('customer_id', (int) $customer_id)
+            ->update('customer_identities', $data);
+    }
+
+    /**
+     * Identity rows for a customer that are NOT in the kept-id list — i.e. the
+     * ones removed on the form. Returned so the caller can delete their files
+     * before the rows go.
+     *
+     * @param  int   $customer_id
+     * @param  array $keep_ids
+     * @return array
+     */
+    public function identities_to_remove($customer_id, array $keep_ids)
+    {
+        $this->db->where('customer_id', (int) $customer_id);
+        $keep = array_filter(array_map('intval', $keep_ids));
+        if ($keep) {
+            $this->db->where_not_in('id', $keep);
+        }
+        return $this->db->get('customer_identities')->result();
+    }
+
+    /** Delete an identity row by id (scoped to its customer). */
+    public function delete_identity($id, $customer_id)
+    {
+        return $this->db->delete('customer_identities', array(
+            'id'          => (int) $id,
+            'customer_id' => (int) $customer_id,
+        ));
     }
 }

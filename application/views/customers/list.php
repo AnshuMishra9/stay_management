@@ -61,11 +61,7 @@
                         <th>Customer ID</th>
                         <th>Customer Name</th>
                         <th>Mobile</th>
-                        <th>Alt Mobile</th>
-                        <th>Email</th>
-                        <th>City</th>
-                        <th>District</th>
-                        <th>State</th>
+                        <th>Pincode</th>
                         <th>Country</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -75,17 +71,6 @@
                         <th><input class="erp-input" ng-model="vm.filters.name" ng-change="vm.onFilter()" placeholder="Name"></th>
                         <th><input class="erp-input" ng-model="vm.filters.phone" ng-change="vm.onFilter()" placeholder="Mobile"></th>
                         <th></th>
-                        <th></th>
-                        <th><input class="erp-input" ng-model="vm.filters.city" ng-change="vm.onFilter()" placeholder="City"></th>
-                        <th><input class="erp-input" ng-model="vm.filters.district" ng-change="vm.onFilter()" placeholder="District"></th>
-                        <th>
-                            <select class="erp-select" ng-model="vm.filters.state" ng-change="vm.onFilter()">
-                                <option value="">All</option>
-                                <?php foreach ($states as $s): ?>
-                                    <option value="<?= html_escape($s) ?>"><?= html_escape($s) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </th>
                         <th></th>
                         <th>
                             <select class="erp-select" ng-model="vm.filters.status" ng-change="vm.onFilter()">
@@ -102,11 +87,7 @@
                         <td class="cell-strong">{{ c.customer_code }}</td>
                         <td class="cell-strong">{{ c.customer_name }}</td>
                         <td>{{ c.phone }}</td>
-                        <td>{{ c.alt_phone || '—' }}</td>
-                        <td>{{ c.email || '—' }}</td>
-                        <td>{{ c.city || '—' }}</td>
-                        <td>{{ c.district || '—' }}</td>
-                        <td>{{ c.state || '—' }}</td>
+                        <td>{{ c.pincode || '—' }}</td>
                         <td>{{ c.country || '—' }}</td>
                         <td>
                             <span class="erp-badge" ng-class="c.is_active == 1 ? 'erp-badge-active' : 'erp-badge-inactive'">
@@ -154,43 +135,28 @@
             <div class="erp-section-title">Customer Info</div>
             <div class="erp-detail-grid">
                 <div class="erp-detail-item"><div class="k">Mobile No</div><div class="v">{{ vm.detail.phone }}</div></div>
-                <div class="erp-detail-item"><div class="k">Alt Mobile No</div><div class="v">{{ vm.detail.alt_phone || '—' }}</div></div>
-                <div class="erp-detail-item"><div class="k">Landline No</div><div class="v">{{ vm.detail.landline_no || '—' }}</div></div>
-                <div class="erp-detail-item"><div class="k">Email</div><div class="v">{{ vm.detail.email || '—' }}</div></div>
                 <div class="erp-detail-item"><div class="k">Status</div><div class="v">
                     <span class="erp-badge" ng-class="vm.detail.is_active == 1 ? 'erp-badge-active':'erp-badge-inactive'">{{ vm.detail.is_active == 1 ? 'Active':'Inactive' }}</span>
                 </div></div>
-                <div class="erp-detail-item" style="grid-column:1/-1;"><div class="k">Address 1</div><div class="v">{{ vm.detail.address1 || '—' }}</div></div>
-                <div class="erp-detail-item" style="grid-column:1/-1;"><div class="k">Address 2</div><div class="v">{{ vm.detail.address2 || '—' }}</div></div>
-                <div class="erp-detail-item"><div class="k">City</div><div class="v">{{ vm.detail.city || '—' }}</div></div>
-                <div class="erp-detail-item"><div class="k">District</div><div class="v">{{ vm.detail.district || '—' }}</div></div>
-                <div class="erp-detail-item"><div class="k">State</div><div class="v">{{ vm.detail.state || '—' }}</div></div>
                 <div class="erp-detail-item"><div class="k">Pincode</div><div class="v">{{ vm.detail.pincode || '—' }}</div></div>
-                <div class="erp-detail-item"><div class="k">Zip Code</div><div class="v">{{ vm.detail.zip_code || '—' }}</div></div>
                 <div class="erp-detail-item"><div class="k">Country</div><div class="v">{{ vm.detail.country || '—' }}</div></div>
             </div>
 
             <hr class="erp-hr">
 
-            <div class="erp-section-title">Identity Documents</div>
+            <div class="erp-section-title">Identity Proof</div>
             <div class="erp-detail-grid">
-                <div class="erp-detail-item">
-                    <div class="k">Aadhar Number</div><div class="v">{{ vm.detail.aadhar_number || '—' }}</div>
-                    <div class="k" style="margin-top:8px;">Aadhar Name</div><div class="v">{{ vm.detail.aadhar_name || '—' }}</div>
-                    <a class="erp-doc-link" ng-if="vm.detail.aadhar_url" ng-href="{{ vm.detail.aadhar_url }}" target="_blank">
+                <div class="erp-detail-item" ng-repeat="idn in vm.detail.identities">
+                    <div class="k">{{ idn.type_label }}</div>
+                    <div class="v">{{ idn.identity_number || '—' }}</div>
+                    <a class="erp-doc-link" ng-if="idn.document_url" ng-href="{{ idn.document_url }}" target="_blank">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-                        View Aadhar Document
+                        View Document
                     </a>
-                    <div class="v erp-muted" ng-if="!vm.detail.aadhar_url">No document uploaded</div>
+                    <div class="v erp-muted" ng-if="!idn.document_url">No document uploaded</div>
                 </div>
-                <div class="erp-detail-item">
-                    <div class="k">PAN Number</div><div class="v">{{ vm.detail.pan_number || '—' }}</div>
-                    <div class="k" style="margin-top:8px;">PAN Name</div><div class="v">{{ vm.detail.pan_name || '—' }}</div>
-                    <a class="erp-doc-link" ng-if="vm.detail.pan_url" ng-href="{{ vm.detail.pan_url }}" target="_blank">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-                        View PAN Document
-                    </a>
-                    <div class="v erp-muted" ng-if="!vm.detail.pan_url">No document uploaded</div>
+                <div class="erp-detail-item erp-muted" ng-if="!vm.detail.identities || !vm.detail.identities.length">
+                    No identity proof added
                 </div>
             </div>
         </div>

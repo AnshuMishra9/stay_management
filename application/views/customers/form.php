@@ -6,7 +6,7 @@
  *
  * $customer   -> customers row when editing, NULL when adding
  * $next_code  -> customer code to display (existing or next generated)
- * $state_opts / $country_opts -> dropdown option arrays
+ * $country_opts -> dropdown option array
  */
 $is_edit = ($customer !== NULL);
 $posted  = ($this->input->server('REQUEST_METHOD') === 'POST');
@@ -16,7 +16,6 @@ $posted  = ($this->input->server('REQUEST_METHOD') === 'POST');
 $val = function ($field, $fallback = '') use ($customer) {
     return set_value($field, $customer ? ($customer->$field ?? '') : $fallback, FALSE);
 };
-$sel_state   = $val('state');
 $sel_country = $val('country', 'India');
 $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer ? (int) $customer->is_active : 1);
 ?>
@@ -28,6 +27,14 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
     <title><?= $is_edit ? 'Edit' : 'Add' ?> Customer &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
+    <style>
+        .idn-row { position: relative; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; background: var(--head); }
+        .idn-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        .idn-remove { position: absolute; top: 8px; right: 10px; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: var(--red-soft); color: var(--red); font-size: 18px; line-height: 1; cursor: pointer; }
+        .idn-remove:hover { background: var(--red); color: #fff; }
+        .idn-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        @media (max-width: 720px) { .idn-fields { grid-template-columns: 1fr; } }
+    </style>
 </head>
 <body class="erp-body">
 
@@ -75,66 +82,12 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
                     <?= form_error('phone', '<div class="erp-error">', '</div>') ?>
                 </div>
                 <div class="erp-form-field">
-                    <label>Alt Mobile No</label>
-                    <input class="erp-input" type="text" name="alt_phone" maxlength="20" value="<?= html_escape($val('alt_phone')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Landline No</label>
-                    <input class="erp-input" type="text" name="landline_no" maxlength="20" value="<?= html_escape($val('landline_no')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Email</label>
-                    <input class="erp-input" type="email" name="email" maxlength="150" value="<?= html_escape($val('email')) ?>">
-                    <?= form_error('email', '<div class="erp-error">', '</div>') ?>
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Address 1</label>
-                    <input class="erp-input" type="text" name="address1" maxlength="255" value="<?= html_escape($val('address1')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Address 2</label>
-                    <input class="erp-input" type="text" name="address2" maxlength="255" value="<?= html_escape($val('address2')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>City</label>
-                    <input class="erp-input" type="text" name="city" maxlength="100" value="<?= html_escape($val('city')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>District</label>
-                    <input class="erp-input" type="text" name="district" maxlength="100" value="<?= html_escape($val('district')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>State</label>
-                    <select class="erp-select" name="state">
-                        <option value="">Select</option>
-                        <?php foreach ($state_opts as $opt): ?>
-                            <option value="<?= html_escape($opt) ?>" <?= $sel_state === $opt ? 'selected' : '' ?>><?= html_escape($opt) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="erp-form-field">
-                    <label>Zip Code</label>
-                    <input class="erp-input" type="text" name="zip_code" maxlength="15" value="<?= html_escape($val('zip_code')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
                     <label>Pincode</label>
                     <input class="erp-input" type="text" name="pincode" maxlength="15" value="<?= html_escape($val('pincode')) ?>">
                 </div>
+            </div>
+
+            <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
                     <label>Country</label>
                     <select class="erp-select" name="country">
@@ -144,6 +97,7 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <div class="erp-form-field"></div>
             </div>
 
             <div class="erp-grid-2">
@@ -156,55 +110,82 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
             </div>
         </div>
 
-        <!-- ===== Identity ===== -->
+        <!-- ===== Identity Proof (repeatable) ===== -->
         <div class="erp-form-section">
-            <div class="erp-section-title">Identity</div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Aadhar Number</label>
-                    <input class="erp-input" type="text" name="aadhar_number" maxlength="20" value="<?= html_escape($val('aadhar_number')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>Aadhar Card <span class="erp-muted" style="font-weight:400;">(jpg/png/pdf, max 4MB)</span></label>
-                    <input class="erp-file" type="file" name="aadhar_card" accept=".jpg,.jpeg,.png,.pdf">
-                    <?php if ($is_edit && ! empty($customer->aadhar_card_path)): ?>
-                        <div class="erp-existing-file">
-                            <a class="erp-doc-link" href="<?= site_url('customers/file/'.$customer->id.'/aadhar') ?>" target="_blank">Current file — view</a>
-                            <span class="erp-muted"> · upload a new file to replace</span>
-                        </div>
-                    <?php endif; ?>
-                </div>
+            <div class="erp-section-title idn-title">
+                <span>Identity Proof</span>
+                <button type="button" id="idnAddMore" class="erp-btn erp-btn-soft erp-btn-sm">+ Add More</button>
             </div>
 
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Aadhar Name</label>
-                    <input class="erp-input" type="text" name="aadhar_name" maxlength="150" value="<?= html_escape($val('aadhar_name')) ?>">
-                </div>
-                <div class="erp-form-field">
-                    <label>PAN Number</label>
-                    <input class="erp-input" type="text" name="pan_number" maxlength="20" value="<?= html_escape($val('pan_number')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2">
-                <div class="erp-form-field">
-                    <label>PAN Card <span class="erp-muted" style="font-weight:400;">(jpg/png/pdf, max 4MB)</span></label>
-                    <input class="erp-file" type="file" name="pan_card" accept=".jpg,.jpeg,.png,.pdf">
-                    <?php if ($is_edit && ! empty($customer->pan_card_path)): ?>
-                        <div class="erp-existing-file">
-                            <a class="erp-doc-link" href="<?= site_url('customers/file/'.$customer->id.'/pan') ?>" target="_blank">Current file — view</a>
-                            <span class="erp-muted"> · upload a new file to replace</span>
+            <div id="identityRows">
+                <?php
+                // Existing identities on edit; at least one blank row otherwise.
+                $rows = ! empty($identities) ? $identities : array(NULL);
+                foreach ($rows as $idn):
+                    $rid  = $idn ? (int) $idn->id : '';
+                    $rtyp = $idn ? $idn->identity_type : '';
+                    $rnum = $idn ? $idn->identity_number : '';
+                    $rdoc = ($idn && ! empty($idn->document_path)) ? site_url('customers/identity_file/'.$idn->id) : '';
+                ?>
+                <div class="idn-row">
+                    <button type="button" class="idn-remove" title="Remove">&times;</button>
+                    <input type="hidden" name="identity_id[]" value="<?= html_escape($rid) ?>">
+                    <div class="idn-fields">
+                        <div class="erp-form-field">
+                            <label>ID Proof Type</label>
+                            <select class="erp-select" name="identity_type[]" data-search="never" data-placeholder="Select ID Proof">
+                                <option value="">Select ID Proof</option>
+                                <?php foreach ($identity_types as $tv => $tl): ?>
+                                    <option value="<?= html_escape($tv) ?>" <?= $rtyp === $tv ? 'selected' : '' ?>><?= html_escape($tl) ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
-                    <?php endif; ?>
+                        <div class="erp-form-field">
+                            <label>Identity Number</label>
+                            <input class="erp-input" type="text" name="identity_number[]" maxlength="50" value="<?= html_escape($rnum) ?>">
+                        </div>
+                        <div class="erp-form-field">
+                            <label>Document <span class="erp-muted" style="font-weight:400;">(jpg/png/pdf)</span></label>
+                            <input class="erp-file" type="file" name="identity_document[]" accept=".jpg,.jpeg,.png,.pdf">
+                            <?php if ($rdoc): ?>
+                                <div class="erp-existing-file">
+                                    <a class="erp-doc-link" href="<?= $rdoc ?>" target="_blank">Current file — view</a>
+                                    <span class="erp-muted"> · upload to replace</span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
-                <div class="erp-form-field">
-                    <label>PAN Name</label>
-                    <input class="erp-input" type="text" name="pan_name" maxlength="150" value="<?= html_escape($val('pan_name')) ?>">
-                </div>
+                <?php endforeach; ?>
             </div>
         </div>
+
+        <!-- Blank row template cloned by the "Add More" button -->
+        <template id="identityRowTpl">
+            <div class="idn-row">
+                <button type="button" class="idn-remove" title="Remove">&times;</button>
+                <input type="hidden" name="identity_id[]" value="">
+                <div class="idn-fields">
+                    <div class="erp-form-field">
+                        <label>ID Proof Type</label>
+                        <select class="erp-select" name="identity_type[]" data-search="never" data-placeholder="Select ID Proof">
+                            <option value="">Select ID Proof</option>
+                            <?php foreach ($identity_types as $tv => $tl): ?>
+                                <option value="<?= html_escape($tv) ?>"><?= html_escape($tl) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="erp-form-field">
+                        <label>Identity Number</label>
+                        <input class="erp-input" type="text" name="identity_number[]" maxlength="50" value="">
+                    </div>
+                    <div class="erp-form-field">
+                        <label>Document <span class="erp-muted" style="font-weight:400;">(jpg/png/pdf)</span></label>
+                        <input class="erp-file" type="file" name="identity_document[]" accept=".jpg,.jpeg,.png,.pdf">
+                    </div>
+                </div>
+            </div>
+        </template>
 
         <!-- Footer actions -->
         <div class="erp-form-foot">
@@ -217,5 +198,6 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
 </div>
 
 <script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
+<script src="<?= base_url('assets/js/identity-rows.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/identity-rows.js') ?>"></script>
 </body>
 </html>

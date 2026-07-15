@@ -59,8 +59,7 @@
                         <th>Booking No</th>
                         <th>Customer ID</th>
                         <th>Customer Name</th>
-                        <th>Guest Name</th>
-                        <th>Guest Mobile</th>
+                        <th>Room</th>
                         <th>Channel</th>
                         <th>Booking Status</th>
                         <th>Sched. Check-In</th>
@@ -75,7 +74,6 @@
                     </tr>
                     <tr class="erp-filter-row">
                         <th><input class="erp-input" ng-model="vm.filters.q" ng-change="vm.onFilter()" placeholder="Search booking / customer"></th>
-                        <th></th>
                         <th></th>
                         <th></th>
                         <th></th>
@@ -111,8 +109,7 @@
                         <td class="cell-strong">{{ c.booking_number }}</td>
                         <td class="cell-strong">{{ c.customer_code }}</td>
                         <td>{{ c.customer_name }}</td>
-                        <td>{{ c.guest_name || '—' }}</td>
-                        <td>{{ c.guest_mobile_no || '—' }}</td>
+                        <td>{{ c.allotted_room_no || '—' }}</td>
                         <td>{{ c.channel_name || '—' }}</td>
                         <td>
                             <span class="erp-badge" ng-class="vm.bookingClass(c.booking_status)" ng-if="c.booking_status">{{ vm.bookingLabel(c.booking_status) }}</span>

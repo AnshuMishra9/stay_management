@@ -15,12 +15,7 @@
     var phoneEl = document.getElementById('bf_phone');
 
     // Customer fields the lookup fills in (name attribute -> element).
-    var FIELDS = [
-        'customer_name', 'alt_phone', 'landline_no', 'email',
-        'address1', 'address2', 'city', 'district', 'state',
-        'pincode', 'zip_code', 'country',
-        'aadhar_number', 'aadhar_name', 'pan_number', 'pan_name'
-    ];
+    var FIELDS = ['customer_name', 'pincode', 'country'];
 
     function field(name) { return document.querySelector('[name="' + name + '"]'); }
 
