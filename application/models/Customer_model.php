@@ -226,13 +226,16 @@ class Customer_model extends CI_Model
             ->select('b.id, b.booking_number, b.customer_id,
                       c.customer_code, c.customer_name,
                       b.room_id, r.room_no AS allotted_room_no,
-                      rc.category_name AS room_category,
                       sm.status_name, sm.status_code')
+            // Room Category: the allotted room's category when a room is assigned,
+            // otherwise the category the booking itself booked (room may be pending).
+            ->select('COALESCE(r_cat.category_name, b_cat.category_name) AS room_category', FALSE)
             ->from('booking_details b')
             ->join($this->table.' c', 'c.id = b.customer_id', 'inner')
             ->join('status_master sm', 'sm.status_id = b.status_id', 'inner')
             ->join('rooms r', 'r.id = b.room_id', 'left')
-            ->join('room_categories rc', 'rc.category_id = r.category_id', 'left');
+            ->join('room_categories r_cat', 'r_cat.category_id = r.category_id', 'left')
+            ->join('room_categories b_cat', 'b_cat.category_id = b.room_category_id', 'left');
 
         // Fixed: this page only lists "Room booked" bookings.
         $this->db->where('sm.status_code', 'room_booked');
@@ -320,13 +323,15 @@ class Customer_model extends CI_Model
         return $this->db
             ->select('b.*,
                       c.customer_code, c.customer_name, c.phone, c.pincode, c.country,
-                      r.room_no AS allotted_room_no, rc.category_name AS room_category,
+                      r.room_no AS allotted_room_no,
                       sm.status_name, sm.status_code, bc.channel_name')
+            ->select('COALESCE(r_cat.category_name, b_cat.category_name) AS room_category', FALSE)
             ->from('booking_details b')
             ->join($this->table.' c', 'c.id = b.customer_id', 'inner')
             ->join('status_master sm', 'sm.status_id = b.status_id', 'inner')
             ->join('rooms r', 'r.id = b.room_id', 'left')
-            ->join('room_categories rc', 'rc.category_id = r.category_id', 'left')
+            ->join('room_categories r_cat', 'r_cat.category_id = r.category_id', 'left')
+            ->join('room_categories b_cat', 'b_cat.category_id = b.room_category_id', 'left')
             ->join('booking_channels bc', 'bc.channel_id = b.booking_channel_id', 'left')
             ->where('b.id', (int) $booking_id)
             ->limit(1)

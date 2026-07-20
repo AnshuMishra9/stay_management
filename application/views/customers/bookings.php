@@ -8,7 +8,10 @@
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
     <style>[ng-cloak]{display:none!important;}</style>
-    <script>window.APP_BASE = "<?= base_url() ?>";</script>
+    <script>
+        window.APP_BASE = "<?= base_url() ?>";
+        window.APP_FRESH = <?= ! empty($flash) ? 'true' : 'false' ?>;   // a save just happened -> bypass cache once
+    </script>
 </head>
 
 <body class="erp-body" ng-controller="BookingsController as vm">

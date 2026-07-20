@@ -427,19 +427,21 @@ class Customers extends Secure_Controller
         // --- Identity proofs (same repeatable block as the customer master)
         $this->_save_identities($customer->id, $customer->customer_code);
 
-        // --- Booking status (+ auto-stamp) -------------------------------
+        // --- Booking status (+ deterministic check-in/out stamps) --------
+        // Fill the timestamp the target status implies (keeping any existing
+        // one) and CLEAR the one it contradicts, so a status change never
+        // leaves a stale checked_in_at / checked_out_at behind.
         $status_id   = $this->_status_id();
         $status_code = $this->Customer_model->status_code($status_id);
-        $upd = array('status_id' => $status_id);
-
         $now = date('Y-m-d H:i:s');
-        if ($status_code === 'checked_in' && empty($booking->checked_in_at)) {
-            $upd['checked_in_at'] = $now;
-        }
-        if ($status_code === 'checked_out') {
-            if (empty($booking->checked_in_at))  { $upd['checked_in_at']  = $now; }
-            if (empty($booking->checked_out_at)) { $upd['checked_out_at'] = $now; }
-        }
+
+        $upd = array(
+            'status_id'      => $status_id,
+            'checked_in_at'  => in_array($status_code, array('checked_in', 'checked_out'), TRUE)
+                                    ? ($booking->checked_in_at ?: $now) : NULL,
+            'checked_out_at' => ($status_code === 'checked_out')
+                                    ? ($booking->checked_out_at ?: $now) : NULL,
+        );
         $this->Customer_model->update_booking($booking_id, $upd);
 
         $this->session->set_flashdata('booking_msg', array(

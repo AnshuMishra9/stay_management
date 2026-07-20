@@ -15,6 +15,12 @@
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
         var debounce = null;
 
+        // After a save/redirect (flash present) the cached list is stale — drop it once.
+        if (window.APP_FRESH) {
+            erpQuery.invalidate('bookings');
+            window.APP_FRESH = false;
+        }
+
         vm.bookings  = [];
         vm.loading   = true;
         vm.showModal = false;
