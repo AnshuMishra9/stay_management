@@ -78,10 +78,10 @@ $show_new = isset($show_new) ? $show_new : TRUE;
                         <th>Actions</th>
                     </tr>
                     <tr class="erp-filter-row">
-                        <th><input class="erp-input" ng-model="vm.filters.q" ng-change="vm.onFilter()" placeholder="Search booking / customer"></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
+                        <th><input class="erp-input" ng-model="vm.filters.booking_no" ng-change="vm.onFilter()" placeholder="Booking No"></th>
+                        <th><input class="erp-input" ng-model="vm.filters.customer_name" ng-change="vm.onFilter()" placeholder="Customer Name"></th>
+                        <th><input class="erp-input" ng-model="vm.filters.room_no" ng-change="vm.onFilter()" placeholder="Room No"></th>
+                        <th><input class="erp-input" ng-model="vm.filters.room_category" ng-change="vm.onFilter()" placeholder="Room Category"></th>
                         <th></th>
                         <th></th>
                     </tr>

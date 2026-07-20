@@ -176,21 +176,27 @@ class Customers extends Secure_Controller
     /** [AJAX] "Room booked" bookings (Booking Details list). */
     public function bookings_ajax()
     {
-        $rows = $this->Customer_model->get_bookings(array(
-            'q'      => $this->input->get('q'),
-            'status' => 'room_booked',
-        ));
-        return $this->_json(array('status' => TRUE, 'data' => $rows));
+        return $this->_json(array('status' => TRUE, 'data' =>
+            $this->Customer_model->get_bookings($this->_booking_filters('room_booked'))));
     }
 
     /** [AJAX] "Checked in" bookings (Check-in Details list). */
     public function checkins_ajax()
     {
-        $rows = $this->Customer_model->get_bookings(array(
-            'q'      => $this->input->get('q'),
-            'status' => 'checked_in',
-        ));
-        return $this->_json(array('status' => TRUE, 'data' => $rows));
+        return $this->_json(array('status' => TRUE, 'data' =>
+            $this->Customer_model->get_bookings($this->_booking_filters('checked_in'))));
+    }
+
+    /** Per-column filters shared by both booking lists. */
+    private function _booking_filters($status)
+    {
+        return array(
+            'status'        => $status,
+            'booking_no'    => $this->input->get('booking_no'),
+            'customer_name' => $this->input->get('customer_name'),
+            'room_no'       => $this->input->get('room_no'),
+            'room_category' => $this->input->get('room_category'),
+        );
     }
 
     /**

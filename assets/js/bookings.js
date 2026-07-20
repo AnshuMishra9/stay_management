@@ -31,7 +31,7 @@
         vm.loading   = true;
         vm.showModal = false;
         vm.detail    = {};
-        vm.filters   = { q: '' };
+        vm.filters   = { booking_no: '', customer_name: '', room_no: '', room_category: '' };
 
         // status_code -> badge css class (status_master is the source of truth).
         var STATUS_CLASS = {
@@ -58,7 +58,7 @@
         };
 
         vm.clearFilters = function () {
-            vm.filters.q = '';
+            angular.forEach(vm.filters, function (v, k) { vm.filters[k] = ''; });
             vm.load();
         };
 

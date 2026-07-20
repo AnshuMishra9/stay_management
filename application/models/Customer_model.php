@@ -217,8 +217,9 @@ class Customer_model extends CI_Model
      * the "Check-in Details" page (checked_in). Columns shown: booking no,
      * customer name, allotted room no + that room's category, and the status.
      *
-     * @param  array $filters  Keys: q (free-text on booking no / customer),
-     *                         status (status_code; defaults to 'room_booked').
+     * @param  array $filters  Keys: status (status_code; defaults to
+     *                         'room_booked'), booking_no, customer_name,
+     *                         room_no, room_category (all partial/LIKE).
      * @return array  rows: id, booking_number, customer_id, customer_code,
      *                customer_name, allotted_room_no, room_category, status_name.
      */
@@ -243,13 +244,15 @@ class Customer_model extends CI_Model
         $status = ! empty($filters['status']) ? $filters['status'] : 'room_booked';
         $this->db->where('sm.status_code', $status);
 
-        // Free-text search across booking number / customer.
-        if (isset($filters['q']) && $filters['q'] !== '') {
-            $this->db->group_start()
-                ->like('b.booking_number', $filters['q'])
-                ->or_like('c.customer_name', $filters['q'])
-                ->or_like('c.customer_code', $filters['q'])
-                ->group_end();
+        // Per-column LIKE filters.
+        if ( ! empty($filters['booking_no']))    { $this->db->like('b.booking_number', $filters['booking_no']); }
+        if ( ! empty($filters['customer_name'])) { $this->db->like('c.customer_name', $filters['customer_name']); }
+        if ( ! empty($filters['room_no']))       { $this->db->like('r.room_no', $filters['room_no']); }
+        // Room Category matches the displayed value (allotted room's category,
+        // else the booked category) — filter on the same COALESCE expression.
+        if ( ! empty($filters['room_category'])) {
+            $needle = $this->db->escape('%'.$filters['room_category'].'%');
+            $this->db->where("COALESCE(r_cat.category_name, b_cat.category_name) LIKE $needle", NULL, FALSE);
         }
 
         return $this->db
