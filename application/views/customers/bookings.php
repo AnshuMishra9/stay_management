@@ -1,12 +1,10 @@
 <?php
 // Shared list template — driven by the controller (bookings vs checkins).
-$title      = isset($title)      ? $title      : 'Booking Details';
-$sub        = isset($sub)        ? $sub        : 'Customers with a room booked';
-$ajax       = isset($ajax)       ? $ajax       : 'customers/bookings_ajax';
-$ns         = isset($ns)         ? $ns         : 'bookings';
-$show_new   = isset($show_new)   ? $show_new   : TRUE;
-$cross_url  = isset($cross_url)  ? $cross_url  : '';
-$cross_text = isset($cross_text) ? $cross_text : '';
+$title    = isset($title)    ? $title    : 'Booking Details';
+$sub      = isset($sub)      ? $sub      : 'Customers with a room booked';
+$ajax     = isset($ajax)     ? $ajax     : 'customers/bookings_ajax';
+$ns       = isset($ns)       ? $ns       : 'bookings';
+$show_new = isset($show_new) ? $show_new : TRUE;
 ?>
 <!DOCTYPE html>
 <html lang="en" ng-app="bookingsApp">
@@ -28,8 +26,8 @@ $cross_text = isset($cross_text) ? $cross_text : '';
 
 <body class="erp-body" ng-controller="BookingsController as vm">
 
-<!-- Top navigation -->
-<?php $this->load->view('layouts/erp_navbar', array('active' => 'bookings')); ?>
+<!-- Top navigation (highlight the tab for the list being shown) -->
+<?php $this->load->view('layouts/erp_navbar', array('active' => $ns)); ?>
 
 <div class="erp-wrap">
     <div class="erp-card">
@@ -55,12 +53,6 @@ $cross_text = isset($cross_text) ? $cross_text : '';
                 <a href="<?= site_url('customers/booking_form') ?>" class="erp-btn erp-btn-soft">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                     New Booking
-                </a>
-                <?php endif; ?>
-                <?php if ($cross_url !== ''): ?>
-                <a href="<?= site_url($cross_url) ?>" class="erp-btn erp-btn-primary">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    <?= html_escape($cross_text) ?>
                 </a>
                 <?php endif; ?>
             </div>

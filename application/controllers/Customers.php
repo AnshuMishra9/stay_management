@@ -75,13 +75,11 @@ class Customers extends Secure_Controller
     public function bookings()
     {
         $this->_render_booking_list(array(
-            'title'      => 'Booking Details',
-            'sub'        => 'Customers with a room booked',
-            'ajax'       => 'customers/bookings_ajax',
-            'ns'         => 'bookings',
-            'show_new'   => TRUE,
-            'cross_url'  => 'customers/checkins',
-            'cross_text' => 'Check-in Details',
+            'title'    => 'Booking Details',
+            'sub'      => 'Customers with a room booked',
+            'ajax'     => 'customers/bookings_ajax',
+            'ns'       => 'bookings',
+            'show_new' => TRUE,
         ));
     }
 
@@ -92,13 +90,11 @@ class Customers extends Secure_Controller
     public function checkins()
     {
         $this->_render_booking_list(array(
-            'title'      => 'Check-in Details',
-            'sub'        => 'Customers who are checked in',
-            'ajax'       => 'customers/checkins_ajax',
-            'ns'         => 'checkins',
-            'show_new'   => FALSE,
-            'cross_url'  => 'customers/bookings',
-            'cross_text' => 'Booking Details',
+            'title'    => 'Check-in Details',
+            'sub'      => 'Customers who are checked in',
+            'ajax'     => 'customers/checkins_ajax',
+            'ns'       => 'checkins',
+            'show_new' => FALSE,
         ));
     }
 
