@@ -1,10 +1,11 @@
 <?php
 // Shared list template — driven by the controller (bookings vs checkins).
-$title    = isset($title)    ? $title    : 'Booking Details';
-$sub      = isset($sub)      ? $sub      : 'Customers with a room booked';
-$ajax     = isset($ajax)     ? $ajax     : 'customers/bookings_ajax';
-$ns       = isset($ns)       ? $ns       : 'bookings';
-$show_new = isset($show_new) ? $show_new : TRUE;
+$title      = isset($title)      ? $title      : 'Booking Details';
+$sub        = isset($sub)        ? $sub        : 'Customers with a room booked';
+$ajax       = isset($ajax)       ? $ajax       : 'customers/bookings_ajax';
+$ns         = isset($ns)         ? $ns         : 'bookings';
+$show_new   = isset($show_new)   ? $show_new   : TRUE;
+$categories = isset($categories) ? $categories : array();
 ?>
 <!DOCTYPE html>
 <html lang="en" ng-app="bookingsApp">
@@ -81,7 +82,14 @@ $show_new = isset($show_new) ? $show_new : TRUE;
                         <th><input class="erp-input" ng-model="vm.filters.booking_no" ng-change="vm.onFilter()" placeholder="Booking No"></th>
                         <th><input class="erp-input" ng-model="vm.filters.customer_name" ng-change="vm.onFilter()" placeholder="Customer Name"></th>
                         <th><input class="erp-input" ng-model="vm.filters.room_no" ng-change="vm.onFilter()" placeholder="Room No"></th>
-                        <th><input class="erp-input" ng-model="vm.filters.room_category" ng-change="vm.onFilter()" placeholder="Room Category"></th>
+                        <th>
+                            <input class="erp-input" list="roomCatOptions" ng-model="vm.filters.room_category" ng-change="vm.onFilter()" placeholder="Room Category" autocomplete="off">
+                            <datalist id="roomCatOptions">
+                                <?php foreach ($categories as $c): ?>
+                                    <option value="<?= html_escape($c->category_name) ?>"></option>
+                                <?php endforeach; ?>
+                            </datalist>
+                        </th>
                         <th></th>
                         <th></th>
                     </tr>

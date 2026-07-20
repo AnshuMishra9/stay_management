@@ -101,7 +101,8 @@ class Customers extends Secure_Controller
     /** Shared renderer for the two status-scoped booking lists. */
     private function _render_booking_list(array $cfg)
     {
-        $cfg['flash'] = $this->session->flashdata('booking_msg');
+        $cfg['flash']      = $this->session->flashdata('booking_msg');
+        $cfg['categories'] = $this->Customer_model->room_categories();   // for the Room Category filter dropdown
         $this->load->view('customers/bookings', $cfg);
     }
 
