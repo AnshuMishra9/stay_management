@@ -83,12 +83,12 @@ $categories = isset($categories) ? $categories : array();
                         <th><input class="erp-input" ng-model="vm.filters.customer_name" ng-change="vm.onFilter()" placeholder="Customer Name"></th>
                         <th><input class="erp-input" ng-model="vm.filters.room_no" ng-change="vm.onFilter()" placeholder="Room No"></th>
                         <th>
-                            <input class="erp-input" list="roomCatOptions" ng-model="vm.filters.room_category" ng-change="vm.onFilter()" placeholder="Room Category" autocomplete="off">
-                            <datalist id="roomCatOptions">
+                            <select class="erp-select" ng-model="vm.filters.room_category" ng-change="vm.onFilter()" data-search="always" data-placeholder="Room Category">
+                                <option value="">All</option>
                                 <?php foreach ($categories as $c): ?>
-                                    <option value="<?= html_escape($c->category_name) ?>"></option>
+                                    <option value="<?= html_escape($c->category_name) ?>"><?= html_escape($c->category_name) ?></option>
                                 <?php endforeach; ?>
-                            </datalist>
+                            </select>
                         </th>
                         <th></th>
                         <th></th>

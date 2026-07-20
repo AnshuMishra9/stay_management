@@ -182,9 +182,11 @@ a.erp-nav-brand:hover { opacity: .82; }
     color: var(--brand-dark); font-weight: 600; font-size: .82rem; cursor: pointer;
 }
 .erp-filter-clear:hover { background: var(--brand-soft); border-color: #c9cff0; }
-/* Searchable-select dropdown inside a narrow filter cell: widen the panel so
-   option labels aren't truncated (the panel overlays neighbouring columns). */
-.erp-filter-row .erp-ss-panel { min-width: 190px; }
+/* Searchable-select dropdown inside a filter cell: match the column width
+   (never overflow into neighbouring columns); wrap long option labels instead
+   of truncating them so the full text is still readable. */
+.erp-filter-row .erp-ss-panel { min-width: 0; }
+.erp-filter-row .erp-ss-opt   { white-space: normal; }
 
 /* ---- Buttons ---- */
 .erp-btn {
