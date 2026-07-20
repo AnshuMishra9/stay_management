@@ -434,3 +434,15 @@ span.flatpickr-weekday { color: var(--muted); font-weight: 700; font-size: .72re
 }
 .flatpickr-day.flatpickr-disabled, .flatpickr-day.prevMonthDay, .flatpickr-day.nextMonthDay { color: #c7cbdb; }
 /* The range input itself uses the standard .erp-input look (set in HTML). */
+
+/* ===== Identity Proof repeatable rows (customer form + booking check-in) ===== */
+.idn-row { position: relative; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; background: var(--head); }
+.idn-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.idn-remove { position: absolute; top: 8px; right: 10px; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: var(--red-soft); color: var(--red); font-size: 18px; line-height: 1; cursor: pointer; }
+.idn-remove:hover { background: var(--red); color: #fff; }
+.idn-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+@media (max-width: 720px) { .idn-fields { grid-template-columns: 1fr; } }
+
+/* Check-in action button (Booking Details) */
+.erp-icon-checkin { background: #e7f9ef; color: #16a34a; border-color: #c9efd8; }
+.erp-icon-checkin:hover { background: #16a34a; color: #fff; box-shadow: 0 8px 16px rgba(22,163,74,.4); }

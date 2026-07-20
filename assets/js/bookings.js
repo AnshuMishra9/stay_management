@@ -15,9 +15,11 @@
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
         var debounce = null;
 
-        vm.bookings = [];
-        vm.loading  = true;
-        vm.filters  = { q: '' };
+        vm.bookings  = [];
+        vm.loading   = true;
+        vm.showModal = false;
+        vm.detail    = {};
+        vm.filters   = { q: '' };
 
         // status_code -> badge css class (status_master is the source of truth).
         var STATUS_CLASS = {
@@ -46,6 +48,26 @@
         vm.clearFilters = function () {
             vm.filters.q = '';
             vm.load();
+        };
+
+        // ---- Detail modal (eye) ----
+        vm.viewBooking = function (id) {
+            $http.get(base + 'customers/booking_view/' + id)
+                .then(function (res) {
+                    if (res.data && res.data.status) {
+                        vm.detail = res.data.data;
+                        if (!vm.detail.identities) { vm.detail.identities = []; }
+                        vm.showModal = true;
+                    } else {
+                        alert((res.data && res.data.message) || 'Unable to load booking.');
+                    }
+                })
+                .catch(function () { alert('Unable to load booking.'); });
+        };
+
+        vm.closeModal = function () {
+            vm.showModal = false;
+            vm.detail = {};
         };
 
         // Initial load

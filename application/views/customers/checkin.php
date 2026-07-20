@@ -1,0 +1,102 @@
+<?php
+/**
+ * Booking Check-in — a focused edit of just the fields that matter at
+ * check-in: the customer's name + mobile, their identity proofs (same block
+ * as the customer master), and the booking status. All pre-loaded; editable;
+ * saved back to the customer + booking.
+ *
+ * $booking        -> booking_details row
+ * $customer       -> that booking's customer
+ * $status_opts    -> status_master rows (dropdown)
+ * $identity_types -> code => label
+ * $identities     -> existing customer_identities rows
+ */
+$cval = function ($field, $fallback = '') use ($customer) {
+    return set_value($field, $customer ? ($customer->$field ?? '') : $fallback, FALSE);
+};
+$sel_status = set_value('status_id', (string) $booking->status_id);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check-in <?= html_escape($booking->booking_number) ?> &middot; Stay Management</title>
+    <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
+</head>
+<body class="erp-body">
+
+<?php $this->load->view('layouts/erp_navbar', array('active' => 'bookings', 'back' => site_url('customers/bookings'))); ?>
+
+<div class="erp-wrap">
+    <form class="erp-card" style="max-width:920px;margin:0 auto;" action="<?= site_url('customers/checkin_save') ?>" method="post" enctype="multipart/form-data" novalidate>
+        <input type="hidden" name="booking_id" value="<?= (int) $booking->id ?>">
+
+        <!-- Header -->
+        <div class="erp-page-head">
+            <div>
+                <h1>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e8eef6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+                    Check-in
+                </h1>
+                <p class="erp-sub">Booking <?= html_escape($booking->booking_number) ?> — update the customer &amp; status</p>
+            </div>
+            <div class="erp-head-total"><?= html_escape($booking->booking_number) ?></div>
+        </div>
+
+        <?php if (validation_errors()): ?>
+            <div class="erp-alert erp-alert-danger"><?= validation_errors() ?></div>
+        <?php endif; ?>
+
+        <!-- ===== Customer ===== -->
+        <div class="erp-form-section">
+            <div class="erp-section-title">Customer</div>
+            <div class="erp-grid-2" style="margin-bottom:16px;">
+                <div class="erp-form-field">
+                    <label>Customer Name <span class="req">*</span></label>
+                    <input class="erp-input" type="text" name="customer_name" required maxlength="150" value="<?= html_escape($cval('customer_name')) ?>">
+                    <?= form_error('customer_name', '<div class="erp-error">', '</div>') ?>
+                </div>
+                <div class="erp-form-field">
+                    <label>Mobile No <span class="req">*</span></label>
+                    <input class="erp-input" type="text" name="phone" required maxlength="20" value="<?= html_escape($cval('phone')) ?>">
+                    <?= form_error('phone', '<div class="erp-error">', '</div>') ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== Identity Proof (same block as the customer master) ===== -->
+        <?php $this->load->view('customers/components/identity_proof', array(
+            'identity_types' => $identity_types,
+            'identities'     => $identities,
+        )); ?>
+
+        <!-- ===== Status ===== -->
+        <div class="erp-form-section">
+            <div class="erp-section-title">Status</div>
+            <div class="erp-grid-2">
+                <div class="erp-form-field">
+                    <label>Booking Status</label>
+                    <select class="erp-select" name="status_id">
+                        <?php foreach ($status_opts as $s): ?>
+                            <option value="<?= (int) $s->status_id ?>" <?= (string) $sel_status === (string) $s->status_id ? 'selected' : '' ?>><?= html_escape($s->status_name) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="erp-form-field"></div>
+            </div>
+        </div>
+
+        <!-- Footer actions -->
+        <div class="erp-form-foot">
+            <a href="<?= site_url('customers/bookings') ?>" class="erp-btn erp-btn-ghost">Cancel</a>
+            <button type="submit" class="erp-btn erp-btn-primary">Update</button>
+        </div>
+    </form>
+</div>
+
+<script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
+<script src="<?= base_url('assets/js/identity-rows.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/identity-rows.js') ?>"></script>
+</body>
+</html>

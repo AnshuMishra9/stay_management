@@ -74,6 +74,9 @@ $route['customers/bookings_list']       = 'customers/bookings_ajax';
 $route['customers/booking_form']        = 'customers/booking_form';        // new booking
 $route['customers/booking_form/(:num)'] = 'customers/booking_form/$1';     // edit booking
 $route['customers/booking_save']        = 'customers/booking_save';
+$route['customers/booking_view/(:num)'] = 'customers/booking_view/$1';     // [AJAX] booking detail (eye)
+$route['customers/checkin/(:num)']      = 'customers/checkin/$1';          // check-in page
+$route['customers/checkin_save']        = 'customers/checkin_save';
 $route['customers/lookup']              = 'customers/lookup';              // [AJAX] customer by mobile
 
 // Rooms Master (Room Manager)

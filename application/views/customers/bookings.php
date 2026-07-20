@@ -80,6 +80,15 @@
                         <td><span class="erp-badge" ng-class="vm.statusClass(c.status_code)">{{ c.status_name }}</span></td>
                         <td>
                             <span class="erp-actions">
+                                <!-- View (present data) -->
+                                <button class="erp-icon-btn erp-icon-view" title="View" ng-click="vm.viewBooking(c.id)">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                                </button>
+                                <!-- Check-in (customer + identity + status) -->
+                                <a class="erp-icon-btn erp-icon-checkin" title="Check-in" href="<?= site_url('customers/checkin') ?>/{{ c.id }}">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+                                </a>
+                                <!-- Edit (full booking form) -->
                                 <a class="erp-icon-btn erp-icon-edit" title="Edit booking" href="<?= site_url('customers/booking_form') ?>/{{ c.id }}">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </a>
@@ -95,6 +104,74 @@
         </div>
 
         <div class="erp-count" ng-cloak>{{ vm.bookings.length }} booking<span ng-if="vm.bookings.length != 1">s</span></div>
+    </div>
+</div>
+
+<!-- ================= Booking Detail Modal (eye) ================= -->
+<div class="erp-modal-backdrop" ng-if="vm.showModal" ng-click="vm.closeModal($event)" ng-cloak>
+    <div class="erp-modal" ng-click="$event.stopPropagation()">
+        <div class="erp-modal-head">
+            <h3>Booking {{ vm.detail.booking_number }}
+                <span class="erp-badge" ng-class="vm.statusClass(vm.detail.status_code)" style="font-size:.8rem;vertical-align:middle;">{{ vm.detail.status_name }}</span>
+            </h3>
+            <button class="erp-modal-close" ng-click="vm.closeModal()">&times;</button>
+        </div>
+        <div class="erp-modal-body">
+
+            <div class="erp-section-title">Customer</div>
+            <div class="erp-detail-grid">
+                <div class="erp-detail-item"><div class="k">Customer Name</div><div class="v">{{ vm.detail.customer_name || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Customer ID</div><div class="v">{{ vm.detail.customer_code || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Mobile No</div><div class="v">{{ vm.detail.phone || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Pincode</div><div class="v">{{ vm.detail.pincode || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Country</div><div class="v">{{ vm.detail.country || '—' }}</div></div>
+            </div>
+
+            <hr class="erp-hr">
+
+            <div class="erp-section-title">Booking</div>
+            <div class="erp-detail-grid">
+                <div class="erp-detail-item"><div class="k">Room No</div><div class="v">{{ vm.detail.allotted_room_no || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Room Category</div><div class="v">{{ vm.detail.room_category || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Channel</div><div class="v">{{ vm.detail.channel_name || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Property</div><div class="v">{{ vm.detail.property_name || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Scheduled Check-In</div><div class="v">{{ vm.detail.scheduled_check_in_date || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Scheduled Check-Out</div><div class="v">{{ vm.detail.scheduled_check_out_date || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Nights</div><div class="v">{{ vm.detail.length_of_stay || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Total Guests</div><div class="v">{{ vm.detail.total_guest || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Checked-In At</div><div class="v">{{ vm.detail.checked_in_at || '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Checked-Out At</div><div class="v">{{ vm.detail.checked_out_at || '—' }}</div></div>
+            </div>
+
+            <hr class="erp-hr">
+
+            <div class="erp-section-title">Amounts</div>
+            <div class="erp-detail-grid">
+                <div class="erp-detail-item"><div class="k">Total</div><div class="v">{{ vm.detail.total_amount ? ('₹' + (vm.detail.total_amount | number:2)) : '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Paid</div><div class="v">{{ vm.detail.amount_paid ? ('₹' + (vm.detail.amount_paid | number:2)) : '—' }}</div></div>
+                <div class="erp-detail-item"><div class="k">Remaining</div><div class="v">{{ vm.detail.remaining_amount != null ? ('₹' + (vm.detail.remaining_amount | number:2)) : '—' }}</div></div>
+            </div>
+
+            <hr class="erp-hr">
+
+            <div class="erp-section-title">Identity Proof</div>
+            <div class="erp-detail-grid">
+                <div class="erp-detail-item" ng-repeat="idn in vm.detail.identities">
+                    <div class="k">{{ idn.type_label }}</div>
+                    <div class="v">{{ idn.identity_number || '—' }}</div>
+                    <a class="erp-doc-link" ng-if="idn.document_url" ng-href="{{ idn.document_url }}" target="_blank">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                        View Document
+                    </a>
+                    <div class="v erp-muted" ng-if="!idn.document_url">No document uploaded</div>
+                </div>
+                <div class="erp-detail-item erp-muted" ng-if="!vm.detail.identities || !vm.detail.identities.length">No identity proof added</div>
+            </div>
+        </div>
+        <div class="erp-form-foot">
+            <button class="erp-btn erp-btn-ghost" ng-click="vm.closeModal()">Close</button>
+            <a class="erp-btn erp-btn-primary" ng-href="<?= site_url('customers/checkin') ?>/{{ vm.detail.id }}">Check-in</a>
+        </div>
     </div>
 </div>
 

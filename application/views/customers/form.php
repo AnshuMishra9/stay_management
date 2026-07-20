@@ -27,14 +27,6 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
     <title><?= $is_edit ? 'Edit' : 'Add' ?> Customer &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
-    <style>
-        .idn-row { position: relative; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; background: var(--head); }
-        .idn-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-        .idn-remove { position: absolute; top: 8px; right: 10px; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: var(--red-soft); color: var(--red); font-size: 18px; line-height: 1; cursor: pointer; }
-        .idn-remove:hover { background: var(--red); color: #fff; }
-        .idn-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        @media (max-width: 720px) { .idn-fields { grid-template-columns: 1fr; } }
-    </style>
 </head>
 <body class="erp-body">
 
@@ -110,82 +102,10 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
             </div>
         </div>
 
-        <!-- ===== Identity Proof (repeatable) ===== -->
-        <div class="erp-form-section">
-            <div class="erp-section-title idn-title">
-                <span>Identity Proof</span>
-                <button type="button" id="idnAddMore" class="erp-btn erp-btn-soft erp-btn-sm">+ Add More</button>
-            </div>
-
-            <div id="identityRows">
-                <?php
-                // Existing identities on edit; at least one blank row otherwise.
-                $rows = ! empty($identities) ? $identities : array(NULL);
-                foreach ($rows as $idn):
-                    $rid  = $idn ? (int) $idn->id : '';
-                    $rtyp = $idn ? $idn->identity_type : '';
-                    $rnum = $idn ? $idn->identity_number : '';
-                    $rdoc = ($idn && ! empty($idn->document_path)) ? site_url('customers/identity_file/'.$idn->id) : '';
-                ?>
-                <div class="idn-row">
-                    <button type="button" class="idn-remove" title="Remove">&times;</button>
-                    <input type="hidden" name="identity_id[]" value="<?= html_escape($rid) ?>">
-                    <div class="idn-fields">
-                        <div class="erp-form-field">
-                            <label>ID Proof Type</label>
-                            <select class="erp-select" name="identity_type[]" data-search="never" data-placeholder="Select ID Proof">
-                                <option value="">Select ID Proof</option>
-                                <?php foreach ($identity_types as $tv => $tl): ?>
-                                    <option value="<?= html_escape($tv) ?>" <?= $rtyp === $tv ? 'selected' : '' ?>><?= html_escape($tl) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="erp-form-field">
-                            <label>Identity Number</label>
-                            <input class="erp-input" type="text" name="identity_number[]" maxlength="50" value="<?= html_escape($rnum) ?>">
-                        </div>
-                        <div class="erp-form-field">
-                            <label>Document <span class="erp-muted" style="font-weight:400;">(jpg/png/pdf)</span></label>
-                            <input class="erp-file" type="file" name="identity_document[]" accept=".jpg,.jpeg,.png,.pdf">
-                            <?php if ($rdoc): ?>
-                                <div class="erp-existing-file">
-                                    <a class="erp-doc-link" href="<?= $rdoc ?>" target="_blank">Current file — view</a>
-                                    <span class="erp-muted"> · upload to replace</span>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-
-        <!-- Blank row template cloned by the "Add More" button -->
-        <template id="identityRowTpl">
-            <div class="idn-row">
-                <button type="button" class="idn-remove" title="Remove">&times;</button>
-                <input type="hidden" name="identity_id[]" value="">
-                <div class="idn-fields">
-                    <div class="erp-form-field">
-                        <label>ID Proof Type</label>
-                        <select class="erp-select" name="identity_type[]" data-search="never" data-placeholder="Select ID Proof">
-                            <option value="">Select ID Proof</option>
-                            <?php foreach ($identity_types as $tv => $tl): ?>
-                                <option value="<?= html_escape($tv) ?>"><?= html_escape($tl) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="erp-form-field">
-                        <label>Identity Number</label>
-                        <input class="erp-input" type="text" name="identity_number[]" maxlength="50" value="">
-                    </div>
-                    <div class="erp-form-field">
-                        <label>Document <span class="erp-muted" style="font-weight:400;">(jpg/png/pdf)</span></label>
-                        <input class="erp-file" type="file" name="identity_document[]" accept=".jpg,.jpeg,.png,.pdf">
-                    </div>
-                </div>
-            </div>
-        </template>
+        <?php $this->load->view('customers/components/identity_proof', array(
+            'identity_types' => $identity_types,
+            'identities'     => $identities,
+        )); ?>
 
         <!-- Footer actions -->
         <div class="erp-form-foot">

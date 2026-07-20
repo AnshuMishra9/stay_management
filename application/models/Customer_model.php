@@ -191,10 +191,15 @@ class Customer_model extends CI_Model
             return array();
         }
 
-        // room_ids taken by OTHER bookings.
-        $this->db->select('room_id')->from('booking_details')->where('room_id IS NOT NULL');
+        // room_ids still held by OTHER active bookings. A room is only "taken"
+        // while its booking is live (room_booked / checked_in); once the booking
+        // is checked_out / cancelled / no_show the room returns to inventory.
+        $this->db->select('bd.room_id')->from('booking_details bd')
+            ->join('status_master sm', 'sm.status_id = bd.status_id', 'inner')
+            ->where('bd.room_id IS NOT NULL')
+            ->where_not_in('sm.status_code', array('checked_out', 'cancelled', 'no_show'));
         if ($current_booking_id) {
-            $this->db->where('id !=', (int) $current_booking_id);
+            $this->db->where('bd.id !=', (int) $current_booking_id);
         }
         $taken = array_map(function ($r) { return (int) $r->room_id; },
                            $this->db->get()->result());
@@ -300,6 +305,32 @@ class Customer_model extends CI_Model
             ->where('id', (int) $booking_id)
             ->limit(1)
             ->get('booking_details')->row();
+    }
+
+    /**
+     * Full booking detail for the View modal: the booking row joined to its
+     * customer, allotted room + that room's category, status (status_master)
+     * and channel. Identity proofs are fetched separately by the caller.
+     *
+     * @param  int $booking_id
+     * @return object|null
+     */
+    public function get_booking_detail($booking_id)
+    {
+        return $this->db
+            ->select('b.*,
+                      c.customer_code, c.customer_name, c.phone, c.pincode, c.country,
+                      r.room_no AS allotted_room_no, rc.category_name AS room_category,
+                      sm.status_name, sm.status_code, bc.channel_name')
+            ->from('booking_details b')
+            ->join($this->table.' c', 'c.id = b.customer_id', 'inner')
+            ->join('status_master sm', 'sm.status_id = b.status_id', 'inner')
+            ->join('rooms r', 'r.id = b.room_id', 'left')
+            ->join('room_categories rc', 'rc.category_id = r.category_id', 'left')
+            ->join('booking_channels bc', 'bc.channel_id = b.booking_channel_id', 'left')
+            ->where('b.id', (int) $booking_id)
+            ->limit(1)
+            ->get()->row();
     }
 
     /** Next human-facing booking number, e.g. BKG00007 (max suffix + 1). */

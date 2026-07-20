@@ -335,6 +335,121 @@ class Customers extends Secure_Controller
     }
 
     /**
+     * [AJAX] Full detail of one booking for the Booking Details "eye" modal:
+     * booking + customer + allotted room/category + status + channel + the
+     * customer's identity proofs (with streamed-document URLs).
+     */
+    public function booking_view($booking_id = NULL)
+    {
+        $booking = $booking_id ? $this->Customer_model->get_booking_detail($booking_id) : NULL;
+        if ( ! $booking) {
+            return $this->_json(array('status' => FALSE, 'message' => 'Booking not found.'));
+        }
+
+        $labels = $this->_identity_types();
+        $booking->identities = array_map(function ($idn) use ($labels) {
+            return array(
+                'type_label'      => isset($labels[$idn->identity_type]) ? $labels[$idn->identity_type] : $idn->identity_type,
+                'identity_number' => $idn->identity_number,
+                'document_url'    => $idn->document_path ? site_url('customers/identity_file/'.$idn->id) : NULL,
+            );
+        }, $this->Customer_model->get_identities($booking->customer_id));
+
+        return $this->_json(array('status' => TRUE, 'data' => $booking));
+    }
+
+    /**
+     * Check-in page — a focused edit of just the fields needed at check-in:
+     * the customer's name + mobile, their identity proofs (same block as the
+     * customer master), and the booking status. Existing values are pre-loaded.
+     */
+    public function checkin($booking_id = NULL)
+    {
+        $booking = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+        if ( ! $booking) {
+            show_404();
+            return;
+        }
+        $customer = $this->Customer_model->get_by_id($booking->customer_id);
+
+        $data = array(
+            'booking'        => $booking,
+            'customer'       => $customer,
+            'status_opts'    => $this->Customer_model->all_statuses(),
+            'identity_types' => $this->_identity_types(),
+            'identities'     => $customer ? $this->Customer_model->get_identities($customer->id) : array(),
+        );
+        $this->load->view('customers/checkin', $data);
+    }
+
+    /**
+     * Save the Check-in form: update the booking's customer (name + mobile),
+     * re-sync their identity proofs, and update the booking status (auto-
+     * stamping checked_in_at / checked_out_at from the status).
+     */
+    public function checkin_save()
+    {
+        $booking_id = (int) $this->input->post('booking_id');
+        $booking    = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+        if ( ! $booking) {
+            show_404();
+            return;
+        }
+        $customer = $this->Customer_model->get_by_id($booking->customer_id);
+        if ( ! $customer) {
+            show_404();
+            return;
+        }
+
+        // --- Validation --------------------------------------------------
+        $this->load->library('form_validation');
+        $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
+        $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
+
+        if ($this->form_validation->run() === FALSE) {
+            $data = array(
+                'booking'        => $booking,
+                'customer'       => $customer,
+                'status_opts'    => $this->Customer_model->all_statuses(),
+                'identity_types' => $this->_identity_types(),
+                'identities'     => $this->Customer_model->get_identities($customer->id),
+            );
+            $this->load->view('customers/checkin', $data);
+            return;
+        }
+
+        // --- Update the booking's customer (name + mobile only) ----------
+        $this->Customer_model->update($customer->id, array(
+            'customer_name' => $this->input->post('customer_name', TRUE),
+            'phone'         => $this->input->post('phone', TRUE),
+        ));
+
+        // --- Identity proofs (same repeatable block as the customer master)
+        $this->_save_identities($customer->id, $customer->customer_code);
+
+        // --- Booking status (+ auto-stamp) -------------------------------
+        $status_id   = $this->_status_id();
+        $status_code = $this->Customer_model->status_code($status_id);
+        $upd = array('status_id' => $status_id);
+
+        $now = date('Y-m-d H:i:s');
+        if ($status_code === 'checked_in' && empty($booking->checked_in_at)) {
+            $upd['checked_in_at'] = $now;
+        }
+        if ($status_code === 'checked_out') {
+            if (empty($booking->checked_in_at))  { $upd['checked_in_at']  = $now; }
+            if (empty($booking->checked_out_at)) { $upd['checked_out_at'] = $now; }
+        }
+        $this->Customer_model->update_booking($booking_id, $upd);
+
+        $this->session->set_flashdata('booking_msg', array(
+            'type' => 'success',
+            'text' => 'Booking '.$booking->booking_number.' checked-in details updated.',
+        ));
+        redirect('customers/bookings');
+    }
+
+    /**
      * Delete a customer and remove their uploaded documents/folder.
      */
     public function delete($id = NULL)
