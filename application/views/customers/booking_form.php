@@ -28,7 +28,14 @@ $sel_country = $val('country', 'India');
 $sel_channel = $bval('booking_channel_id');
 $sel_roomcat = $bval('room_category_id');
 $sel_room    = $bval('room_id');
-$sel_status  = $bval('booking_status');
+// Booking status comes from status_master now. New bookings default to
+// "Room booked" (the fixed default).
+$sel_status  = $bval('status_id');
+if ($sel_status === '' || $sel_status === NULL) {
+    foreach ($status_opts as $s) {
+        if ($s->status_code === 'room_booked') { $sel_status = $s->status_id; break; }
+    }
+}
 
 // Stored DATETIME -> datetime-local input value.
 $dtlocal = function ($field) use ($bval) {
@@ -119,11 +126,10 @@ $dtlocal = function ($field) use ($bval) {
 
             <div class="erp-grid-1" style="margin-bottom:16px;">
                 <div class="erp-form-field">
-                    <label>Booking Status <span class="erp-muted" style="font-weight:400;">(confirmed / checked in / checked out…)</span></label>
-                    <select class="erp-select" id="bk_status" name="booking_status">
-                        <option value="">— Not set —</option>
-                        <?php foreach ($status_opts as $sval => $slabel): ?>
-                            <option value="<?= $sval ?>" <?= $sel_status === $sval ? 'selected' : '' ?>><?= $slabel ?></option>
+                    <label>Booking Status</label>
+                    <select class="erp-select" id="bk_status" name="status_id">
+                        <?php foreach ($status_opts as $s): ?>
+                            <option value="<?= (int) $s->status_id ?>" <?= (string) $sel_status === (string) $s->status_id ? 'selected' : '' ?>><?= html_escape($s->status_name) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>

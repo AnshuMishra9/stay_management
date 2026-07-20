@@ -207,30 +207,30 @@ class Customer_model extends CI_Model
     }
 
     /**
-     * Booking-centric list — reads from the normalized `booking_details` table
-     * (one customer -> many bookings), joined to `customers` so we know WHOSE
-     * booking it is, and to `booking_channels` for the channel NAME.
+     * Booking Details list — ONLY bookings whose status is "Room booked"
+     * (status_master.status_code = 'room_booked'). Columns shown: booking no,
+     * customer name, allotted room no + that room's category, and the status.
      *
-     * @param  array $filters  Keys: q, booking_status, booking_channel_id,
-     *                         checkin_from, checkin_to, checkout_from, checkout_to.
-     * @return array  rows with `id` (booking id), `booking_number`, `customer_id`,
-     *                `customer_code`, `customer_name`, + booking columns.
+     * @param  array $filters  Keys: q (free-text on booking no / customer).
+     * @return array  rows: id, booking_number, customer_id, customer_code,
+     *                customer_name, allotted_room_no, room_category, status_name.
      */
     public function get_bookings(array $filters = array())
     {
         $this->db
             ->select('b.id, b.booking_number, b.customer_id,
-                      c.customer_code, c.customer_name, c.phone,
-                      b.booking_status,
-                      b.booking_channel_id, bc.channel_name,
+                      c.customer_code, c.customer_name,
                       b.room_id, r.room_no AS allotted_room_no,
-                      b.scheduled_check_in_date, b.scheduled_check_out_date,
-                      b.checked_in_at, b.checked_out_at, b.length_of_stay,
-                      b.total_guest, b.total_amount, b.amount_paid, b.remaining_amount')
+                      rc.category_name AS room_category,
+                      sm.status_name, sm.status_code')
             ->from('booking_details b')
             ->join($this->table.' c', 'c.id = b.customer_id', 'inner')
-            ->join('booking_channels bc', 'bc.channel_id = b.booking_channel_id', 'left')
-            ->join('rooms r', 'r.id = b.room_id', 'left');
+            ->join('status_master sm', 'sm.status_id = b.status_id', 'inner')
+            ->join('rooms r', 'r.id = b.room_id', 'left')
+            ->join('room_categories rc', 'rc.category_id = r.category_id', 'left');
+
+        // Fixed: this page only lists "Room booked" bookings.
+        $this->db->where('sm.status_code', 'room_booked');
 
         // Free-text search across booking number / customer.
         if (isset($filters['q']) && $filters['q'] !== '') {
@@ -240,23 +240,54 @@ class Customer_model extends CI_Model
                 ->or_like('c.customer_code', $filters['q'])
                 ->group_end();
         }
-        if ( ! empty($filters['booking_status'])) {
-            $this->db->where('b.booking_status', $filters['booking_status']);
-        }
-        if ( ! empty($filters['booking_channel_id'])) {
-            $this->db->where('b.booking_channel_id', (int) $filters['booking_channel_id']);
-        }
-        // Scheduled check-in / check-out DATE ranges (inclusive).
-        if ( ! empty($filters['checkin_from']))  { $this->db->where('b.scheduled_check_in_date >=',  $filters['checkin_from']); }
-        if ( ! empty($filters['checkin_to']))    { $this->db->where('b.scheduled_check_in_date <=',  $filters['checkin_to']); }
-        if ( ! empty($filters['checkout_from'])) { $this->db->where('b.scheduled_check_out_date >=', $filters['checkout_from']); }
-        if ( ! empty($filters['checkout_to']))   { $this->db->where('b.scheduled_check_out_date <=', $filters['checkout_to']); }
 
-        // Dated bookings first (newest arrival), un-dated rows last.
         return $this->db
-            ->order_by('b.scheduled_check_in_date IS NULL ASC, b.scheduled_check_in_date DESC, b.id DESC', '', FALSE)
+            ->order_by('b.id', 'DESC')
             ->get()
             ->result();
+    }
+
+    /**
+     * All active booking statuses from status_master (for the form dropdown /
+     * badges). status_master is the single source of truth for statuses.
+     *
+     * @return array of {status_id, status_code, status_name}
+     */
+    public function all_statuses()
+    {
+        if ( ! $this->db->table_exists('status_master')) {
+            return array();
+        }
+        return $this->db
+            ->select('status_id, status_code, status_name')
+            ->where('is_active', 1)
+            ->order_by('display_order', 'ASC')
+            ->get('status_master')
+            ->result();
+    }
+
+    /** status_code for a given status_id (drives the check-in/out auto-stamp). */
+    public function status_code($status_id)
+    {
+        $row = $this->db
+            ->select('status_code')
+            ->where('status_id', (int) $status_id)
+            ->limit(1)
+            ->get('status_master')
+            ->row();
+        return $row ? $row->status_code : NULL;
+    }
+
+    /** status_id for a given status_code (e.g. the default 'room_booked'). */
+    public function status_id_by_code($code)
+    {
+        $row = $this->db
+            ->select('status_id')
+            ->where('status_code', $code)
+            ->limit(1)
+            ->get('status_master')
+            ->row();
+        return $row ? (int) $row->status_id : NULL;
     }
 
     /**

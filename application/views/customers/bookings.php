@@ -6,7 +6,6 @@
     <title>Booking Details &middot; Stay Management</title>
 
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/flatpickr.min.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/flatpickr.min.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
     <style>[ng-cloak]{display:none!important;}</style>
     <script>window.APP_BASE = "<?= base_url() ?>";</script>
@@ -29,7 +28,7 @@
                     </svg>
                     Booking Details
                 </h1>
-                <p class="erp-sub">Filter and review customer bookings by check-in / check-out, status and channel</p>
+                <p class="erp-sub">Customers with a room booked</p>
             </div>
             <div class="erp-head-actions">
                 <button type="button" class="erp-filter-clear" ng-click="vm.clearFilters()">
@@ -57,46 +56,14 @@
                 <thead>
                     <tr>
                         <th>Booking No</th>
-                        <th>Customer ID</th>
                         <th>Customer Name</th>
-                        <th>Room</th>
-                        <th>Channel</th>
-                        <th>Booking Status</th>
-                        <th>Sched. Check-In</th>
-                        <th>Sched. Check-Out</th>
-                        <th>Nights</th>
-                        <th>Checked-In At</th>
-                        <th>Checked-Out At</th>
-                        <th>Total</th>
-                        <th>Paid</th>
-                        <th>Remaining</th>
+                        <th>Room No</th>
+                        <th>Room Category</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
                     <tr class="erp-filter-row">
                         <th><input class="erp-input" ng-model="vm.filters.q" ng-change="vm.onFilter()" placeholder="Search booking / customer"></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th>
-                            <select class="erp-select" ng-model="vm.filters.booking_channel_id" ng-change="vm.onFilter()">
-                                <option value="">All</option>
-                                <?php foreach ($channel_opts as $ch): ?>
-                                    <option value="<?= (int) $ch->channel_id ?>"><?= html_escape($ch->channel_name) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </th>
-                        <th>
-                            <select class="erp-select" ng-model="vm.filters.booking_status" ng-change="vm.onFilter()">
-                                <option value="">All</option>
-                                <?php foreach ($booking_statuses as $bval => $blabel): ?>
-                                    <option value="<?= $bval ?>"><?= $blabel ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </th>
-                        <th><input class="erp-input" id="bk_checkin_range" type="text" placeholder="1 or 2 dates" readonly></th>
-                        <th><input class="erp-input" id="bk_checkout_range" type="text" placeholder="1 or 2 dates" readonly></th>
-                        <th></th>
-                        <th></th>
                         <th></th>
                         <th></th>
                         <th></th>
@@ -107,22 +74,10 @@
                 <tbody>
                     <tr ng-repeat="c in vm.bookings" ng-cloak>
                         <td class="cell-strong">{{ c.booking_number }}</td>
-                        <td class="cell-strong">{{ c.customer_code }}</td>
                         <td>{{ c.customer_name }}</td>
                         <td>{{ c.allotted_room_no || '—' }}</td>
-                        <td>{{ c.channel_name || '—' }}</td>
-                        <td>
-                            <span class="erp-badge" ng-class="vm.bookingClass(c.booking_status)" ng-if="c.booking_status">{{ vm.bookingLabel(c.booking_status) }}</span>
-                            <span class="erp-muted" ng-if="!c.booking_status">—</span>
-                        </td>
-                        <td>{{ c.scheduled_check_in_date || '—' }}</td>
-                        <td>{{ c.scheduled_check_out_date || '—' }}</td>
-                        <td>{{ c.length_of_stay || '—' }}</td>
-                        <td>{{ c.checked_in_at || '—' }}</td>
-                        <td>{{ c.checked_out_at || '—' }}</td>
-                        <td>{{ c.total_amount || '—' }}</td>
-                        <td>{{ c.amount_paid || '—' }}</td>
-                        <td>{{ c.remaining_amount || '—' }}</td>
+                        <td>{{ c.room_category || '—' }}</td>
+                        <td><span class="erp-badge" ng-class="vm.statusClass(c.status_code)">{{ c.status_name }}</span></td>
                         <td>
                             <span class="erp-actions">
                                 <a class="erp-icon-btn erp-icon-edit" title="Edit booking" href="<?= site_url('customers/booking_form') ?>/{{ c.id }}">
@@ -145,7 +100,6 @@
 
 <script src="<?= base_url('assets/js/angular.min.js') ?>"></script>
 <script src="<?= base_url('assets/js/erp-query.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/erp-query.js') ?>"></script>
-<script src="<?= base_url('assets/js/flatpickr.min.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/flatpickr.min.js') ?>"></script>
 <script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
 <script src="<?= base_url('assets/js/bookings.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/bookings.js') ?>"></script>
 </body>

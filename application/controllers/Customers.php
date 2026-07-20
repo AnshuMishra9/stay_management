@@ -21,14 +21,6 @@ class Customers extends Secure_Controller
     const UPLOAD_TYPES   = 'jpg|jpeg|png|pdf';
     const UPLOAD_MAX_KB  = 4096;
 
-    /**
-     * Booking lifecycle stages (must match the `booking_status` ENUM in the DB).
-     * value => human label shown in the dropdown / list badge.
-     */
-    const BOOKING_STATUSES = array(
-        'enquiry', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'no_show',
-    );
-
     public function __construct()
     {
         parent::__construct();
@@ -78,15 +70,13 @@ class Customers extends Secure_Controller
     }
 
     /**
-     * Booking Details list page — a booking-centric view over customers,
-     * filterable by check-in/out date, status, channel, guest, etc.
+     * Booking Details list page — lists ONLY "Room booked" bookings
+     * (status is fixed to Room booked; there is no status filter).
      */
     public function bookings()
     {
         $data = array(
-            'booking_statuses' => $this->_booking_status_options(),
-            'channel_opts'     => $this->Customer_model->booking_channels(),
-            'flash'            => $this->session->flashdata('booking_msg'),
+            'flash' => $this->session->flashdata('booking_msg'),
         );
         $this->load->view('customers/bookings', $data);
     }
@@ -118,7 +108,7 @@ class Customers extends Secure_Controller
             'channel_opts'  => $this->Customer_model->booking_channels(),
             'room_cat_opts' => $this->Customer_model->room_categories(),
             'room_opts'     => $this->Customer_model->available_rooms($booking_id),
-            'status_opts'   => $this->_booking_status_options(),
+            'status_opts'   => $this->Customer_model->all_statuses(),
         );
         $this->load->view('customers/booking_form', $data);
     }
@@ -166,13 +156,7 @@ class Customers extends Secure_Controller
     public function bookings_ajax()
     {
         $filters = array(
-            'q'                  => $this->input->get('q'),
-            'booking_status'     => $this->input->get('booking_status'),
-            'booking_channel_id' => $this->input->get('booking_channel_id'),
-            'checkin_from'       => $this->input->get('checkin_from'),
-            'checkin_to'         => $this->input->get('checkin_to'),
-            'checkout_from'      => $this->input->get('checkout_from'),
-            'checkout_to'        => $this->input->get('checkout_to'),
+            'q' => $this->input->get('q'),
         );
 
         $rows = $this->Customer_model->get_bookings($filters);
@@ -302,7 +286,7 @@ class Customers extends Secure_Controller
                 'channel_opts'  => $this->Customer_model->booking_channels(),
                 'room_cat_opts' => $this->Customer_model->room_categories(),
                 'room_opts'     => $this->Customer_model->available_rooms($booking_id),
-                'status_opts'   => $this->_booking_status_options(),
+                'status_opts'   => $this->Customer_model->all_statuses(),
             );
             $this->load->view('customers/booking_form', $data);
             return;
@@ -586,25 +570,33 @@ class Customers extends Secure_Controller
         return $ts ? date('Y-m-d H:i:s', $ts) : NULL;
     }
 
-    /** Whitelist the booking status to a known lifecycle value, else NULL. */
-    private function _booking_status($v)
+    /**
+     * Resolve the posted status_id to a valid status_master id, defaulting to
+     * "Room booked" when missing/invalid.
+     */
+    private function _status_id()
     {
-        return in_array($v, self::BOOKING_STATUSES, TRUE) ? $v : NULL;
+        $id   = (int) $this->input->post('status_id');
+        $code = $id ? $this->Customer_model->status_code($id) : NULL;
+        return $code ? $id : $this->Customer_model->status_id_by_code('room_booked');
     }
 
     /**
      * Build a `booking_details` row from POST: raw booking fields + the
-     * server-derived ones (nights, remaining amount) + the check-in/check-out
-     * auto-stamp driven by the booking status.
+     * server-derived ones (remaining amount) + the check-in/check-out
+     * auto-stamp driven by the status (from status_master).
      */
     private function _booking_from_post()
     {
         // NOTE: scheduled_check_in_date / scheduled_check_out_date / length_of_stay
         // are intentionally NOT written here — their inputs were removed from the
         // form (view-only on the list), so we leave any stored values untouched.
+        $status_id   = $this->_status_id();
+        $status_code = $this->Customer_model->status_code($status_id);
+
         $booking = array(
             'booking_channel_id' => $this->input->post('booking_channel_id') ?: NULL,
-            'booking_status'     => $this->_booking_status($this->input->post('booking_status')),
+            'status_id'          => $status_id,
             'property_name'      => $this->input->post('property_name', TRUE),
             'room_id'            => $this->input->post('room_id') ?: NULL,   // allotted room
             'checked_in_at'      => $this->_datetime($this->input->post('checked_in_at')),
@@ -622,13 +614,13 @@ class Customers extends Secure_Controller
             ? round((float) $booking['total_amount'] - (float) $booking['amount_paid'], 2)
             : NULL;
 
-        // Setting the status to "Checked In"/"Checked Out" records *when* it
-        // happened, without making the user type a timestamp.
+        // "Checked in"/"Checked out" record *when* it happened, without making
+        // the user type a timestamp.
         $now = date('Y-m-d H:i:s');
-        if ($booking['booking_status'] === 'checked_in' && empty($booking['checked_in_at'])) {
+        if ($status_code === 'checked_in' && empty($booking['checked_in_at'])) {
             $booking['checked_in_at'] = $now;
         }
-        if ($booking['booking_status'] === 'checked_out') {
+        if ($status_code === 'checked_out') {
             if (empty($booking['checked_in_at']))  { $booking['checked_in_at']  = $now; }  // can't leave without arriving
             if (empty($booking['checked_out_at'])) { $booking['checked_out_at'] = $now; }
         }
@@ -650,19 +642,6 @@ class Customers extends Secure_Controller
             'pan'      => 'PAN Card',
             'passport' => 'Passport',
             'voter_id' => 'Voter ID',
-        );
-    }
-
-    /** Booking status value => human label (order = lifecycle order). */
-    private function _booking_status_options()
-    {
-        return array(
-            'enquiry'     => 'Enquiry',
-            'confirmed'   => 'Confirmed',
-            'checked_in'  => 'Checked In',
-            'checked_out' => 'Checked Out',
-            'cancelled'   => 'Cancelled',
-            'no_show'     => 'No Show',
         );
     }
 }
