@@ -70,15 +70,43 @@ class Customers extends Secure_Controller
     }
 
     /**
-     * Booking Details list page — lists ONLY "Room booked" bookings
-     * (status is fixed to Room booked; there is no status filter).
+     * Booking Details list page — lists ONLY "Room booked" bookings.
      */
     public function bookings()
     {
-        $data = array(
-            'flash' => $this->session->flashdata('booking_msg'),
-        );
-        $this->load->view('customers/bookings', $data);
+        $this->_render_booking_list(array(
+            'title'      => 'Booking Details',
+            'sub'        => 'Customers with a room booked',
+            'ajax'       => 'customers/bookings_ajax',
+            'ns'         => 'bookings',
+            'show_new'   => TRUE,
+            'cross_url'  => 'customers/checkins',
+            'cross_text' => 'Check-in Details',
+        ));
+    }
+
+    /**
+     * Check-in Details list page — lists ONLY "Checked in" bookings.
+     * Reached from the "Check-in Details" button on the Booking Details page.
+     */
+    public function checkins()
+    {
+        $this->_render_booking_list(array(
+            'title'      => 'Check-in Details',
+            'sub'        => 'Customers who are checked in',
+            'ajax'       => 'customers/checkins_ajax',
+            'ns'         => 'checkins',
+            'show_new'   => FALSE,
+            'cross_url'  => 'customers/bookings',
+            'cross_text' => 'Booking Details',
+        ));
+    }
+
+    /** Shared renderer for the two status-scoped booking lists. */
+    private function _render_booking_list(array $cfg)
+    {
+        $cfg['flash'] = $this->session->flashdata('booking_msg');
+        $this->load->view('customers/bookings', $cfg);
     }
 
     /**
@@ -149,18 +177,23 @@ class Customers extends Secure_Controller
         return $this->_json(array('status' => TRUE, 'found' => TRUE, 'data' => $customer));
     }
 
-    /**
-     * [AJAX] JSON of bookings filtered by booking-specific criteria
-     * (consumed by the Booking Details live-filter UI).
-     */
+    /** [AJAX] "Room booked" bookings (Booking Details list). */
     public function bookings_ajax()
     {
-        $filters = array(
-            'q' => $this->input->get('q'),
-        );
+        $rows = $this->Customer_model->get_bookings(array(
+            'q'      => $this->input->get('q'),
+            'status' => 'room_booked',
+        ));
+        return $this->_json(array('status' => TRUE, 'data' => $rows));
+    }
 
-        $rows = $this->Customer_model->get_bookings($filters);
-
+    /** [AJAX] "Checked in" bookings (Check-in Details list). */
+    public function checkins_ajax()
+    {
+        $rows = $this->Customer_model->get_bookings(array(
+            'q'      => $this->input->get('q'),
+            'status' => 'checked_in',
+        ));
         return $this->_json(array('status' => TRUE, 'data' => $rows));
     }
 

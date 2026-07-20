@@ -212,11 +212,13 @@ class Customer_model extends CI_Model
     }
 
     /**
-     * Booking Details list — ONLY bookings whose status is "Room booked"
-     * (status_master.status_code = 'room_booked'). Columns shown: booking no,
+     * Booking list filtered to a single status (status_master.status_code).
+     * Used by BOTH the "Booking Details" page (room_booked, the default) and
+     * the "Check-in Details" page (checked_in). Columns shown: booking no,
      * customer name, allotted room no + that room's category, and the status.
      *
-     * @param  array $filters  Keys: q (free-text on booking no / customer).
+     * @param  array $filters  Keys: q (free-text on booking no / customer),
+     *                         status (status_code; defaults to 'room_booked').
      * @return array  rows: id, booking_number, customer_id, customer_code,
      *                customer_name, allotted_room_no, room_category, status_name.
      */
@@ -237,8 +239,9 @@ class Customer_model extends CI_Model
             ->join('room_categories r_cat', 'r_cat.category_id = r.category_id', 'left')
             ->join('room_categories b_cat', 'b_cat.category_id = b.room_category_id', 'left');
 
-        // Fixed: this page only lists "Room booked" bookings.
-        $this->db->where('sm.status_code', 'room_booked');
+        // Filter to a single status (defaults to "Room booked").
+        $status = ! empty($filters['status']) ? $filters['status'] : 'room_booked';
+        $this->db->where('sm.status_code', $status);
 
         // Free-text search across booking number / customer.
         if (isset($filters['q']) && $filters['q'] !== '') {

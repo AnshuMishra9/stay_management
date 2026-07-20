@@ -1,9 +1,19 @@
+<?php
+// Shared list template — driven by the controller (bookings vs checkins).
+$title      = isset($title)      ? $title      : 'Booking Details';
+$sub        = isset($sub)        ? $sub        : 'Customers with a room booked';
+$ajax       = isset($ajax)       ? $ajax       : 'customers/bookings_ajax';
+$ns         = isset($ns)         ? $ns         : 'bookings';
+$show_new   = isset($show_new)   ? $show_new   : TRUE;
+$cross_url  = isset($cross_url)  ? $cross_url  : '';
+$cross_text = isset($cross_text) ? $cross_text : '';
+?>
 <!DOCTYPE html>
 <html lang="en" ng-app="bookingsApp">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Booking Details &middot; Stay Management</title>
+    <title><?= html_escape($title) ?> &middot; Stay Management</title>
 
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
@@ -11,6 +21,8 @@
     <script>
         window.APP_BASE = "<?= base_url() ?>";
         window.APP_FRESH = <?= ! empty($flash) ? 'true' : 'false' ?>;   // a save just happened -> bypass cache once
+        window.APP_LIST_URL = "<?= site_url($ajax) ?>";                 // which list to fetch
+        window.APP_LIST_NS  = "<?= html_escape($ns) ?>";               // cache namespace
     </script>
 </head>
 
@@ -29,20 +41,28 @@
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#e8eef6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
                     </svg>
-                    Booking Details
+                    <?= html_escape($title) ?>
                 </h1>
-                <p class="erp-sub">Customers with a room booked</p>
+                <p class="erp-sub"><?= html_escape($sub) ?></p>
             </div>
             <div class="erp-head-actions">
                 <button type="button" class="erp-filter-clear" ng-click="vm.clearFilters()">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
                     Clear
                 </button>
-                <div class="erp-head-total" ng-cloak>Total Bookings:&nbsp; {{ vm.bookings.length }}</div>
+                <div class="erp-head-total" ng-cloak>Total:&nbsp; {{ vm.bookings.length }}</div>
+                <?php if ($show_new): ?>
                 <a href="<?= site_url('customers/booking_form') ?>" class="erp-btn erp-btn-soft">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                     New Booking
                 </a>
+                <?php endif; ?>
+                <?php if ($cross_url !== ''): ?>
+                <a href="<?= site_url($cross_url) ?>" class="erp-btn erp-btn-primary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <?= html_escape($cross_text) ?>
+                </a>
+                <?php endif; ?>
             </div>
         </div>
 

@@ -71,6 +71,8 @@ $route['customers/edit/(:num)']  = 'customers/form/$1';
 // Booking Details (booking-centric view over customers)
 $route['customers/bookings']            = 'customers/bookings';
 $route['customers/bookings_list']       = 'customers/bookings_ajax';
+$route['customers/checkins']            = 'customers/checkins';           // checked-in list
+$route['customers/checkins_list']       = 'customers/checkins_ajax';
 $route['customers/booking_form']        = 'customers/booking_form';        // new booking
 $route['customers/booking_form/(:num)'] = 'customers/booking_form/$1';     // edit booking
 $route['customers/booking_save']        = 'customers/booking_save';

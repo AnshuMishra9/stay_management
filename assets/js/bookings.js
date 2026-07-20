@@ -15,9 +15,15 @@
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
         var debounce = null;
 
-        // After a save/redirect (flash present) the cached list is stale — drop it once.
+        // Which list this page shows (Booking Details vs Check-in Details).
+        var listUrl = window.APP_LIST_URL || (base + 'customers/bookings_ajax');
+        var listNs  = window.APP_LIST_NS  || 'bookings';
+
+        // After a save/redirect (flash present) the cached lists are stale. A
+        // status change moves a booking between the two lists, so drop both.
         if (window.APP_FRESH) {
             erpQuery.invalidate('bookings');
+            erpQuery.invalidate('checkins');
             window.APP_FRESH = false;
         }
 
@@ -39,7 +45,7 @@
 
         // ---- API (cached: instant from cache, revalidated in the background) ----
         vm.load = function () {
-            erpQuery.fetch('bookings', base + 'customers/bookings_ajax', vm.filters, {}, {
+            erpQuery.fetch(listNs, listUrl, vm.filters, {}, {
                 data:    function (rows) { vm.bookings = rows; },
                 loading: function (b)    { vm.loading = b; }
             });
