@@ -35,17 +35,25 @@ $cell_class = function ($avail) {
         .inv-navbtn:hover { background:var(--brand-soft); border-color:#c9cff0; }
         .inv-range { color:var(--muted); font-size:.82rem; white-space:nowrap; }
 
-        table.inv-table { width:100%; border-collapse:separate; border-spacing:0; min-width:1080px; }
+        /* horizontal scroll for the wide calendar, with a visible slim scrollbar */
+        .inv-scroll { overflow-x:auto; }
+        .inv-scroll::-webkit-scrollbar { height:10px; }
+        .inv-scroll::-webkit-scrollbar-thumb { background:#cfd6ea; border-radius:6px; }
+        .inv-scroll::-webkit-scrollbar-thumb:hover { background:#b9c1dc; }
+        .inv-scroll::-webkit-scrollbar-track { background:transparent; }
+
+        table.inv-table { width:100%; border-collapse:separate; border-spacing:0; min-width:1120px; table-layout:fixed; }
         .inv-table th, .inv-table td { border-bottom:1px solid var(--line); }
         /* sticky first column (Room Type) */
         .inv-roomcol { position:sticky; left:0; z-index:3; background:#fff; text-align:left;
-            padding:12px 16px; min-width:210px; box-shadow:1px 0 0 var(--line); }
+            padding:12px 16px; width:220px; min-width:220px;
+            border-right:1px solid var(--line); box-shadow:6px 0 8px -6px rgba(30,35,60,.14); }
         thead .inv-roomcol { z-index:5; background:var(--head); }
-        .inv-rt-name { font-weight:700; color:var(--text); font-size:.92rem; }
-        .inv-rt-sub  { color:var(--muted); font-size:.75rem; margin-top:2px; }
+        .inv-rt-name { font-weight:700; color:var(--text); font-size:.92rem; white-space:nowrap; }
+        .inv-rt-sub  { color:var(--muted); font-size:.75rem; margin-top:2px; white-space:nowrap; }
 
-        /* date header cells */
-        .inv-dh { text-align:center; padding:8px 6px; background:var(--head); min-width:56px;
+        /* date header cells (fixed comfortable width) */
+        .inv-dh { text-align:center; padding:8px 4px; background:var(--head); width:60px;
             font-weight:600; text-transform:none; letter-spacing:normal; position:sticky; top:0; z-index:4; }
         .inv-dh .d-wd  { display:block; font-size:.68rem; color:var(--muted); font-weight:600; }
         .inv-dh .d-day { display:block; font-size:1.02rem; color:var(--text); font-weight:800; line-height:1.1; }
@@ -54,12 +62,12 @@ $cell_class = function ($avail) {
         .inv-today { background:var(--brand-soft) !important; box-shadow: inset 0 -2px 0 var(--brand); }
 
         /* availability cells */
-        .inv-cell { text-align:center; padding:10px 6px; }
-        .inv-a { display:inline-flex; align-items:center; justify-content:center; min-width:32px; height:30px;
-            padding:0 8px; border-radius:8px; font-weight:800; font-size:.92rem; }
+        .inv-cell { text-align:center; padding:10px 4px; width:60px; }
+        .inv-a { display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:28px;
+            padding:0 7px; border-radius:8px; font-weight:800; font-size:.9rem; }
         .inv-a-ok { background:var(--green-soft); color:#15803d; }
         .inv-a-0  { background:var(--red-soft);   color:#be123c; }
-        .inv-bk   { display:block; font-size:.66rem; color:var(--muted); margin-top:3px; }
+        .inv-bk   { display:block; font-size:.64rem; color:var(--muted); margin-top:3px; white-space:nowrap; }
 
         .inv-total-row td { background:#fbfaff; }
         .inv-total-row .inv-roomcol { background:#fbfaff; }
@@ -100,7 +108,7 @@ $cell_class = function ($avail) {
         <div class="inv-range"><?= html_escape(date('d M Y', strtotime($start))) ?> &ndash; <?= html_escape(date('d M Y', strtotime($end))) ?></div>
 
         <!-- Calendar -->
-        <div class="erp-table-scroll" style="margin-top:12px;">
+        <div class="inv-scroll" style="margin-top:12px;">
             <table class="inv-table">
                 <thead>
                     <tr>
