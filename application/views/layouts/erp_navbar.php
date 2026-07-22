@@ -27,6 +27,12 @@ $brand_inner =
     <?php endif; ?>
 
     <div class="erp-nav-right">
+        <a class="erp-nav-link <?= $active === 'inventory' ? 'active' : '' ?>" href="<?= site_url('inventory') ?>">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3h18v4H3zM4 7v14h16V7M9 12h6"/>
+            </svg>
+            Inventory
+        </a>
         <a class="erp-nav-link <?= $active === 'customers' ? 'active' : '' ?>" href="<?= site_url('customers') ?>">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>

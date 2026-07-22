@@ -61,6 +61,7 @@ $route['auth/verify_otp'] = 'auth/verify_otp';
 
 // Protected pages
 $route['dashboard']       = 'rooms/index';   // legacy alias -> Room Master
+$route['inventory']       = 'inventory/index';   // room availability calendar
 
 // Customers Master
 $route['customers']              = 'customers/index';
