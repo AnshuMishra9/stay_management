@@ -29,11 +29,12 @@ $cell_class = function ($avail) {
     <title>Inventory &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <style>
-        .inv-nav { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+        .inv-head-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+        .inv-nav { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
         .inv-nav .erp-input { width:170px; height:38px; }
         .inv-navbtn { display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border:1px solid var(--input-brd); border-radius:10px; background:#fff; color:var(--brand-dark); cursor:pointer; }
         .inv-navbtn:hover { background:var(--brand-soft); border-color:#c9cff0; }
-        .inv-range { color:var(--muted); font-size:.82rem; white-space:nowrap; }
+        .inv-range { color:var(--muted); font-size:.82rem; white-space:nowrap; text-align:right; }
 
         /* horizontal scroll for the wide calendar, with a visible slim scrollbar */
         .inv-scroll { overflow-x:auto; }
@@ -72,7 +73,7 @@ $cell_class = function ($avail) {
         .inv-total-row td { background:#fbfaff; }
         .inv-total-row .inv-roomcol { background:#fbfaff; }
         .inv-total-row .inv-a { background:var(--brand-soft); color:var(--brand-dark); }
-        .inv-legend { display:flex; gap:16px; align-items:center; color:var(--muted); font-size:.78rem; margin-top:12px; flex-wrap:wrap; }
+        .inv-legend { display:flex; gap:16px; align-items:center; justify-content:center; color:var(--muted); font-size:.78rem; margin-top:14px; flex-wrap:wrap; }
         .inv-legend .k { display:inline-flex; align-items:center; gap:6px; }
         .inv-swatch { width:14px; height:14px; border-radius:4px; display:inline-block; }
     </style>
@@ -91,24 +92,24 @@ $cell_class = function ($avail) {
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#e8eef6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v4H3zM4 7v14h16V7M9 12h6"/></svg>
                     Inventory
                 </h1>
-                <p class="erp-sub">Rooms available per day (total &minus; booked) across all room types</p>
             </div>
-            <div class="inv-nav">
-                <div class="erp-head-total" style="margin-right:6px;">Total Rooms:&nbsp; <?= (int) $total_rooms ?></div>
-                <a class="inv-navbtn" href="<?= site_url('inventory?start='.$prev) ?>" title="Previous <?= (int) count($dates) ?> days">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                </a>
-                <input class="erp-input" type="date" id="invStart" value="<?= html_escape($start) ?>">
-                <a class="inv-navbtn" href="<?= site_url('inventory?start='.$next) ?>" title="Next <?= (int) count($dates) ?> days">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-                </a>
+            <div class="inv-head-right">
+                <div class="inv-nav">
+                    <div class="erp-head-total" style="margin-right:6px;">Total Rooms:&nbsp; <?= (int) $total_rooms ?></div>
+                    <a class="inv-navbtn" href="<?= site_url('inventory?start='.$prev) ?>" title="Previous <?= (int) count($dates) ?> days">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    </a>
+                    <input class="erp-input" type="date" id="invStart" value="<?= html_escape($start) ?>">
+                    <a class="inv-navbtn" href="<?= site_url('inventory?start='.$next) ?>" title="Next <?= (int) count($dates) ?> days">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </a>
+                </div>
+                <div class="inv-range"><?= html_escape(date('d M Y', strtotime($start))) ?> &ndash; <?= html_escape(date('d M Y', strtotime($end))) ?></div>
             </div>
         </div>
 
-        <div class="inv-range"><?= html_escape(date('d M Y', strtotime($start))) ?> &ndash; <?= html_escape(date('d M Y', strtotime($end))) ?></div>
-
         <!-- Calendar -->
-        <div class="inv-scroll" style="margin-top:12px;">
+        <div class="inv-scroll" style="margin-top:4px;">
             <table class="inv-table">
                 <thead>
                     <tr>
