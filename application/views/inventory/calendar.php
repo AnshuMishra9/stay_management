@@ -4,6 +4,7 @@
  * $dates[]        -> Y-m-d for each column
  * $rows[]         -> per category { name, total, avail{date=>n}, booked{date=>n} }
  * $avail_totals{} -> all-rooms available per date
+ * $booked_totals{}, $checked_in_totals{} -> reserved / checked-in per date
  * $total_rooms    -> total active rooms
  * $start,$prev,$next,$end,$today -> Y-m-d
  */
@@ -20,6 +21,12 @@ $fmt = function ($d) use ($today) {
 $cell_class = function ($avail) {
     return $avail <= 0 ? 'inv-a inv-a-0' : 'inv-a inv-a-ok';
 };
+$room_cell_class = function ($status) {
+    if ($status === 'room_booked') {
+        return 'inv-a inv-a-booked';
+    }
+    return $status === 'checked_in' ? 'inv-a inv-a-checked-in' : 'inv-a inv-a-ok';
+};
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -28,6 +35,7 @@ $cell_class = function ($avail) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
     <style>
         .inv-head-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
         .inv-nav { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
@@ -35,9 +43,35 @@ $cell_class = function ($avail) {
         .inv-navbtn { display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border:1px solid var(--input-brd); border-radius:10px; background:#fff; color:var(--brand-dark); cursor:pointer; }
         .inv-navbtn:hover { background:var(--brand-soft); border-color:#c9cff0; }
         .inv-range { color:var(--muted); font-size:.82rem; white-space:nowrap; text-align:right; }
-        .inv-filters { display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap; }
-        .inv-filters .erp-input { width:140px; height:36px; }
-        .inv-filters .erp-select { width:160px; height:36px; }
+        .inv-filterbar { display:flex; align-items:flex-end; gap:12px; padding:14px 20px;
+            border-bottom:1px solid var(--line); background:var(--grad-soft); }
+        .inv-filter-title { display:flex; align-items:center; gap:8px; align-self:center; margin-right:4px;
+            color:var(--brand-dark); font-size:.86rem; font-weight:800; white-space:nowrap; }
+        .inv-filter-title svg { width:17px; height:17px; }
+        .inv-filter-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
+        .inv-filter-field label { color:var(--muted); font-size:.68rem; font-weight:800;
+            letter-spacing:.05em; line-height:1; text-transform:uppercase; }
+        .inv-filter-room { width:210px; }
+        .inv-filter-category { width:210px; }
+        .inv-filterbar .erp-input, .inv-filterbar .erp-select { height:38px; font-size:.86rem; }
+        .inv-filterbar .erp-select { background-color:#fff; border-color:#d8dcf0;
+            background-position:right 12px center; box-shadow:0 2px 7px rgba(56,48,126,.05); }
+        .inv-filterbar .erp-select:hover { border-color:#bfc5e5; }
+        .inv-filter-actions { display:flex; align-items:center; gap:8px; }
+        .inv-filter-actions .erp-btn { height:38px; padding:0 16px; font-size:.86rem; }
+        @media (max-width:760px) {
+            .inv-head-right { width:100%; align-items:flex-start; }
+            .inv-nav { justify-content:flex-start; }
+            .inv-range { text-align:left; }
+            .inv-filterbar { align-items:stretch; flex-wrap:wrap; }
+            .inv-filter-title { width:100%; }
+            .inv-filter-field { flex:1 1 190px; }
+            .inv-filter-room, .inv-filter-category { width:auto; }
+        }
+        @media (max-width:480px) {
+            .inv-filter-field, .inv-filter-actions { width:100%; flex-basis:100%; }
+            .inv-filter-actions .erp-btn { flex:1; justify-content:center; }
+        }
 
         /* horizontal scroll for the wide calendar, with a visible slim scrollbar */
         .inv-scroll { overflow-x:auto; }
@@ -71,7 +105,11 @@ $cell_class = function ($avail) {
             padding:0 7px; border-radius:8px; font-weight:800; font-size:.9rem; }
         .inv-a-ok { background:var(--green-soft); color:#15803d; }
         .inv-a-0  { background:var(--red-soft);   color:#be123c; }
+        .inv-a-booked { background:#fff3d6; color:#b45309; }
+        .inv-a-checked-in { background:var(--red-soft); color:#be123c; }
         .inv-bk   { display:block; font-size:.64rem; color:var(--muted); margin-top:3px; white-space:nowrap; }
+        .inv-bk-booked { color:#b45309; }
+        .inv-bk-checked-in { color:#be123c; }
 
         .inv-total-row td { background:#fbfaff; }
         .inv-total-row .inv-roomcol { background:#fbfaff; }
@@ -108,26 +146,36 @@ $cell_class = function ($avail) {
                     </a>
                 </div>
                 <div class="inv-range"><?= html_escape(date('d M Y', strtotime($start))) ?> &ndash; <?= html_escape(date('d M Y', strtotime($end))) ?></div>
-                <!-- Filters -->
-                <form method="get" class="inv-filters">
-                    <input type="hidden" name="start" value="<?= html_escape($start) ?>">
-                    <input class="erp-input" type="text" name="room_no" placeholder="Room No/Name" value="<?= html_escape($filters['room_no'] ?? '') ?>">
-                    <select class="erp-select" name="category_id">
-                        <option value="">All Categories</option>
-                        <?php foreach ($categories as $c): ?>
-                            <option value="<?= (int) $c->category_id ?>" <?= (isset($filters['category_id']) && (int)$filters['category_id'] === (int)$c->category_id) ? 'selected' : '' ?>><?= html_escape($c->category_name) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <button type="submit" class="erp-btn erp-btn-primary" style="height:36px;padding:0 16px;">Filter</button>
-                    <?php if (!empty($filters['room_no']) || !empty($filters['category_id'])): ?>
-                        <a href="<?= site_url('inventory?start='.$start) ?>" class="erp-btn erp-btn-ghost" style="height:36px;padding:0 16px;">Clear</a>
-                    <?php endif; ?>
-                </form>
             </div>
         </div>
 
+        <!-- Filters -->
+        <form method="get" class="inv-filterbar" id="invFilterForm">
+            <input type="hidden" name="start" value="<?= html_escape($start) ?>">
+            <div class="inv-filter-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M7 12h10M10 19h4"/></svg>
+                Filter Rooms
+            </div>
+            <div class="inv-filter-field inv-filter-room">
+                <label for="invRoomName">Room Name / No.</label>
+                <input class="erp-input" id="invRoomName" type="text" name="room_no" placeholder="Search room" value="<?= html_escape($filters['room_no'] ?? '') ?>">
+            </div>
+            <div class="inv-filter-field inv-filter-category">
+                <label for="invCategory">Room Category</label>
+                <select class="erp-select" id="invCategory" name="category_id" data-search="always" data-placeholder="All Categories">
+                    <option value="">All Categories</option>
+                    <?php foreach ($categories as $c): ?>
+                        <option value="<?= (int) $c->category_id ?>" <?= (isset($filters['category_id']) && (int)$filters['category_id'] === (int)$c->category_id) ? 'selected' : '' ?>><?= html_escape($c->category_name) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="inv-filter-actions">
+                <a href="<?= site_url('inventory?start='.$start) ?>" class="erp-btn erp-btn-ghost">Clear</a>
+            </div>
+        </form>
+
         <!-- Calendar -->
-        <div class="inv-scroll" style="margin-top:4px;">
+        <div class="inv-scroll">
             <table class="inv-table">
                 <thead>
                     <tr>
@@ -150,23 +198,33 @@ $cell_class = function ($avail) {
                                 <?php
                                     $total_available = 0;
                                     $total_booked = 0;
+                                    $total_checked_in = 0;
                                     foreach ($dates as $d) {
                                         $total_available += $avail_totals[$d];
                                         $total_booked += $booked_totals[$d];
+                                        $total_checked_in += $checked_in_totals[$d];
                                     }
                                     echo (int) $total_rooms . ' rooms &middot; ';
-                                    if ($total_booked > 0) {
-                                        echo $total_booked . ' room' . ($total_booked == 1 ? '' : 's') . ' booked';
+                                    if ($total_booked > 0 || $total_checked_in > 0) {
+                                        $summary_parts = array();
+                                        if ($total_booked > 0) {
+                                            $summary_parts[] = $total_booked . ' booked';
+                                        }
+                                        if ($total_checked_in > 0) {
+                                            $summary_parts[] = $total_checked_in . ' checked in';
+                                        }
+                                        echo implode(' &middot; ', $summary_parts);
                                     } else {
                                         echo 'all available';
                                     }
                                 ?>
                             </div>
                         </td>
-                        <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $avail_totals[$d]; $bk = (int) $booked_totals[$d]; ?>
+                        <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $avail_totals[$d]; $bk = (int) $booked_totals[$d]; $ci = (int) $checked_in_totals[$d]; ?>
                             <td class="inv-cell <?= $f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '') ?>">
-                                <span class="<?= $cell_class($av) ?>"><?= $bk > 0 ? $bk : '0' ?></span>
-                                <?php if ($bk > 0): ?><span class="inv-bk"><?= $bk ?> booked</span><?php endif; ?>
+                                <span class="<?= $cell_class($av) ?>" title="Total rooms"><?= (int) $total_rooms ?></span>
+                                <?php if ($bk > 0): ?><span class="inv-bk inv-bk-booked"><?= $bk ?> booked</span><?php endif; ?>
+                                <?php if ($ci > 0): ?><span class="inv-bk inv-bk-checked-in"><?= $ci ?> checked in</span><?php endif; ?>
                             </td>
                         <?php endforeach; ?>
                     </tr>
@@ -178,9 +236,11 @@ $cell_class = function ($avail) {
                                 <div class="inv-rt-name"><?= html_escape($room['room_no']) ?></div>
                                 <div class="inv-rt-sub"><?= html_escape($room['category_name'] ?: 'No Category') ?></div>
                             </td>
-                            <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $room['avail'][$d]; $bk = (int) $room['booked'][$d]; ?>
+                            <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $room['avail'][$d]; $status = $room['status'][$d]; ?>
                                 <td class="inv-cell <?= $f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '') ?>">
-                                    <span class="<?= $cell_class($av) ?>" title="<?= $av ? 'Available' : 'Booked' ?>"><?= $av ? '1' : '0' ?></span>
+                                    <span class="<?= $room_cell_class($status) ?>" title="<?= $status === 'checked_in' ? 'Checked in' : ($status === 'room_booked' ? 'Room booked' : 'Available') ?>"><?= $av ? '1' : '0' ?></span>
+                                    <?php if ($status === 'room_booked'): ?><span class="inv-bk inv-bk-booked">Booked</span><?php endif; ?>
+                                    <?php if ($status === 'checked_in'): ?><span class="inv-bk inv-bk-checked-in">Checked in</span><?php endif; ?>
                                 </td>
                             <?php endforeach; ?>
                         </tr>
@@ -195,14 +255,37 @@ $cell_class = function ($avail) {
 
         <div class="inv-legend">
             <span class="k"><span class="inv-swatch" style="background:var(--green-soft);"></span> Available</span>
-            <span class="k"><span class="inv-swatch" style="background:var(--red-soft);"></span> Fully booked (0)</span>
+            <span class="k"><span class="inv-swatch" style="background:#fff3d6;"></span> Room booked</span>
+            <span class="k"><span class="inv-swatch" style="background:var(--red-soft);"></span> Checked in</span>
             <span class="k"><span class="inv-swatch" style="background:var(--brand-soft);"></span> Today</span>
             <span class="k">Number = rooms available that day</span>
         </div>
     </div>
 </div>
 
+<script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
 <script>
+    // Apply inventory filters automatically; no separate submit button needed.
+    (function () {
+        var form = document.getElementById('invFilterForm');
+        var roomInput = document.getElementById('invRoomName');
+        var category = document.getElementById('invCategory');
+        var timer;
+
+        if (!form) { return; }
+
+        if (roomInput) {
+            roomInput.addEventListener('input', function () {
+                window.clearTimeout(timer);
+                timer = window.setTimeout(function () { form.submit(); }, 400);
+            });
+        }
+
+        if (category) {
+            category.addEventListener('change', function () { form.submit(); });
+        }
+    })();
+
     // Date picker jumps the window to the chosen start date.
     (function () {
         var el = document.getElementById('invStart');

@@ -136,15 +136,15 @@ class Inventory_model extends CI_Model
 
         $rooms = $this->all_rooms_with_category($filters);
 
-        // occ[room_id][date] = 1 if occupied, 0 if available
-        $occ = array();
+        // state[room_id][date] distinguishes a reservation from an in-house guest.
+        $state = array();
         foreach ($rooms as $r) {
-            $occ[(int) $r->id] = array_fill_keys($dates, 0);
+            $state[(int) $r->id] = array_fill_keys($dates, 'available');
         }
 
         foreach ($this->occupying_bookings() as $b) {
             $room_id = $b->room_id;
-            if (!$room_id || !isset($occ[$room_id])) {
+            if (!$room_id || !isset($state[$room_id])) {
                 continue;   // no room assigned or room not active
             }
 
@@ -168,7 +168,10 @@ class Inventory_model extends CI_Model
 
             foreach ($dates as $dt) {
                 if ($dt >= $cin && ($cout === NULL || $dt < $cout)) {
-                    $occ[$room_id][$dt] = 1;
+                    // Checked-in takes precedence if overlapping records exist.
+                    if ($b->status_code === 'checked_in' || $state[$room_id][$dt] === 'available') {
+                        $state[$room_id][$dt] = $b->status_code;
+                    }
                 }
             }
         }
@@ -176,6 +179,7 @@ class Inventory_model extends CI_Model
         $rooms_data    = array();
         $avail_totals  = array_fill_keys($dates, 0);
         $booked_totals = array_fill_keys($dates, 0);
+        $checked_in_totals = array_fill_keys($dates, 0);
         $total_rooms   = 0;
 
         foreach ($rooms as $r) {
@@ -186,15 +190,22 @@ class Inventory_model extends CI_Model
 
             $avail = array();
             $booked = array();
+            $room_status = array();
             $occupied_count = 0;
 
             foreach ($dates as $dt) {
-                $bk = $occ[$rid][$dt];
+                $current_status = $state[$rid][$dt];
+                $bk = $current_status === 'available' ? 0 : 1;
                 $av = 1 - $bk;  // 1 available if not occupied, 0 if occupied
                 $avail[$dt]  = $av;
                 $booked[$dt] = $bk;
+                $room_status[$dt] = $current_status;
                 $avail_totals[$dt]  += $av;
-                $booked_totals[$dt] += $bk;
+                if ($current_status === 'room_booked') {
+                    $booked_totals[$dt]++;
+                } elseif ($current_status === 'checked_in') {
+                    $checked_in_totals[$dt]++;
+                }
                 $occupied_count += $bk;
             }
 
@@ -207,6 +218,7 @@ class Inventory_model extends CI_Model
                 'category_name' => $cat_name,
                 'avail'     => $avail,
                 'booked'    => $booked,
+                'status'    => $room_status,
                 'occupied_count' => $occupied_count,
             );
         }
@@ -216,6 +228,7 @@ class Inventory_model extends CI_Model
             'rooms'         => $rooms_data,
             'avail_totals'  => $avail_totals,
             'booked_totals' => $booked_totals,
+            'checked_in_totals' => $checked_in_totals,
             'total_rooms'   => $total_rooms,
         );
     }

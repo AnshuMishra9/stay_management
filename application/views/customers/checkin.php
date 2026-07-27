@@ -15,6 +15,10 @@ $cval = function ($field, $fallback = '') use ($customer) {
     return set_value($field, $customer ? ($customer->$field ?? '') : $fallback, FALSE);
 };
 $sel_status = set_value('status_id', (string) $booking->status_id);
+$scheduled_check_in = $booking->scheduled_check_in_date
+    ?: ($booking->checked_in_at ? substr($booking->checked_in_at, 0, 10) : '');
+$scheduled_check_out = $booking->scheduled_check_out_date
+    ?: ($booking->checked_out_at ? substr($booking->checked_out_at, 0, 10) : '');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -83,6 +87,7 @@ $sel_status = set_value('status_id', (string) $booking->status_id);
                             <option value="<?= (int) $s->status_id ?>" <?= (string) $sel_status === (string) $s->status_id ? 'selected' : '' ?>><?= html_escape($s->status_name) ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <?= form_error('status_id', '<div class="erp-error">', '</div>') ?>
                 </div>
                 <div class="erp-form-field">
                     <label>Allot Room <span class="erp-muted" style="font-weight:400;">(only rooms not already assigned)</span></label>
@@ -92,6 +97,18 @@ $sel_status = set_value('status_id', (string) $booking->status_id);
                             <option value="<?= (int) $rm->id ?>" <?= (string) $booking->room_id === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+            </div>
+            <div class="erp-grid-2" style="margin-top:16px;">
+                <div class="erp-form-field">
+                    <label>Scheduled Check-In <span class="req">*</span></label>
+                    <input class="erp-input" type="date" name="scheduled_check_in_date" required value="<?= html_escape(set_value('scheduled_check_in_date', $scheduled_check_in)) ?>">
+                    <?= form_error('scheduled_check_in_date', '<div class="erp-error">', '</div>') ?>
+                </div>
+                <div class="erp-form-field">
+                    <label>Scheduled Check-Out <span class="req">*</span> <span class="erp-muted" style="font-weight:400;">(room available this day)</span></label>
+                    <input class="erp-input" type="date" name="scheduled_check_out_date" required value="<?= html_escape(set_value('scheduled_check_out_date', $scheduled_check_out)) ?>">
+                    <?= form_error('scheduled_check_out_date', '<div class="erp-error">', '</div>') ?>
                 </div>
             </div>
         </div>

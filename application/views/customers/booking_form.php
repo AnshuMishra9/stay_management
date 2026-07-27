@@ -132,6 +132,7 @@ $dtlocal = function ($field) use ($bval) {
                             <option value="<?= (int) $s->status_id ?>" <?= (string) $sel_status === (string) $s->status_id ? 'selected' : '' ?>><?= html_escape($s->status_name) ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <?= form_error('status_id', '<div class="erp-error">', '</div>') ?>
                 </div>
             </div>
 

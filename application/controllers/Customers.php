@@ -246,7 +246,6 @@ class Customers extends Secure_Controller
         $this->load->library('form_validation');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
-
         if ($this->form_validation->run() === FALSE) {
             // Re-render the form with errors + submitted values.
             $data = array(
@@ -312,6 +311,7 @@ class Customers extends Secure_Controller
         $this->load->library('form_validation');
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
+        $this->form_validation->set_rules('status_id', 'Booking Status', 'required|callback_can_check_in_on_scheduled_date');
 
         if ($this->form_validation->run() === FALSE) {
             $existing = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
@@ -442,6 +442,9 @@ class Customers extends Secure_Controller
         $this->load->library('form_validation');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
+        $this->form_validation->set_rules('status_id', 'Booking Status', 'required|callback_can_check_in_on_scheduled_date');
+        $this->form_validation->set_rules('scheduled_check_in_date', 'Scheduled Check-In', 'required');
+        $this->form_validation->set_rules('scheduled_check_out_date', 'Scheduled Check-Out', 'required|callback_valid_stay_dates');
 
         if ($this->form_validation->run() === FALSE) {
             $data = array(
@@ -476,10 +479,15 @@ class Customers extends Secure_Controller
         $upd = array(
             'status_id'      => $status_id,
             'room_id'        => $this->input->post('room_id') ?: NULL,
+            'scheduled_check_in_date'  => $this->_date($this->input->post('scheduled_check_in_date')),
+            'scheduled_check_out_date' => $this->_date($this->input->post('scheduled_check_out_date')),
             'checked_in_at'  => in_array($status_code, array('checked_in', 'checked_out'), TRUE)
                                     ? ($booking->checked_in_at ?: $now) : NULL,
             'checked_out_at' => ($status_code === 'checked_out')
                                     ? ($booking->checked_out_at ?: $now) : NULL,
+        );
+        $upd['length_of_stay'] = (int) (
+            (strtotime($upd['scheduled_check_out_date']) - strtotime($upd['scheduled_check_in_date'])) / 86400
         );
         $this->Customer_model->update_booking($booking_id, $upd);
 
@@ -726,6 +734,66 @@ class Customers extends Secure_Controller
         return $ts ? date('Y-m-d H:i:s', $ts) : NULL;
     }
 
+    /** Normalise a date input into a real Y-m-d value. */
+    private function _date($v)
+    {
+        if ($v === NULL || ! is_string($v)) { return NULL; }
+        $value = trim($v);
+        $dt = DateTime::createFromFormat('!Y-m-d', $value);
+        return ($dt && $dt->format('Y-m-d') === $value) ? $value : NULL;
+    }
+
+    /** Form-validation callback: checkout is an exclusive date after check-in. */
+    public function valid_stay_dates($checkout)
+    {
+        $checkin = $this->_date($this->input->post('scheduled_check_in_date'));
+        $checkout = $this->_date($checkout);
+        if ($checkin && $checkout && $checkout > $checkin) {
+            return TRUE;
+        }
+        $this->form_validation->set_message(
+            'valid_stay_dates',
+            'Scheduled Check-Out must be after Scheduled Check-In.'
+        );
+        return FALSE;
+    }
+
+    /** Prevent a future booking from being checked in before its arrival date. */
+    public function can_check_in_on_scheduled_date($status_id)
+    {
+        $status_code = $this->Customer_model->status_code((int) $status_id);
+        if ($status_code !== 'checked_in') {
+            return TRUE;
+        }
+
+        $scheduled_check_in = $this->_date($this->input->post('scheduled_check_in_date'));
+        if ( ! $scheduled_check_in) {
+            $booking_id = (int) $this->input->post('booking_id');
+            $existing = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+            $scheduled_check_in = $existing
+                ? $this->_date($existing->scheduled_check_in_date)
+                : NULL;
+        }
+
+        // No scheduled date means a direct/walk-in booking, which may check in now.
+        if ( ! $scheduled_check_in) {
+            return TRUE;
+        }
+
+        if ($scheduled_check_in && $scheduled_check_in <= date('Y-m-d')) {
+            return TRUE;
+        }
+
+        $display_date = $scheduled_check_in
+            ? date('d M Y', strtotime($scheduled_check_in))
+            : 'the scheduled check-in date';
+        $this->form_validation->set_message(
+            'can_check_in_on_scheduled_date',
+            'This booking cannot be checked in before '.$display_date.'.'
+        );
+        return FALSE;
+    }
+
     /**
      * Resolve the posted status_id to a valid status_master id, defaulting to
      * "Room booked" when missing/invalid.
@@ -749,7 +817,6 @@ class Customers extends Secure_Controller
         // form (view-only on the list), so we leave any stored values untouched.
         $status_id   = $this->_status_id();
         $status_code = $this->Customer_model->status_code($status_id);
-
         $booking = array(
             'booking_channel_id' => $this->input->post('booking_channel_id') ?: NULL,
             'status_id'          => $status_id,
