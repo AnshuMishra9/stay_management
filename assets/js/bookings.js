@@ -15,15 +15,16 @@
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
         var debounce = null;
 
-        // Which list this page shows (Booking Details vs Check-in Details).
+        // Which status-scoped booking list this page shows.
         var listUrl = window.APP_LIST_URL || (base + 'customers/bookings_ajax');
         var listNs  = window.APP_LIST_NS  || 'bookings';
 
         // After a save/redirect (flash present) the cached lists are stale. A
-        // status change moves a booking between the two lists, so drop both.
+        // status change moves a booking between lists, so drop every list cache.
         if (window.APP_FRESH) {
             erpQuery.invalidate('bookings');
             erpQuery.invalidate('checkins');
+            erpQuery.invalidate('checkedouts');
             window.APP_FRESH = false;
         }
 

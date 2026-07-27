@@ -98,6 +98,18 @@ class Customers extends Secure_Controller
         ));
     }
 
+    /** Check-out Details list page — lists ONLY "Checked out" bookings. */
+    public function checkedouts()
+    {
+        $this->_render_booking_list(array(
+            'title'    => 'Check-out Details',
+            'sub'      => 'Customers who have checked out',
+            'ajax'     => 'customers/checkedouts_ajax',
+            'ns'       => 'checkedouts',
+            'show_new' => FALSE,
+        ));
+    }
+
     /** Shared renderer for the two status-scoped booking lists. */
     private function _render_booking_list(array $cfg)
     {
@@ -186,6 +198,13 @@ class Customers extends Secure_Controller
     {
         return $this->_json(array('status' => TRUE, 'data' =>
             $this->Customer_model->get_bookings($this->_booking_filters('checked_in'))));
+    }
+
+    /** [AJAX] "Checked out" bookings (Check-out Details list). */
+    public function checkedouts_ajax()
+    {
+        return $this->_json(array('status' => TRUE, 'data' =>
+            $this->Customer_model->get_bookings($this->_booking_filters('checked_out'))));
     }
 
     /** Per-column filters shared by both booking lists. */
