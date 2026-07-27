@@ -84,7 +84,15 @@ $sel_status = set_value('status_id', (string) $booking->status_id);
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="erp-form-field"></div>
+                <div class="erp-form-field">
+                    <label>Allot Room <span class="erp-muted" style="font-weight:400;">(only rooms not already assigned)</span></label>
+                    <select class="erp-select" name="room_id" data-search="always" data-placeholder="Select a room">
+                        <option value="">— No room —</option>
+                        <?php foreach ($room_opts as $rm): ?>
+                            <option value="<?= (int) $rm->id ?>" <?= (string) $booking->room_id === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
             </div>
         </div>
 

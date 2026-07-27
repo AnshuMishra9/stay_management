@@ -34,12 +34,22 @@ class Inventory extends Secure_Controller
             $start = date('Y-m-d');
         }
 
-        $data = $this->Inventory_model->availability($start, self::DAYS);
+        // Get filter parameters
+        $filters = array(
+            'room_no'      => $this->input->get('room_no'),
+            'category_id'  => $this->input->get('category_id'),
+        );
+
+        $data = $this->Inventory_model->availability($start, self::DAYS, $filters);
         $data['start'] = $start;
         $data['today'] = date('Y-m-d');
         $data['prev']  = date('Y-m-d', strtotime($start.' -'.self::DAYS.' day'));
         $data['next']  = date('Y-m-d', strtotime($start.' +'.self::DAYS.' day'));
         $data['end']   = end($data['dates']);
+
+        // Pass filters and categories for dropdown
+        $data['filters'] = $filters;
+        $data['categories'] = $this->Inventory_model->get_all_categories();
 
         $this->load->view('inventory/calendar', $data);
     }

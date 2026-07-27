@@ -412,6 +412,7 @@ class Customers extends Secure_Controller
             'booking'        => $booking,
             'customer'       => $customer,
             'status_opts'    => $this->Customer_model->all_statuses(),
+            'room_opts'      => $this->Customer_model->available_rooms($booking_id),
             'identity_types' => $this->_identity_types(),
             'identities'     => $customer ? $this->Customer_model->get_identities($customer->id) : array(),
         );
@@ -447,6 +448,7 @@ class Customers extends Secure_Controller
                 'booking'        => $booking,
                 'customer'       => $customer,
                 'status_opts'    => $this->Customer_model->all_statuses(),
+                'room_opts'      => $this->Customer_model->available_rooms($booking_id),
                 'identity_types' => $this->_identity_types(),
                 'identities'     => $this->Customer_model->get_identities($customer->id),
             );
@@ -473,6 +475,7 @@ class Customers extends Secure_Controller
 
         $upd = array(
             'status_id'      => $status_id,
+            'room_id'        => $this->input->post('room_id') ?: NULL,
             'checked_in_at'  => in_array($status_code, array('checked_in', 'checked_out'), TRUE)
                                     ? ($booking->checked_in_at ?: $now) : NULL,
             'checked_out_at' => ($status_code === 'checked_out')

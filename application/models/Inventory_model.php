@@ -42,6 +42,52 @@ class Inventory_model extends CI_Model
     }
 
     /**
+     * All active rooms with their category name.
+     * Returns individual rooms sorted by room number.
+     *
+     * @param array $filters - optional filters: room_no, category_id
+     * @return array of {id, room_no, category_id, category_name}
+     */
+    public function all_rooms_with_category($filters = array())
+    {
+        $this->db
+            ->select('r.id, r.room_no, r.category_id, rc.category_name')
+            ->from('rooms r')
+            ->join('room_categories rc', 'rc.category_id = r.category_id', 'left')
+            ->where('r.is_active', 1);
+
+        // Filter by room number/name
+        if (!empty($filters['room_no'])) {
+            $this->db->like('r.room_no', $filters['room_no']);
+        }
+
+        // Filter by category
+        if (!empty($filters['category_id'])) {
+            $this->db->where('r.category_id', (int) $filters['category_id']);
+        }
+
+        return $this->db
+            ->order_by('r.room_no', 'ASC')
+            ->get()->result();
+    }
+
+    /**
+     * Get all active room categories for filter dropdown.
+     *
+     * @return array of {category_id, category_name}
+     */
+    public function get_all_categories()
+    {
+        return $this->db
+            ->select('category_id, category_name')
+            ->from('room_categories')
+            ->where('status', 1)
+            ->order_by('display_order', 'ASC')
+            ->order_by('category_name', 'ASC')
+            ->get()->result();
+    }
+
+    /**
      * All occupying (Room booked / Checked in) bookings. The per-night overlap
      * and effective stay range are resolved by the caller in PHP.
      *
@@ -68,17 +114,19 @@ class Inventory_model extends CI_Model
 
     /**
      * Build the availability matrix for a $days window starting at $start.
+     * Returns availability per individual room instead of per category.
      *
      * @param  string $start  Y-m-d
      * @param  int    $days
+     * @param  array  $filters - optional filters: room_no, category_id
      * @return array {
      *     dates:        [Y-m-d, …],
-     *     rows:         [ {name, total, avail:{date=>n}, booked:{date=>n}}, … ],
+     *     rooms:        [ {id, room_no, category_id, category_name, avail:{date=>n}, booked:{date=>n}}, … ],
      *     avail_totals: {date=>n},   booked_totals:{date=>n},
      *     total_rooms:  int
      * }
      */
-    public function availability($start, $days)
+    public function availability($start, $days, $filters = array())
     {
         $t0 = strtotime($start);
         $dates = array();
@@ -86,20 +134,19 @@ class Inventory_model extends CI_Model
             $dates[] = date('Y-m-d', strtotime('+'.$i.' day', $t0));
         }
 
-        $cats = $this->categories_with_totals();
+        $rooms = $this->all_rooms_with_category($filters);
 
-        // occ[category_id][date] = rooms occupied that night.
+        // occ[room_id][date] = 1 if occupied, 0 if available
         $occ = array();
-        foreach ($cats as $c) {
-            $occ[(int) $c->category_id] = array_fill_keys($dates, 0);
+        foreach ($rooms as $r) {
+            $occ[(int) $r->id] = array_fill_keys($dates, 0);
         }
 
         foreach ($this->occupying_bookings() as $b) {
-            $cat = $b->room_id ? (int) $b->room_cat : (int) $b->room_category_id;
-            if ($cat === 0 || ! isset($occ[$cat])) {
-                continue;   // no category, or a category with no active rooms
+            $room_id = $b->room_id;
+            if (!$room_id || !isset($occ[$room_id])) {
+                continue;   // no room assigned or room not active
             }
-            $qty = $b->room_id ? 1 : (int) ($b->room_quantity ?: ($b->total_unit ?: 1));
 
             // Effective stay range: scheduled dates win; otherwise fall back to
             // the actual check-in/out timestamps, so a checked-in guest with no
@@ -121,41 +168,52 @@ class Inventory_model extends CI_Model
 
             foreach ($dates as $dt) {
                 if ($dt >= $cin && ($cout === NULL || $dt < $cout)) {
-                    $occ[$cat][$dt] += $qty;
+                    $occ[$room_id][$dt] = 1;
                 }
             }
         }
 
-        $rows          = array();
+        $rooms_data    = array();
         $avail_totals  = array_fill_keys($dates, 0);
         $booked_totals = array_fill_keys($dates, 0);
         $total_rooms   = 0;
 
-        foreach ($cats as $c) {
-            $cid   = (int) $c->category_id;
-            $total = (int) $c->total_rooms;
+        foreach ($rooms as $r) {
+            $rid     = (int) $r->id;
+            $room_no = $r->room_no;
+            $cat_id  = $r->category_id;
+            $cat_name = $r->category_name;
+
             $avail = array();
             $booked = array();
+            $occupied_count = 0;
+
             foreach ($dates as $dt) {
-                $bk = $occ[$cid][$dt];
-                $av = max(0, $total - $bk);
+                $bk = $occ[$rid][$dt];
+                $av = 1 - $bk;  // 1 available if not occupied, 0 if occupied
                 $avail[$dt]  = $av;
                 $booked[$dt] = $bk;
                 $avail_totals[$dt]  += $av;
                 $booked_totals[$dt] += $bk;
+                $occupied_count += $bk;
             }
-            $total_rooms += $total;
-            $rows[] = array(
-                'name'   => $c->category_name,
-                'total'  => $total,
-                'avail'  => $avail,
-                'booked' => $booked,
+
+            $total_rooms += 1;
+
+            $rooms_data[] = array(
+                'id'        => $rid,
+                'room_no'   => $room_no,
+                'category_id' => $cat_id,
+                'category_name' => $cat_name,
+                'avail'     => $avail,
+                'booked'    => $booked,
+                'occupied_count' => $occupied_count,
             );
         }
 
         return array(
             'dates'         => $dates,
-            'rows'          => $rows,
+            'rooms'         => $rooms_data,
             'avail_totals'  => $avail_totals,
             'booked_totals' => $booked_totals,
             'total_rooms'   => $total_rooms,

@@ -35,6 +35,9 @@ $cell_class = function ($avail) {
         .inv-navbtn { display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border:1px solid var(--input-brd); border-radius:10px; background:#fff; color:var(--brand-dark); cursor:pointer; }
         .inv-navbtn:hover { background:var(--brand-soft); border-color:#c9cff0; }
         .inv-range { color:var(--muted); font-size:.82rem; white-space:nowrap; text-align:right; }
+        .inv-filters { display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+        .inv-filters .erp-input { width:140px; height:36px; }
+        .inv-filters .erp-select { width:160px; height:36px; }
 
         /* horizontal scroll for the wide calendar, with a visible slim scrollbar */
         .inv-scroll { overflow-x:auto; }
@@ -105,6 +108,21 @@ $cell_class = function ($avail) {
                     </a>
                 </div>
                 <div class="inv-range"><?= html_escape(date('d M Y', strtotime($start))) ?> &ndash; <?= html_escape(date('d M Y', strtotime($end))) ?></div>
+                <!-- Filters -->
+                <form method="get" class="inv-filters">
+                    <input type="hidden" name="start" value="<?= html_escape($start) ?>">
+                    <input class="erp-input" type="text" name="room_no" placeholder="Room No/Name" value="<?= html_escape($filters['room_no'] ?? '') ?>">
+                    <select class="erp-select" name="category_id">
+                        <option value="">All Categories</option>
+                        <?php foreach ($categories as $c): ?>
+                            <option value="<?= (int) $c->category_id ?>" <?= (isset($filters['category_id']) && (int)$filters['category_id'] === (int)$c->category_id) ? 'selected' : '' ?>><?= html_escape($c->category_name) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="submit" class="erp-btn erp-btn-primary" style="height:36px;padding:0 16px;">Filter</button>
+                    <?php if (!empty($filters['room_no']) || !empty($filters['category_id'])): ?>
+                        <a href="<?= site_url('inventory?start='.$start) ?>" class="erp-btn erp-btn-ghost" style="height:36px;padding:0 16px;">Clear</a>
+                    <?php endif; ?>
+                </form>
             </div>
         </div>
 
@@ -128,32 +146,47 @@ $cell_class = function ($avail) {
                     <tr class="inv-total-row">
                         <td class="inv-roomcol">
                             <div class="inv-rt-name">All Rooms</div>
-                            <div class="inv-rt-sub"><?= (int) $total_rooms ?> rooms &middot; available</div>
+                            <div class="inv-rt-sub">
+                                <?php
+                                    $total_available = 0;
+                                    $total_booked = 0;
+                                    foreach ($dates as $d) {
+                                        $total_available += $avail_totals[$d];
+                                        $total_booked += $booked_totals[$d];
+                                    }
+                                    echo (int) $total_rooms . ' rooms &middot; ';
+                                    if ($total_booked > 0) {
+                                        echo $total_booked . ' room' . ($total_booked == 1 ? '' : 's') . ' booked';
+                                    } else {
+                                        echo 'all available';
+                                    }
+                                ?>
+                            </div>
                         </td>
-                        <?php foreach ($dates as $d): $f = $fmt($d); ?>
+                        <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $avail_totals[$d]; $bk = (int) $booked_totals[$d]; ?>
                             <td class="inv-cell <?= $f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '') ?>">
-                                <span class="inv-a"><?= (int) $avail_totals[$d] ?></span>
+                                <span class="<?= $cell_class($av) ?>"><?= $bk > 0 ? $bk : '0' ?></span>
+                                <?php if ($bk > 0): ?><span class="inv-bk"><?= $bk ?> booked</span><?php endif; ?>
                             </td>
                         <?php endforeach; ?>
                     </tr>
 
-                    <!-- Per room type -->
-                    <?php foreach ($rows as $row): ?>
+                    <!-- Individual rooms -->
+                    <?php foreach ($rooms as $room): ?>
                         <tr>
                             <td class="inv-roomcol">
-                                <div class="inv-rt-name"><?= html_escape($row['name']) ?></div>
-                                <div class="inv-rt-sub"><?= (int) $row['total'] ?> room<?= $row['total'] == 1 ? '' : 's' ?></div>
+                                <div class="inv-rt-name"><?= html_escape($room['room_no']) ?></div>
+                                <div class="inv-rt-sub"><?= html_escape($room['category_name'] ?: 'No Category') ?></div>
                             </td>
-                            <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $row['avail'][$d]; $bk = (int) $row['booked'][$d]; ?>
+                            <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $room['avail'][$d]; $bk = (int) $room['booked'][$d]; ?>
                                 <td class="inv-cell <?= $f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '') ?>">
-                                    <span class="<?= $cell_class($av) ?>" title="<?= $av ?> available &middot; <?= $bk ?> booked of <?= (int) $row['total'] ?>"><?= $av ?></span>
-                                    <?php if ($bk > 0): ?><span class="inv-bk"><?= $bk ?> booked</span><?php endif; ?>
+                                    <span class="<?= $cell_class($av) ?>" title="<?= $av ? 'Available' : 'Booked' ?>"><?= $av ? '1' : '0' ?></span>
                                 </td>
                             <?php endforeach; ?>
                         </tr>
                     <?php endforeach; ?>
 
-                    <?php if (empty($rows)): ?>
+                    <?php if (empty($rooms)): ?>
                         <tr><td class="inv-roomcol">—</td><td colspan="<?= (int) count($dates) ?>" style="padding:20px;color:var(--muted);">No active rooms found. Add rooms in Room Master.</td></tr>
                     <?php endif; ?>
                 </tbody>
