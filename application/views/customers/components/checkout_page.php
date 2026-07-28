@@ -5,8 +5,8 @@
  * - Check-out Details -> completed record
  * - Check-out Details -> read-only edit page
  *
- * All visible controls are disabled. The confirmation page submits only the
- * booking id; completed check-out pages do not render a submit action.
+ * Booking/customer fields remain disabled. On the confirmation page only the
+ * status can be changed from Checked In to Checked Out.
  */
 $display = function ($value, $fallback = '—') {
     return ($value === NULL || $value === '') ? $fallback : $value;
@@ -25,6 +25,10 @@ $datetime_display = function ($value) use ($display) {
     $timestamp = strtotime($value);
     return $timestamp ? date('d M Y, h:i A', $timestamp) : $display($value);
 };
+$checkout_datetime = $booking->checked_out_at;
+if ( ! $checkout_datetime && $booking->scheduled_check_out_date) {
+    $checkout_datetime = substr($booking->scheduled_check_out_date, 0, 10).' 11:00:00';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -108,19 +112,30 @@ $datetime_display = function ($value) use ($display) {
                     </div>
                 </div>
             </div>
+        </fieldset>
 
             <div class="erp-form-section">
                 <div class="erp-section-title">Stay Details</div>
                 <div class="erp-grid-2" style="margin-bottom:16px;">
                     <div class="erp-form-field">
                         <label>Booking No</label>
-                        <input class="erp-input" type="text" value="<?= html_escape($booking->booking_number) ?>">
+                        <input class="erp-input" type="text" value="<?= html_escape($booking->booking_number) ?>" disabled>
                     </div>
                     <div class="erp-form-field">
                         <label>Status</label>
-                        <input class="erp-input" type="text" value="<?= html_escape($booking->status_name) ?>">
+                        <?php if ($confirm): ?>
+                            <select class="erp-select" name="status_id">
+                                <?php foreach ($status_opts as $status): ?>
+                                    <?php if ( ! in_array($status->status_code, array('checked_in', 'checked_out'), TRUE)) { continue; } ?>
+                                    <option value="<?= (int) $status->status_id ?>" <?= $status->status_code === $booking->status_code ? 'selected' : '' ?>><?= html_escape($status->status_name) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php else: ?>
+                            <input class="erp-input" type="text" value="<?= html_escape($booking->status_name) ?>" disabled>
+                        <?php endif; ?>
                     </div>
                 </div>
+                <fieldset disabled>
                 <div class="erp-grid-2" style="margin-bottom:16px;">
                     <div class="erp-form-field">
                         <label>Room No</label>
@@ -143,12 +158,12 @@ $datetime_display = function ($value) use ($display) {
                 </div>
                 <div class="erp-grid-2" style="margin-bottom:16px;">
                     <div class="erp-form-field">
-                        <label>Checked-In At</label>
+                        <label>Check-In</label>
                         <input class="erp-input" type="text" value="<?= html_escape($datetime_display($booking->checked_in_at)) ?>">
                     </div>
                     <div class="erp-form-field">
-                        <label>Checked-Out At</label>
-                        <input class="erp-input" type="text" value="<?= html_escape($datetime_display($booking->checked_out_at)) ?>">
+                        <label>Check-Out</label>
+                        <input class="erp-input" type="text" value="<?= html_escape($datetime_display($checkout_datetime)) ?>">
                     </div>
                 </div>
                 <div class="erp-grid-2">
@@ -161,8 +176,10 @@ $datetime_display = function ($value) use ($display) {
                         <input class="erp-input" type="text" value="<?= html_escape($display($booking->length_of_stay)) ?>">
                     </div>
                 </div>
+                </fieldset>
             </div>
 
+        <fieldset disabled>
             <div class="erp-form-section">
                 <div class="erp-section-title">Amounts</div>
                 <div class="erp-grid-2">
@@ -205,7 +222,7 @@ $datetime_display = function ($value) use ($display) {
         <div class="erp-form-foot">
             <a href="<?= site_url($back_url) ?>" class="erp-btn erp-btn-ghost">Back</a>
             <?php if ($confirm): ?>
-                <span class="readonly-note">Details are locked on this page.</span>
+                <span class="readonly-note">Only status can be changed on this page.</span>
                 <button type="submit" class="erp-btn erp-btn-primary">Confirm Check-out</button>
             <?php endif; ?>
         </div>

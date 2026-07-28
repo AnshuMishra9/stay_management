@@ -67,6 +67,9 @@
     // ---- Linked Room Category / Allot Room dropdowns ----
     var roomCategory = document.getElementById('bk_room_category');
     var room = document.getElementById('bk_room');
+    var total = document.getElementById('bk_total');
+    var paid = document.getElementById('bk_paid');
+    var rem = document.getElementById('bk_remaining');
 
     function refreshSelect(el) {
         if (window.SearchableSelect && window.SearchableSelect.refresh) {
@@ -93,7 +96,18 @@
         refreshSelect(room);
     }
 
-    function syncCategoryFromRoom() {
+    function applyCategoryBasePrice() {
+        if (!roomCategory || !total) { return; }
+        var selected = roomCategory.options[roomCategory.selectedIndex];
+        var basePrice = selected ? selected.getAttribute('data-base-price') : '';
+        if (basePrice === null || basePrice === '') { return; }
+
+        var parsedPrice = parseFloat(basePrice);
+        total.value = isNaN(parsedPrice) ? basePrice : parsedPrice.toFixed(2);
+        calcRemaining();
+    }
+
+    function syncCategoryFromRoom(updatePrice) {
         if (!roomCategory || !room) { return; }
         var selected = room.options[room.selectedIndex];
         var categoryId = selected ? selected.getAttribute('data-category-id') : '';
@@ -102,27 +116,35 @@
             refreshSelect(roomCategory);
         }
         filterRoomsByCategory();
+        if (updatePrice) {
+            applyCategoryBasePrice();
+        }
     }
 
     if (roomCategory && room) {
-        roomCategory.addEventListener('change', filterRoomsByCategory);
-        room.addEventListener('change', syncCategoryFromRoom);
+        roomCategory.addEventListener('change', function () {
+            filterRoomsByCategory();
+            applyCategoryBasePrice();
+        });
+        room.addEventListener('change', function () {
+            syncCategoryFromRoom(true);
+        });
 
         // On edit/validation reload, the allotted room is authoritative.
         if (room.value) {
-            syncCategoryFromRoom();
+            syncCategoryFromRoom(false);
         } else {
             filterRoomsByCategory();
         }
+    }
+    if (roomCategory && total && total.value === '') {
+        applyCategoryBasePrice();
     }
 
     // ---- Auto-calc: Length of Stay + Remaining Amount ----
     var ci    = document.getElementById('bk_checkin');
     var co    = document.getElementById('bk_checkout');
     var los   = document.getElementById('bk_los');
-    var total = document.getElementById('bk_total');
-    var paid  = document.getElementById('bk_paid');
-    var rem   = document.getElementById('bk_remaining');
     var bookingIdEl = document.querySelector('[name="booking_id"]');
     var availabilityRequest = 0;
 

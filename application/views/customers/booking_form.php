@@ -169,7 +169,9 @@ $dtlocal = function ($field) use ($bval) {
                     <select class="erp-select" id="bk_room_category" name="room_category_id">
                         <option value="">Select</option>
                         <?php foreach ($room_cat_opts as $rc): ?>
-                            <option value="<?= (int) $rc->category_id ?>" <?= (string) $sel_roomcat === (string) $rc->category_id ? 'selected' : '' ?>><?= html_escape($rc->category_name) ?></option>
+                            <option value="<?= (int) $rc->category_id ?>"
+                                    data-base-price="<?= html_escape($rc->base_price) ?>"
+                                    <?= (string) $sel_roomcat === (string) $rc->category_id ? 'selected' : '' ?>><?= html_escape($rc->category_name) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>

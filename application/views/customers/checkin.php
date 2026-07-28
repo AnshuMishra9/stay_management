@@ -102,6 +102,7 @@ $scheduled_check_out = $booking->scheduled_check_out_date
                     <?php endif; ?>
                     <select class="erp-select" <?= $lock_status ? 'disabled' : 'name="status_id"' ?>>
                         <?php foreach ($status_opts as $s): ?>
+                            <?php if ($s->status_code === 'checked_out') { continue; } ?>
                             <option value="<?= (int) $s->status_id ?>" <?= (string) $sel_status === (string) $s->status_id ? 'selected' : '' ?>><?= html_escape($s->status_name) ?></option>
                         <?php endforeach; ?>
                     </select>

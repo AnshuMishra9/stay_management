@@ -163,7 +163,7 @@ class Customer_model extends CI_Model
 
     /**
      * Active room categories for the "Room Category" dropdown.
-     * @return array of {category_id, category_name}
+     * @return array of {category_id, category_name, base_price}
      */
     public function room_categories()
     {
@@ -171,7 +171,7 @@ class Customer_model extends CI_Model
             return array();
         }
         return $this->db
-            ->select('category_id, category_name')
+            ->select('category_id, category_name, base_price')
             ->where('status', 1)
             ->order_by('display_order', 'ASC')->order_by('category_name', 'ASC')
             ->get('room_categories')->result();

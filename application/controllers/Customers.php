@@ -612,6 +612,7 @@ class Customers extends Secure_Controller
         $data = array(
             'booking'       => $booking,
             'identities'    => $identities,
+            'status_opts'   => $this->Customer_model->all_statuses(),
             'confirm'       => $is_confirm,
             'page_title'    => $is_confirm ? 'Check-out' : ($is_edit ? 'Edit Check-out' : 'Check-out Record'),
             'page_subtitle' => $is_confirm
@@ -630,7 +631,7 @@ class Customers extends Secure_Controller
         }
     }
 
-    /** Complete check-out. No customer or booking form fields are editable here. */
+    /** Complete check-out after the user changes Status to Checked Out. */
     public function checkout_save()
     {
         $booking_id = (int) $this->input->post('booking_id');
@@ -643,6 +644,17 @@ class Customers extends Secure_Controller
         $checked_out_status = $this->Customer_model->status_id_by_code('checked_out');
         if ( ! $checked_out_status) {
             show_error('The Checked Out status is not configured.');
+            return;
+        }
+
+        $selected_status = (int) $this->input->post('status_id');
+        $checked_in_status = $this->Customer_model->status_id_by_code('checked_in');
+        if ($selected_status === $checked_in_status) {
+            redirect('customers/checkins');
+            return;
+        }
+        if ($selected_status !== $checked_out_status) {
+            show_error('Please select Checked Out to complete the check-out.');
             return;
         }
 
@@ -692,7 +704,7 @@ class Customers extends Secure_Controller
         $this->load->library('form_validation');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
-        $this->form_validation->set_rules('status_id', 'Booking Status', 'required|callback_can_check_in_on_scheduled_date');
+        $this->form_validation->set_rules('status_id', 'Booking Status', 'required|callback_checkin_status_allowed|callback_can_check_in_on_scheduled_date');
         $this->form_validation->set_rules('scheduled_check_in_date', 'Scheduled Check-In', 'required');
         $this->form_validation->set_rules('scheduled_check_out_date', 'Scheduled Check-Out', 'required|callback_valid_stay_dates');
         $this->form_validation->set_rules('room_id', 'Allot Room', 'callback_room_available_for_stay');
@@ -1121,6 +1133,21 @@ class Customers extends Secure_Controller
         $this->form_validation->set_message(
             'room_available_for_stay',
             'The selected room is already booked for the applicable stay dates.'
+        );
+        return FALSE;
+    }
+
+    /** Check-out must be completed from the Check-in Details workflow. */
+    public function checkin_status_allowed($status_id)
+    {
+        $status_code = $this->Customer_model->status_code((int) $status_id);
+        if ($status_code && $status_code !== 'checked_out') {
+            return TRUE;
+        }
+
+        $this->form_validation->set_message(
+            'checkin_status_allowed',
+            'Check Out is not available on this page.'
         );
         return FALSE;
     }
