@@ -448,3 +448,5 @@ span.flatpickr-weekday { color: var(--muted); font-weight: 700; font-size: .72re
 /* Check-in action button (Booking Details) */
 .erp-icon-checkin { background: #e7f9ef; color: #16a34a; border-color: #c9efd8; }
 .erp-icon-checkin:hover { background: #16a34a; color: #fff; box-shadow: 0 8px 16px rgba(22,163,74,.4); }
+.erp-icon-checkout { background: #fff3e7; color: #c2410c; border-color: #fed7aa; }
+.erp-icon-checkout:hover { background: #ea580c; color: #fff; box-shadow: 0 8px 16px rgba(234,88,12,.35); }

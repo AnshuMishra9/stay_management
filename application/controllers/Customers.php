@@ -75,11 +75,16 @@ class Customers extends Secure_Controller
     public function bookings()
     {
         $this->_render_booking_list(array(
-            'title'    => 'Booking Details',
-            'sub'      => 'Customers with a room booked',
-            'ajax'     => 'customers/bookings_ajax',
-            'ns'       => 'bookings',
-            'show_new' => TRUE,
+            'title'          => 'Booking Details',
+            'sub'            => 'Customers with a room booked',
+            'ajax'           => 'customers/bookings_ajax',
+            'ns'             => 'bookings',
+            'show_new'       => TRUE,
+            'workflow_url'   => 'customers/bookings/checkin',
+            'workflow_title' => 'Check-in',
+            'workflow_icon'  => 'checkin',
+            'edit_url'       => 'customers/bookings/edit',
+            'edit_title'     => 'Edit booking',
         ));
     }
 
@@ -90,11 +95,16 @@ class Customers extends Secure_Controller
     public function checkins()
     {
         $this->_render_booking_list(array(
-            'title'    => 'Check-in Details',
-            'sub'      => 'Customers who are checked in',
-            'ajax'     => 'customers/checkins_ajax',
-            'ns'       => 'checkins',
-            'show_new' => FALSE,
+            'title'          => 'Check-in Details',
+            'sub'            => 'Customers who are checked in',
+            'ajax'           => 'customers/checkins_ajax',
+            'ns'             => 'checkins',
+            'show_new'       => FALSE,
+            'workflow_url'   => 'customers/checkins/checkout',
+            'workflow_title' => 'Check-out',
+            'workflow_icon'  => 'checkout',
+            'edit_url'       => 'customers/checkins/edit',
+            'edit_title'     => 'Edit check-in',
         ));
     }
 
@@ -102,11 +112,16 @@ class Customers extends Secure_Controller
     public function checkedouts()
     {
         $this->_render_booking_list(array(
-            'title'    => 'Check-out Details',
-            'sub'      => 'Customers who have checked out',
-            'ajax'     => 'customers/checkedouts_ajax',
-            'ns'       => 'checkedouts',
-            'show_new' => FALSE,
+            'title'          => 'Check-out Details',
+            'sub'            => 'Customers who have checked out',
+            'ajax'           => 'customers/checkedouts_ajax',
+            'ns'             => 'checkedouts',
+            'show_new'       => FALSE,
+            'workflow_url'   => 'customers/checkedouts/details',
+            'workflow_title' => 'Check-out record',
+            'workflow_icon'  => 'checkout',
+            'edit_url'       => 'customers/checkedouts/edit',
+            'edit_title'     => 'Edit (read only)',
         ));
     }
 
@@ -133,6 +148,18 @@ class Customers extends Secure_Controller
             $booking = $this->Customer_model->get_booking($booking_id);
             if ( ! $booking) {
                 show_404();
+                return;
+            }
+
+            // Status-specific records must use their own pages. In particular,
+            // a completed check-out can only open its read-only edit route.
+            $status_code = $this->Customer_model->status_code($booking->status_id);
+            if ($status_code === 'checked_in') {
+                redirect('customers/checkins/edit/'.$booking->id);
+                return;
+            }
+            if ($status_code === 'checked_out') {
+                redirect('customers/checkedouts/edit/'.$booking->id);
                 return;
             }
             $customer = $this->Customer_model->get_by_id($booking->customer_id);
@@ -325,6 +352,22 @@ class Customers extends Secure_Controller
     {
         $booking_id = (int) $this->input->post('booking_id');
         $booking_id = $booking_id > 0 ? $booking_id : NULL;
+        $existing_booking = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+        if ($booking_id && ! $existing_booking) {
+            show_404();
+            return;
+        }
+        if ($existing_booking) {
+            $existing_status = $this->Customer_model->status_code($existing_booking->status_id);
+            if ($existing_status === 'checked_in') {
+                redirect('customers/checkins/edit/'.$booking_id);
+                return;
+            }
+            if ($existing_status === 'checked_out') {
+                redirect('customers/checkedouts/edit/'.$booking_id);
+                return;
+            }
+        }
 
         // --- Validation --------------------------------------------------
         $this->load->library('form_validation');
@@ -421,7 +464,7 @@ class Customers extends Secure_Controller
     public function checkin($booking_id = NULL)
     {
         $booking = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
-        if ( ! $booking) {
+        if ( ! $booking || $this->Customer_model->status_code($booking->status_id) !== 'room_booked') {
             show_404();
             return;
         }
@@ -436,6 +479,138 @@ class Customers extends Secure_Controller
             'identities'     => $customer ? $this->Customer_model->get_identities($customer->id) : array(),
         );
         $this->load->view('customers/checkin', $data);
+    }
+
+    /**
+     * Check-in Details edit page. It has its own URL and returns to the
+     * Check-in list. Status is locked so editing cannot silently move the row
+     * into a different workflow list.
+     */
+    public function checkin_edit($booking_id = NULL)
+    {
+        $booking = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+        if ( ! $booking || $this->Customer_model->status_code($booking->status_id) !== 'checked_in') {
+            show_404();
+            return;
+        }
+
+        $customer = $this->Customer_model->get_by_id($booking->customer_id);
+        if ( ! $customer) {
+            show_404();
+            return;
+        }
+
+        $data = array(
+            'booking'        => $booking,
+            'customer'       => $customer,
+            'status_opts'    => $this->Customer_model->all_statuses(),
+            'room_opts'      => $this->Customer_model->available_rooms($booking_id),
+            'identity_types' => $this->_identity_types(),
+            'identities'     => $this->Customer_model->get_identities($customer->id),
+            'page_title'     => 'Edit Check-in',
+            'page_subtitle'  => 'Update the checked-in customer and stay details',
+            'active_nav'     => 'checkins',
+            'back_url'       => 'customers/checkins',
+            'page_context'   => 'checkins',
+            'lock_status'    => TRUE,
+            'submit_label'   => 'Update Check-in',
+        );
+        $this->load->view('customers/checkins/edit', $data);
+    }
+
+    /** Check-out confirmation page for a currently checked-in booking. */
+    public function checkout($booking_id = NULL)
+    {
+        $this->_render_checkout_page($booking_id, 'confirm');
+    }
+
+    /** Read-only record page opened from the Check-out Details workflow button. */
+    public function checkedout_details($booking_id = NULL)
+    {
+        $this->_render_checkout_page($booking_id, 'details');
+    }
+
+    /**
+     * The Check-out Details edit action deliberately opens a read-only page.
+     * Checked-out customer/booking data remains visible but cannot be changed.
+     */
+    public function checkedout_edit($booking_id = NULL)
+    {
+        $this->_render_checkout_page($booking_id, 'edit');
+    }
+
+    /** Render one of the status-specific check-out pages. */
+    private function _render_checkout_page($booking_id, $mode)
+    {
+        $booking = $booking_id ? $this->Customer_model->get_booking_detail($booking_id) : NULL;
+        $required_status = ($mode === 'confirm') ? 'checked_in' : 'checked_out';
+        if ( ! $booking || $booking->status_code !== $required_status) {
+            show_404();
+            return;
+        }
+
+        $labels = $this->_identity_types();
+        $identities = array_map(function ($identity) use ($labels) {
+            $identity->type_label = isset($labels[$identity->identity_type])
+                ? $labels[$identity->identity_type]
+                : $identity->identity_type;
+            $identity->document_url = $identity->document_path
+                ? site_url('customers/identity_file/'.$identity->id)
+                : NULL;
+            return $identity;
+        }, $this->Customer_model->get_identities($booking->customer_id));
+
+        $is_confirm = ($mode === 'confirm');
+        $is_edit = ($mode === 'edit');
+        $data = array(
+            'booking'       => $booking,
+            'identities'    => $identities,
+            'confirm'       => $is_confirm,
+            'page_title'    => $is_confirm ? 'Check-out' : ($is_edit ? 'Edit Check-out' : 'Check-out Record'),
+            'page_subtitle' => $is_confirm
+                ? 'Review the guest and stay details before confirming check-out'
+                : 'This completed check-out record is read only',
+            'active_nav'    => $is_confirm ? 'checkins' : 'checkedouts',
+            'back_url'      => $is_confirm ? 'customers/checkins' : 'customers/checkedouts',
+        );
+
+        if ($mode === 'confirm') {
+            $this->load->view('customers/checkins/checkout', $data);
+        } elseif ($mode === 'edit') {
+            $this->load->view('customers/checkedouts/edit', $data);
+        } else {
+            $this->load->view('customers/checkedouts/details', $data);
+        }
+    }
+
+    /** Complete check-out. No customer or booking form fields are editable here. */
+    public function checkout_save()
+    {
+        $booking_id = (int) $this->input->post('booking_id');
+        $booking = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+        if ( ! $booking || $this->Customer_model->status_code($booking->status_id) !== 'checked_in') {
+            show_404();
+            return;
+        }
+
+        $checked_out_status = $this->Customer_model->status_id_by_code('checked_out');
+        if ( ! $checked_out_status) {
+            show_error('The Checked Out status is not configured.');
+            return;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $this->Customer_model->update_booking($booking_id, array(
+            'status_id'      => $checked_out_status,
+            'checked_in_at'  => $booking->checked_in_at ?: $now,
+            'checked_out_at' => $now,
+        ));
+
+        $this->session->set_flashdata('booking_msg', array(
+            'type' => 'success',
+            'text' => 'Booking '.$booking->booking_number.' checked out successfully.',
+        ));
+        redirect('customers/checkedouts');
     }
 
     /**
@@ -457,6 +632,15 @@ class Customers extends Secure_Controller
             return;
         }
 
+        $page_context = $this->input->post('page_context') === 'checkins'
+            ? 'checkins'
+            : 'bookings';
+        $required_status = $page_context === 'checkins' ? 'checked_in' : 'room_booked';
+        if ($this->Customer_model->status_code($booking->status_id) !== $required_status) {
+            show_404();
+            return;
+        }
+
         // --- Validation --------------------------------------------------
         $this->load->library('form_validation');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
@@ -474,7 +658,20 @@ class Customers extends Secure_Controller
                 'identity_types' => $this->_identity_types(),
                 'identities'     => $this->Customer_model->get_identities($customer->id),
             );
-            $this->load->view('customers/checkin', $data);
+            if ($page_context === 'checkins') {
+                $data = array_merge($data, array(
+                    'page_title'    => 'Edit Check-in',
+                    'page_subtitle' => 'Update the checked-in customer and stay details',
+                    'active_nav'    => 'checkins',
+                    'back_url'      => 'customers/checkins',
+                    'page_context'  => 'checkins',
+                    'lock_status'   => TRUE,
+                    'submit_label'  => 'Update Check-in',
+                ));
+                $this->load->view('customers/checkins/edit', $data);
+            } else {
+                $this->load->view('customers/checkin', $data);
+            }
             return;
         }
 
@@ -491,7 +688,9 @@ class Customers extends Secure_Controller
         // Fill the timestamp the target status implies (keeping any existing
         // one) and CLEAR the one it contradicts, so a status change never
         // leaves a stale checked_in_at / checked_out_at behind.
-        $status_id   = $this->_status_id();
+        $status_id   = $page_context === 'checkins'
+            ? $this->Customer_model->status_id_by_code('checked_in')
+            : $this->_status_id();
         $status_code = $this->Customer_model->status_code($status_id);
         $now = date('Y-m-d H:i:s');
 
@@ -514,7 +713,7 @@ class Customers extends Secure_Controller
             'type' => 'success',
             'text' => 'Booking '.$booking->booking_number.' checked-in details updated.',
         ));
-        redirect('customers/bookings');
+        redirect($page_context === 'checkins' ? 'customers/checkins' : 'customers/bookings');
     }
 
     /**

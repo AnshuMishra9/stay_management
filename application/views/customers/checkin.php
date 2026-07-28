@@ -11,10 +11,22 @@
  * $identity_types -> code => label
  * $identities     -> existing customer_identities rows
  */
+$page_title = isset($page_title) ? $page_title : 'Check-in';
+$page_subtitle = isset($page_subtitle)
+    ? $page_subtitle
+    : 'Booking '.$booking->booking_number.' — update the customer & status';
+$active_nav = isset($active_nav) ? $active_nav : 'bookings';
+$back_url = isset($back_url) ? $back_url : 'customers/bookings';
+$page_context = isset($page_context) ? $page_context : 'bookings';
+$lock_status = isset($lock_status) ? (bool) $lock_status : FALSE;
+$submit_label = isset($submit_label) ? $submit_label : 'Update';
+
 $cval = function ($field, $fallback = '') use ($customer) {
     return set_value($field, $customer ? ($customer->$field ?? '') : $fallback, FALSE);
 };
-$sel_status = set_value('status_id', (string) $booking->status_id);
+$sel_status = $lock_status
+    ? (string) $booking->status_id
+    : set_value('status_id', (string) $booking->status_id);
 $scheduled_check_in = $booking->scheduled_check_in_date
     ?: ($booking->checked_in_at ? substr($booking->checked_in_at, 0, 10) : '');
 $scheduled_check_out = $booking->scheduled_check_out_date
@@ -25,26 +37,27 @@ $scheduled_check_out = $booking->scheduled_check_out_date
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Check-in <?= html_escape($booking->booking_number) ?> &middot; Stay Management</title>
+    <title><?= html_escape($page_title) ?> <?= html_escape($booking->booking_number) ?> &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
 </head>
 <body class="erp-body">
 
-<?php $this->load->view('layouts/erp_navbar', array('active' => 'bookings', 'back' => site_url('customers/bookings'))); ?>
+<?php $this->load->view('layouts/erp_navbar', array('active' => $active_nav, 'back' => site_url($back_url))); ?>
 
 <div class="erp-wrap">
     <form class="erp-card" style="max-width:920px;margin:0 auto;" action="<?= site_url('customers/checkin_save') ?>" method="post" enctype="multipart/form-data" novalidate>
         <input type="hidden" name="booking_id" value="<?= (int) $booking->id ?>">
+        <input type="hidden" name="page_context" value="<?= html_escape($page_context) ?>">
 
         <!-- Header -->
         <div class="erp-page-head">
             <div>
                 <h1>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e8eef6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
-                    Check-in
+                    <?= html_escape($page_title) ?>
                 </h1>
-                <p class="erp-sub">Booking <?= html_escape($booking->booking_number) ?> — update the customer &amp; status</p>
+                <p class="erp-sub"><?= html_escape($page_subtitle) ?></p>
             </div>
             <div class="erp-head-total"><?= html_escape($booking->booking_number) ?></div>
         </div>
@@ -82,7 +95,10 @@ $scheduled_check_out = $booking->scheduled_check_out_date
             <div class="erp-grid-2">
                 <div class="erp-form-field">
                     <label>Booking Status</label>
-                    <select class="erp-select" name="status_id">
+                    <?php if ($lock_status): ?>
+                        <input type="hidden" name="status_id" value="<?= html_escape($sel_status) ?>">
+                    <?php endif; ?>
+                    <select class="erp-select" <?= $lock_status ? 'disabled' : 'name="status_id"' ?>>
                         <?php foreach ($status_opts as $s): ?>
                             <option value="<?= (int) $s->status_id ?>" <?= (string) $sel_status === (string) $s->status_id ? 'selected' : '' ?>><?= html_escape($s->status_name) ?></option>
                         <?php endforeach; ?>
@@ -115,8 +131,8 @@ $scheduled_check_out = $booking->scheduled_check_out_date
 
         <!-- Footer actions -->
         <div class="erp-form-foot">
-            <a href="<?= site_url('customers/bookings') ?>" class="erp-btn erp-btn-ghost">Cancel</a>
-            <button type="submit" class="erp-btn erp-btn-primary">Update</button>
+            <a href="<?= site_url($back_url) ?>" class="erp-btn erp-btn-ghost">Cancel</a>
+            <button type="submit" class="erp-btn erp-btn-primary"><?= html_escape($submit_label) ?></button>
         </div>
     </form>
 </div>

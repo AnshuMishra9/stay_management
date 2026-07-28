@@ -6,6 +6,11 @@ $ajax       = isset($ajax)       ? $ajax       : 'customers/bookings_ajax';
 $ns         = isset($ns)         ? $ns         : 'bookings';
 $show_new   = isset($show_new)   ? $show_new   : TRUE;
 $categories = isset($categories) ? $categories : array();
+$workflow_url   = isset($workflow_url)   ? $workflow_url   : 'customers/bookings/checkin';
+$workflow_title = isset($workflow_title) ? $workflow_title : 'Check-in';
+$workflow_icon  = isset($workflow_icon)  ? $workflow_icon  : 'checkin';
+$edit_url       = isset($edit_url)       ? $edit_url       : 'customers/bookings/edit';
+$edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
 ?>
 <!DOCTYPE html>
 <html lang="en" ng-app="bookingsApp">
@@ -107,12 +112,16 @@ $categories = isset($categories) ? $categories : array();
                                 <button class="erp-icon-btn erp-icon-view" title="View" ng-click="vm.viewBooking(c.id)">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
                                 </button>
-                                <!-- Check-in (customer + identity + status) -->
-                                <a class="erp-icon-btn erp-icon-checkin" title="Check-in" href="<?= site_url('customers/checkin') ?>/{{ c.id }}">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+                                <!-- Status-specific workflow page -->
+                                <a class="erp-icon-btn erp-icon-<?= html_escape($workflow_icon) ?>" title="<?= html_escape($workflow_title) ?>" href="<?= site_url($workflow_url) ?>/{{ c.id }}">
+                                    <?php if ($workflow_icon === 'checkout'): ?>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M14 17l5-5-5-5"/><path d="M19 12H7"/></svg>
+                                    <?php else: ?>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+                                    <?php endif; ?>
                                 </a>
-                                <!-- Edit (full booking form) -->
-                                <a class="erp-icon-btn erp-icon-edit" title="Edit booking" href="<?= site_url('customers/booking_form') ?>/{{ c.id }}">
+                                <!-- Status-specific edit page -->
+                                <a class="erp-icon-btn erp-icon-edit" title="<?= html_escape($edit_title) ?>" href="<?= site_url($edit_url) ?>/{{ c.id }}">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </a>
                             </span>
@@ -193,7 +202,7 @@ $categories = isset($categories) ? $categories : array();
         </div>
         <div class="erp-form-foot">
             <button class="erp-btn erp-btn-ghost" ng-click="vm.closeModal()">Close</button>
-            <a class="erp-btn erp-btn-primary" ng-href="<?= site_url('customers/checkin') ?>/{{ vm.detail.id }}">Check-in</a>
+            <a class="erp-btn erp-btn-primary" ng-href="<?= site_url($workflow_url) ?>/{{ vm.detail.id }}"><?= html_escape($workflow_title) ?></a>
         </div>
     </div>
 </div>
