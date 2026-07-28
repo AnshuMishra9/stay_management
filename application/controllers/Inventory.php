@@ -11,8 +11,15 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  */
 class Inventory extends Secure_Controller
 {
-    /** Number of days shown per window. */
-    const DAYS = 15;
+    /** Selected date plus five dates before and five dates after it. */
+    const DAYS = 11;
+    const DAYS_EACH_SIDE = 5;
+
+    /**
+     * The first date not already visible is six days away from the centre.
+     * Navigation brings that date into the centre column.
+     */
+    const NAVIGATION_STEP = 6;
 
     public function __construct()
     {
@@ -21,30 +28,47 @@ class Inventory extends Secure_Controller
     }
 
     /**
-     * Availability calendar. Optional ?start=Y-m-d chooses the window start
-     * (defaults to today); prev/next shift the window by DAYS.
+     * Optional ?start=Y-m-d chooses the selected/centre date (defaults to
+     * today). The selected date is always the sixth column in the 11-day view.
      */
     public function index()
     {
         // Accept ?start only when it is a real, calendar-valid Y-m-d string.
         // Rejects arrays (?start[]=…) and rolled-over dates like 2026-02-30.
-        $start = $this->input->get('start');
-        $dt = is_string($start) ? DateTime::createFromFormat('Y-m-d', $start) : FALSE;
-        if ( ! $dt || $dt->format('Y-m-d') !== $start) {
-            $start = date('Y-m-d');
+        $selected = $this->input->get('start');
+        $dt = is_string($selected) ? DateTime::createFromFormat('Y-m-d', $selected) : FALSE;
+        if ( ! $dt || $dt->format('Y-m-d') !== $selected) {
+            $selected = date('Y-m-d');
         }
 
         // Get filter parameters
+        $room_no = $this->input->get('room_no');
+        $category_id = $this->input->get('category_id');
         $filters = array(
-            'room_no'      => $this->input->get('room_no'),
-            'category_id'  => $this->input->get('category_id'),
+            'room_no'     => is_string($room_no) ? $room_no : '',
+            'category_id' => is_string($category_id) ? $category_id : '',
         );
 
-        $data = $this->Inventory_model->availability($start, self::DAYS, $filters);
-        $data['start'] = $start;
+        $window_start = date(
+            'Y-m-d',
+            strtotime($selected.' -'.self::DAYS_EACH_SIDE.' day')
+        );
+
+        $data = $this->Inventory_model->availability($window_start, self::DAYS, $filters);
+
+        // "start" remains the query/input name, but now represents the selected date.
+        $data['start'] = $selected;
+        $data['selected'] = $selected;
+        $data['window_start'] = $window_start;
         $data['today'] = date('Y-m-d');
-        $data['prev']  = date('Y-m-d', strtotime($start.' -'.self::DAYS.' day'));
-        $data['next']  = date('Y-m-d', strtotime($start.' +'.self::DAYS.' day'));
+        $data['prev']  = date(
+            'Y-m-d',
+            strtotime($selected.' -'.self::NAVIGATION_STEP.' day')
+        );
+        $data['next']  = date(
+            'Y-m-d',
+            strtotime($selected.' +'.self::NAVIGATION_STEP.' day')
+        );
         $data['end']   = end($data['dates']);
 
         // Pass filters and categories for dropdown

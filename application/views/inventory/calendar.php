@@ -6,15 +6,16 @@
  * $avail_totals{} -> all-rooms available per date
  * $booked_totals{}, $checked_in_totals{} -> reserved / checked-in per date
  * $total_rooms    -> total active rooms
- * $start,$prev,$next,$end,$today -> Y-m-d
+ * $start/$selected,$window_start,$prev,$next,$end,$today -> Y-m-d
  */
-$fmt = function ($d) use ($today) {
+$fmt = function ($d) use ($today, $selected) {
     $t = strtotime($d);
     return array(
         'wd'    => date('D', $t),
         'day'   => date('j', $t),
         'mon'   => date('M', $t),
         'today' => ($d === $today),
+        'selected' => ($d === $selected),
         'wknd'  => in_array(date('N', $t), array('6', '7')),
     );
 };
@@ -26,6 +27,17 @@ $room_cell_class = function ($status) {
         return 'inv-a inv-a-booked';
     }
     return $status === 'checked_in' ? 'inv-a inv-a-checked-in' : 'inv-a inv-a-ok';
+};
+$navigation_query = function ($date) use ($filters) {
+    $query = array(
+        'start'       => $date,
+        'room_no'     => $filters['room_no'],
+        'category_id' => $filters['category_id'],
+    );
+
+    return http_build_query(array_filter($query, function ($value) {
+        return $value !== NULL && $value !== '';
+    }));
 };
 ?>
 <!DOCTYPE html>
@@ -98,6 +110,8 @@ $room_cell_class = function ($status) {
         .inv-dh .d-mon { display:block; font-size:.64rem; color:var(--muted); }
         .inv-wknd { background:#f3f0fb; }
         .inv-today { background:var(--brand-soft) !important; box-shadow: inset 0 -2px 0 var(--brand); }
+        .inv-selected { background:#e8f2ff !important; box-shadow:inset 0 -3px 0 #2563eb; }
+        .inv-selected .d-day { color:#1d4ed8; }
 
         /* availability cells */
         .inv-cell { text-align:center; padding:10px 4px; width:60px; }
@@ -137,15 +151,15 @@ $room_cell_class = function ($status) {
             <div class="inv-head-right">
                 <div class="inv-nav">
                     <div class="erp-head-total" style="margin-right:6px;">Total Rooms:&nbsp; <?= (int) $total_rooms ?></div>
-                    <a class="inv-navbtn" href="<?= site_url('inventory?start='.$prev) ?>" title="Previous <?= (int) count($dates) ?> days">
+                    <a class="inv-navbtn" href="<?= site_url('inventory?'.$navigation_query($prev)) ?>" title="Previous 6 days">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
                     </a>
                     <input class="erp-input" type="date" id="invStart" value="<?= html_escape($start) ?>">
-                    <a class="inv-navbtn" href="<?= site_url('inventory?start='.$next) ?>" title="Next <?= (int) count($dates) ?> days">
+                    <a class="inv-navbtn" href="<?= site_url('inventory?'.$navigation_query($next)) ?>" title="Next 6 days">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                     </a>
                 </div>
-                <div class="inv-range"><?= html_escape(date('d M Y', strtotime($start))) ?> &ndash; <?= html_escape(date('d M Y', strtotime($end))) ?></div>
+                <div class="inv-range"><?= html_escape(date('d M Y', strtotime($window_start))) ?> &ndash; <?= html_escape(date('d M Y', strtotime($end))) ?></div>
             </div>
         </div>
 
@@ -181,7 +195,7 @@ $room_cell_class = function ($status) {
                     <tr>
                         <th class="inv-roomcol">Room Type</th>
                         <?php foreach ($dates as $d): $f = $fmt($d); ?>
-                            <th class="inv-dh <?= $f['wknd'] ? 'inv-wknd' : '' ?> <?= $f['today'] ? 'inv-today' : '' ?>">
+                            <th class="inv-dh <?= $f['wknd'] ? 'inv-wknd' : '' ?> <?= $f['today'] ? 'inv-today' : '' ?> <?= $f['selected'] ? 'inv-selected' : '' ?>">
                                 <span class="d-wd"><?= $f['wd'] ?></span>
                                 <span class="d-day"><?= $f['day'] ?></span>
                                 <span class="d-mon"><?= $f['mon'] ?></span>
@@ -221,7 +235,7 @@ $room_cell_class = function ($status) {
                             </div>
                         </td>
                         <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $avail_totals[$d]; $bk = (int) $booked_totals[$d]; $ci = (int) $checked_in_totals[$d]; ?>
-                            <td class="inv-cell <?= $f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '') ?>">
+                            <td class="inv-cell <?= $f['selected'] ? 'inv-selected' : ($f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '')) ?>">
                                 <span class="<?= $cell_class($av) ?>" title="Total rooms"><?= (int) $total_rooms ?></span>
                                 <?php if ($bk > 0): ?><span class="inv-bk inv-bk-booked"><?= $bk ?> booked</span><?php endif; ?>
                                 <?php if ($ci > 0): ?><span class="inv-bk inv-bk-checked-in"><?= $ci ?> checked in</span><?php endif; ?>
@@ -237,7 +251,7 @@ $room_cell_class = function ($status) {
                                 <div class="inv-rt-sub"><?= html_escape($room['category_name'] ?: 'No Category') ?></div>
                             </td>
                             <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $room['avail'][$d]; $status = $room['status'][$d]; ?>
-                                <td class="inv-cell <?= $f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '') ?>">
+                                <td class="inv-cell <?= $f['selected'] ? 'inv-selected' : ($f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '')) ?>">
                                     <span class="<?= $room_cell_class($status) ?>" title="<?= $status === 'checked_in' ? 'Checked in' : ($status === 'room_booked' ? 'Room booked' : 'Available') ?>"><?= $av ? '1' : '0' ?></span>
                                     <?php if ($status === 'room_booked'): ?><span class="inv-bk inv-bk-booked">Booked</span><?php endif; ?>
                                     <?php if ($status === 'checked_in'): ?><span class="inv-bk inv-bk-checked-in">Checked in</span><?php endif; ?>
@@ -258,6 +272,7 @@ $room_cell_class = function ($status) {
             <span class="k"><span class="inv-swatch" style="background:#fff3d6;"></span> Room booked</span>
             <span class="k"><span class="inv-swatch" style="background:var(--red-soft);"></span> Checked in</span>
             <span class="k"><span class="inv-swatch" style="background:var(--brand-soft);"></span> Today</span>
+            <span class="k"><span class="inv-swatch" style="background:#e8f2ff;border-bottom:3px solid #2563eb;"></span> Selected date</span>
             <span class="k">Number = rooms available that day</span>
         </div>
     </div>
@@ -286,12 +301,16 @@ $room_cell_class = function ($status) {
         }
     })();
 
-    // Date picker jumps the window to the chosen start date.
+    // Keep the chosen date in the centre while preserving active filters.
     (function () {
         var el = document.getElementById('invStart');
         if (el) {
             el.addEventListener('change', function () {
-                if (el.value) { window.location = "<?= site_url('inventory') ?>?start=" + el.value; }
+                if (el.value) {
+                    var params = new URLSearchParams(window.location.search);
+                    params.set('start', el.value);
+                    window.location = "<?= site_url('inventory') ?>?" + params.toString();
+                }
             });
         }
     })();
