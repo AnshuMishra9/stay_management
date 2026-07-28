@@ -183,7 +183,7 @@ class Customer_model extends CI_Model
      * currently on THAT booking is kept in the list (so it stays selectable).
      *
      * @param  int|null $current_booking_id  booking being edited (excluded)
-     * @return array of {id, room_no}
+     * @return array of {id, room_no, category_id}
      */
     public function available_rooms($current_booking_id = NULL)
     {
@@ -204,11 +204,24 @@ class Customer_model extends CI_Model
         $taken = array_map(function ($r) { return (int) $r->room_id; },
                            $this->db->get()->result());
 
-        $this->db->select('id, room_no')->from('rooms')->where('is_active', 1);
+        $this->db->select('id, room_no, category_id')->from('rooms')->where('is_active', 1);
         if ($taken) {
             $this->db->where_not_in('id', $taken);
         }
         return $this->db->order_by('room_no', 'ASC')->get()->result();
+    }
+
+    /** Return the category of an active room, or NULL for an invalid room. */
+    public function room_category_for_room($room_id)
+    {
+        $room = $this->db
+            ->select('category_id')
+            ->where('id', (int) $room_id)
+            ->where('is_active', 1)
+            ->get('rooms')
+            ->row();
+
+        return $room ? (int) $room->category_id : NULL;
     }
 
     /**

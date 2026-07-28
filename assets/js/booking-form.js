@@ -64,6 +64,58 @@
         phoneEl.addEventListener('blur', lookup);
     }
 
+    // ---- Linked Room Category / Allot Room dropdowns ----
+    var roomCategory = document.getElementById('bk_room_category');
+    var room = document.getElementById('bk_room');
+
+    function refreshSelect(el) {
+        if (window.SearchableSelect && window.SearchableSelect.refresh) {
+            window.SearchableSelect.refresh(el);
+        }
+    }
+
+    function filterRoomsByCategory() {
+        if (!roomCategory || !room) { return; }
+        var categoryId = roomCategory.value;
+        var selected = room.options[room.selectedIndex];
+
+        Array.prototype.forEach.call(room.options, function (opt) {
+            if (!opt.value) {
+                opt.disabled = false;
+                return;
+            }
+            opt.disabled = !!categoryId && opt.getAttribute('data-category-id') !== categoryId;
+        });
+
+        if (selected && selected.value && selected.disabled) {
+            room.value = '';
+        }
+        refreshSelect(room);
+    }
+
+    function syncCategoryFromRoom() {
+        if (!roomCategory || !room) { return; }
+        var selected = room.options[room.selectedIndex];
+        var categoryId = selected ? selected.getAttribute('data-category-id') : '';
+        if (categoryId) {
+            roomCategory.value = categoryId;
+            refreshSelect(roomCategory);
+        }
+        filterRoomsByCategory();
+    }
+
+    if (roomCategory && room) {
+        roomCategory.addEventListener('change', filterRoomsByCategory);
+        room.addEventListener('change', syncCategoryFromRoom);
+
+        // On edit/validation reload, the allotted room is authoritative.
+        if (room.value) {
+            syncCategoryFromRoom();
+        } else {
+            filterRoomsByCategory();
+        }
+    }
+
     // ---- Auto-calc: Length of Stay + Remaining Amount ----
     var ci    = document.getElementById('bk_checkin');
     var co    = document.getElementById('bk_checkout');

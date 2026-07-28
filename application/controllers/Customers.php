@@ -836,15 +836,20 @@ class Customers extends Secure_Controller
         // form (view-only on the list), so we leave any stored values untouched.
         $status_id   = $this->_status_id();
         $status_code = $this->Customer_model->status_code($status_id);
+        $room_id = $this->input->post('room_id') ?: NULL;
+        $room_category_id = $this->input->post('room_category_id') ?: NULL;
+        if ($room_id) {
+            $room_category_id = $this->Customer_model->room_category_for_room($room_id);
+        }
         $booking = array(
             'booking_channel_id' => $this->input->post('booking_channel_id') ?: NULL,
             'status_id'          => $status_id,
             'property_name'      => $this->input->post('property_name', TRUE),
-            'room_id'            => $this->input->post('room_id') ?: NULL,   // allotted room
+            'room_id'            => $room_id,   // allotted room
             'checked_in_at'      => $this->_datetime($this->input->post('checked_in_at')),
             'checked_out_at'     => $this->_datetime($this->input->post('checked_out_at')),
             'total_guest'        => $this->_int($this->input->post('total_guest')),
-            'room_category_id'   => $this->input->post('room_category_id') ?: NULL,
+            'room_category_id'   => $room_category_id,
             'room_quantity'      => $this->_int($this->input->post('room_quantity')),
             'total_unit'         => $this->_int($this->input->post('total_unit')),
             'total_amount'       => $this->_num($this->input->post('total_amount')),

@@ -35,9 +35,12 @@
         native.classList.add('erp-ss-native', 'erp-ss-hidden');
 
         // ---- Options (keep the empty "All / Select" as a reset row) ------
-        var options = Array.prototype.map.call(native.options, function (o) {
-            return { value: o.value, label: o.text };
-        });
+        function readOptions() {
+            return Array.prototype.map.call(native.options, function (o) {
+                return { value: o.value, label: o.text, disabled: o.disabled };
+            }).filter(function (o) { return !o.disabled; });
+        }
+        var options = readOptions();
         var emptyOpt   = options.filter(function (o) { return o.value === ''; })[0];
         var realCount  = options.filter(function (o) { return o.value !== ''; }).length;
 
@@ -197,6 +200,16 @@
             trigger.setAttribute('aria-expanded', 'false');
         }
 
+        // Dependent selects can refresh after native options are enabled or
+        // disabled, while keeping this themed trigger and dropdown panel.
+        native._erpSsRefresh = function () {
+            options = readOptions();
+            emptyOpt = options.filter(function (o) { return o.value === ''; })[0];
+            realCount = options.filter(function (o) { return o.value !== ''; }).length;
+            syncTrigger();
+            render(search ? search.value : '');
+        };
+
         // ---- Events ------------------------------------------------------
         trigger.addEventListener('click', function () { open ? close() : openPanel(); });
 
@@ -238,7 +251,13 @@
     }
 
     // Expose a manual hook (e.g. for dynamically added selects).
-    window.SearchableSelect = { init: init, enhance: enhance };
+    window.SearchableSelect = {
+        init: init,
+        enhance: enhance,
+        refresh: function (native) {
+            if (native && native._erpSsRefresh) { native._erpSsRefresh(); }
+        }
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () { init(document); });

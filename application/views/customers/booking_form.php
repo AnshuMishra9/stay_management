@@ -154,11 +154,27 @@ $dtlocal = function ($field) use ($bval) {
 
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
+                    <label>Room Category</label>
+                    <select class="erp-select" id="bk_room_category" name="room_category_id">
+                        <option value="">Select</option>
+                        <?php foreach ($room_cat_opts as $rc): ?>
+                            <option value="<?= (int) $rc->category_id ?>" <?= (string) $sel_roomcat === (string) $rc->category_id ? 'selected' : '' ?>><?= html_escape($rc->category_name) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="erp-form-field">
+                    <label>Room Quantity</label>
+                    <input class="erp-input" type="number" min="0" name="room_quantity" value="<?= html_escape($bval('room_quantity')) ?>">
+                </div>
+            </div>
+
+            <div class="erp-grid-2" style="margin-bottom:16px;">
+                <div class="erp-form-field">
                     <label>Allot Room <span class="erp-muted" style="font-weight:400;">(only rooms not already assigned)</span></label>
-                    <select class="erp-select" name="room_id" data-search="always" data-placeholder="Select a room">
+                    <select class="erp-select" id="bk_room" name="room_id" data-search="always" data-placeholder="Select a room">
                         <option value="">— No room —</option>
                         <?php foreach ($room_opts as $rm): ?>
-                            <option value="<?= (int) $rm->id ?>" <?= (string) $sel_room === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
+                            <option value="<?= (int) $rm->id ?>" data-category-id="<?= (int) $rm->category_id ?>" <?= (string) $sel_room === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -184,22 +200,6 @@ $dtlocal = function ($field) use ($bval) {
                 <div class="erp-form-field">
                     <label>Total Guests</label>
                     <input class="erp-input" type="number" min="0" name="total_guest" value="<?= html_escape($bval('total_guest')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
-                    <label>Room Category</label>
-                    <select class="erp-select" name="room_category_id">
-                        <option value="">Select</option>
-                        <?php foreach ($room_cat_opts as $rc): ?>
-                            <option value="<?= (int) $rc->category_id ?>" <?= (string) $sel_roomcat === (string) $rc->category_id ? 'selected' : '' ?>><?= html_escape($rc->category_name) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="erp-form-field">
-                    <label>Room Quantity</label>
-                    <input class="erp-input" type="number" min="0" name="room_quantity" value="<?= html_escape($bval('room_quantity')) ?>">
                 </div>
             </div>
 
