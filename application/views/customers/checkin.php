@@ -27,6 +27,7 @@ $cval = function ($field, $fallback = '') use ($customer) {
 $sel_status = $lock_status
     ? (string) $booking->status_id
     : set_value('status_id', (string) $booking->status_id);
+$sel_roomcat = set_value('room_category_id', (string) ($booking->room_category_id ?? ''));
 $scheduled_check_in = $booking->scheduled_check_in_date
     ?: ($booking->checked_in_at ? substr($booking->checked_in_at, 0, 10) : '');
 $scheduled_check_out = $booking->scheduled_check_out_date
@@ -40,6 +41,7 @@ $scheduled_check_out = $booking->scheduled_check_out_date
     <title><?= html_escape($page_title) ?> <?= html_escape($booking->booking_number) ?> &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
+    <script>window.APP_BASE = "<?= base_url() ?>";</script>
 </head>
 <body class="erp-body">
 
@@ -105,26 +107,39 @@ $scheduled_check_out = $booking->scheduled_check_out_date
                     </select>
                     <?= form_error('status_id', '<div class="erp-error">', '</div>') ?>
                 </div>
-                <div class="erp-form-field">
-                    <label>Allot Room <span class="erp-muted" style="font-weight:400;">(only rooms not already assigned)</span></label>
-                    <select class="erp-select" name="room_id" data-search="always" data-placeholder="Select a room">
-                        <option value="">— No room —</option>
-                        <?php foreach ($room_opts as $rm): ?>
-                            <option value="<?= (int) $rm->id ?>" <?= (string) $booking->room_id === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
+                <div class="erp-form-field"></div>
             </div>
             <div class="erp-grid-2" style="margin-top:16px;">
                 <div class="erp-form-field">
                     <label>Scheduled Check-In <span class="req">*</span></label>
-                    <input class="erp-input" type="date" name="scheduled_check_in_date" required value="<?= html_escape(set_value('scheduled_check_in_date', $scheduled_check_in)) ?>">
+                    <input class="erp-input" type="date" id="bk_checkin" name="scheduled_check_in_date" required value="<?= html_escape(set_value('scheduled_check_in_date', $scheduled_check_in)) ?>">
                     <?= form_error('scheduled_check_in_date', '<div class="erp-error">', '</div>') ?>
                 </div>
                 <div class="erp-form-field">
                     <label>Scheduled Check-Out <span class="req">*</span> <span class="erp-muted" style="font-weight:400;">(room available this day)</span></label>
-                    <input class="erp-input" type="date" name="scheduled_check_out_date" required value="<?= html_escape(set_value('scheduled_check_out_date', $scheduled_check_out)) ?>">
+                    <input class="erp-input" type="date" id="bk_checkout" name="scheduled_check_out_date" required value="<?= html_escape(set_value('scheduled_check_out_date', $scheduled_check_out)) ?>">
                     <?= form_error('scheduled_check_out_date', '<div class="erp-error">', '</div>') ?>
+                </div>
+            </div>
+            <div class="erp-grid-2" style="margin-top:16px;">
+                <div class="erp-form-field">
+                    <label>Room Category</label>
+                    <select class="erp-select" id="bk_room_category" name="room_category_id">
+                        <option value="">Select</option>
+                        <?php foreach ($room_cat_opts as $rc): ?>
+                            <option value="<?= (int) $rc->category_id ?>" <?= (string) $sel_roomcat === (string) $rc->category_id ? 'selected' : '' ?>><?= html_escape($rc->category_name) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="erp-form-field">
+                    <label>Allot Room <span class="erp-muted" style="font-weight:400;">(available for selected dates)</span></label>
+                    <select class="erp-select" id="bk_room" name="room_id" data-search="always" data-placeholder="Select a room">
+                        <option value="">— No room —</option>
+                        <?php foreach ($room_opts as $rm): ?>
+                            <option value="<?= (int) $rm->id ?>" data-category-id="<?= (int) $rm->category_id ?>" <?= (string) $booking->room_id === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?= form_error('room_id', '<div class="erp-error">', '</div>') ?>
                 </div>
             </div>
         </div>
@@ -139,5 +154,6 @@ $scheduled_check_out = $booking->scheduled_check_out_date
 
 <script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
 <script src="<?= base_url('assets/js/identity-rows.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/identity-rows.js') ?>"></script>
+<script src="<?= base_url('assets/js/booking-form.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/booking-form.js') ?>"></script>
 </body>
 </html>

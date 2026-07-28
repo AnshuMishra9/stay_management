@@ -511,6 +511,7 @@ class Customers extends Secure_Controller
             'booking'        => $booking,
             'customer'       => $customer,
             'status_opts'    => $this->Customer_model->all_statuses(),
+            'room_cat_opts'  => $this->Customer_model->room_categories(),
             'room_opts'      => $this->Customer_model->available_rooms(
                 $booking_id,
                 $this->_date($booking->scheduled_check_in_date),
@@ -545,6 +546,7 @@ class Customers extends Secure_Controller
             'booking'        => $booking,
             'customer'       => $customer,
             'status_opts'    => $this->Customer_model->all_statuses(),
+            'room_cat_opts'  => $this->Customer_model->room_categories(),
             'room_opts'      => $this->Customer_model->available_rooms(
                 $booking_id,
                 $this->_date($booking->scheduled_check_in_date),
@@ -700,6 +702,7 @@ class Customers extends Secure_Controller
                 'booking'        => $booking,
                 'customer'       => $customer,
                 'status_opts'    => $this->Customer_model->all_statuses(),
+                'room_cat_opts'  => $this->Customer_model->room_categories(),
                 'room_opts'      => $this->Customer_model->available_rooms(
                     $booking_id,
                     $this->_date($this->input->post('scheduled_check_in_date')),
@@ -743,10 +746,16 @@ class Customers extends Secure_Controller
             : $this->_status_id();
         $status_code = $this->Customer_model->status_code($status_id);
         $now = date('Y-m-d H:i:s');
+        $room_id = $this->input->post('room_id') ?: NULL;
+        $room_category_id = $this->input->post('room_category_id') ?: NULL;
+        if ($room_id) {
+            $room_category_id = $this->Customer_model->room_category_for_room($room_id);
+        }
 
         $upd = array(
             'status_id'      => $status_id,
-            'room_id'        => $this->input->post('room_id') ?: NULL,
+            'room_id'        => $room_id,
+            'room_category_id' => $room_category_id,
             'scheduled_check_in_date'  => $this->_date($this->input->post('scheduled_check_in_date')),
             'scheduled_check_out_date' => $this->_date($this->input->post('scheduled_check_out_date')),
             'checked_in_at'  => in_array($status_code, array('checked_in', 'checked_out'), TRUE)
