@@ -29,6 +29,15 @@ $checkout_datetime = $booking->checked_out_at;
 if ( ! $checkout_datetime && $booking->scheduled_check_out_date) {
     $checkout_datetime = substr($booking->scheduled_check_out_date, 0, 10).' 11:00:00';
 }
+$scheduled_check_in_day = $booking->scheduled_check_in_date
+    ? date('Y-m-d', strtotime($booking->scheduled_check_in_date))
+    : NULL;
+$actual_check_in_day = $booking->checked_in_at
+    ? date('Y-m-d', strtotime($booking->checked_in_at))
+    : NULL;
+$show_scheduled_dates = $scheduled_check_in_day
+    && $actual_check_in_day
+    && $scheduled_check_in_day !== $actual_check_in_day;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -37,6 +46,7 @@ if ( ! $checkout_datetime && $booking->scheduled_check_out_date) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= html_escape($page_title) ?> <?= html_escape($booking->booking_number) ?> &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
     <style>
         .checkout-readonly fieldset { border:0; margin:0; padding:0; min-width:0; }
         .checkout-readonly .erp-input:disabled {
@@ -124,7 +134,7 @@ if ( ! $checkout_datetime && $booking->scheduled_check_out_date) {
                     <div class="erp-form-field">
                         <label>Status</label>
                         <?php if ($confirm): ?>
-                            <select class="erp-select" name="status_id">
+                            <select class="erp-select" name="status_id" data-search="never">
                                 <?php foreach ($status_opts as $status): ?>
                                     <?php if ( ! in_array($status->status_code, array('checked_in', 'checked_out'), TRUE)) { continue; } ?>
                                     <option value="<?= (int) $status->status_id ?>" <?= $status->status_code === $booking->status_code ? 'selected' : '' ?>><?= html_escape($status->status_name) ?></option>
@@ -146,16 +156,18 @@ if ( ! $checkout_datetime && $booking->scheduled_check_out_date) {
                         <input class="erp-input" type="text" value="<?= html_escape($display($booking->room_category)) ?>">
                     </div>
                 </div>
-                <div class="erp-grid-2" style="margin-bottom:16px;">
-                    <div class="erp-form-field">
-                        <label>Scheduled Check-In</label>
-                        <input class="erp-input" type="text" value="<?= html_escape($date_display($booking->scheduled_check_in_date)) ?>">
+                <?php if ($show_scheduled_dates): ?>
+                    <div class="erp-grid-2" style="margin-bottom:16px;">
+                        <div class="erp-form-field">
+                            <label>Scheduled Check-In</label>
+                            <input class="erp-input" type="text" value="<?= html_escape($date_display($booking->scheduled_check_in_date)) ?>">
+                        </div>
+                        <div class="erp-form-field">
+                            <label>Scheduled Check-Out</label>
+                            <input class="erp-input" type="text" value="<?= html_escape($date_display($booking->scheduled_check_out_date)) ?>">
+                        </div>
                     </div>
-                    <div class="erp-form-field">
-                        <label>Scheduled Check-Out</label>
-                        <input class="erp-input" type="text" value="<?= html_escape($date_display($booking->scheduled_check_out_date)) ?>">
-                    </div>
-                </div>
+                <?php endif; ?>
                 <div class="erp-grid-2" style="margin-bottom:16px;">
                     <div class="erp-form-field">
                         <label>Check-In</label>
@@ -233,5 +245,6 @@ if ( ! $checkout_datetime && $booking->scheduled_check_out_date) {
         </div>
     <?php endif; ?>
 </div>
+<script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
 </body>
 </html>
