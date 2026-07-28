@@ -165,13 +165,18 @@ class Customers extends Secure_Controller
             $customer = $this->Customer_model->get_by_id($booking->customer_id);
         }
 
+        $room_range = $this->_room_availability_range($booking);
         $data = array(
             'booking'       => $booking,
             'customer'      => $customer,
             'country_opts'  => $this->_country_options(),
             'channel_opts'  => $this->Customer_model->booking_channels(),
             'room_cat_opts' => $this->Customer_model->room_categories(),
-            'room_opts'     => $this->Customer_model->available_rooms($booking_id),
+            'room_opts'     => $this->Customer_model->available_rooms(
+                $booking_id,
+                $room_range[0],
+                $room_range[1]
+            ),
             'status_opts'   => $this->Customer_model->all_statuses(),
         );
         $this->load->view('customers/booking_form', $data);
@@ -211,6 +216,32 @@ class Customers extends Secure_Controller
         }
 
         return $this->_json(array('status' => TRUE, 'found' => TRUE, 'data' => $customer));
+    }
+
+    /** [AJAX] Rooms available for the Booking Form Check In / Check Out range. */
+    public function available_rooms_ajax()
+    {
+        $range = $this->_datetime_availability_range(
+            $this->input->get('check_in'),
+            $this->input->get('check_out')
+        );
+        if ( ! $range) {
+            return $this->_json(array(
+                'status'  => FALSE,
+                'message' => 'Select a valid Check In and Check Out range.',
+                'data'    => array(),
+            ));
+        }
+
+        $booking_id = (int) $this->input->get('booking_id');
+        return $this->_json(array(
+            'status' => TRUE,
+            'data'   => $this->Customer_model->available_rooms(
+                $booking_id ?: NULL,
+                $range[0],
+                $range[1]
+            ),
+        ));
     }
 
     /** [AJAX] "Room booked" bookings (Booking Details list). */
@@ -374,16 +405,22 @@ class Customers extends Secure_Controller
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
         $this->form_validation->set_rules('status_id', 'Booking Status', 'required|callback_can_check_in_on_scheduled_date');
+        $this->form_validation->set_rules('room_id', 'Allot Room', 'callback_room_available_for_stay');
 
         if ($this->form_validation->run() === FALSE) {
             $existing = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+            $room_range = $this->_room_availability_range($existing, TRUE);
             $data = array(
                 'booking'       => $existing,
                 'customer'      => $existing ? $this->Customer_model->get_by_id($existing->customer_id) : NULL,
                 'country_opts'  => $this->_country_options(),
                 'channel_opts'  => $this->Customer_model->booking_channels(),
                 'room_cat_opts' => $this->Customer_model->room_categories(),
-                'room_opts'     => $this->Customer_model->available_rooms($booking_id),
+                'room_opts'     => $this->Customer_model->available_rooms(
+                    $booking_id,
+                    $room_range[0],
+                    $room_range[1]
+                ),
                 'status_opts'   => $this->Customer_model->all_statuses(),
             );
             $this->load->view('customers/booking_form', $data);
@@ -474,7 +511,11 @@ class Customers extends Secure_Controller
             'booking'        => $booking,
             'customer'       => $customer,
             'status_opts'    => $this->Customer_model->all_statuses(),
-            'room_opts'      => $this->Customer_model->available_rooms($booking_id),
+            'room_opts'      => $this->Customer_model->available_rooms(
+                $booking_id,
+                $this->_date($booking->scheduled_check_in_date),
+                $this->_date($booking->scheduled_check_out_date)
+            ),
             'identity_types' => $this->_identity_types(),
             'identities'     => $customer ? $this->Customer_model->get_identities($customer->id) : array(),
         );
@@ -504,7 +545,11 @@ class Customers extends Secure_Controller
             'booking'        => $booking,
             'customer'       => $customer,
             'status_opts'    => $this->Customer_model->all_statuses(),
-            'room_opts'      => $this->Customer_model->available_rooms($booking_id),
+            'room_opts'      => $this->Customer_model->available_rooms(
+                $booking_id,
+                $this->_date($booking->scheduled_check_in_date),
+                $this->_date($booking->scheduled_check_out_date)
+            ),
             'identity_types' => $this->_identity_types(),
             'identities'     => $this->Customer_model->get_identities($customer->id),
             'page_title'     => 'Edit Check-in',
@@ -648,13 +693,18 @@ class Customers extends Secure_Controller
         $this->form_validation->set_rules('status_id', 'Booking Status', 'required|callback_can_check_in_on_scheduled_date');
         $this->form_validation->set_rules('scheduled_check_in_date', 'Scheduled Check-In', 'required');
         $this->form_validation->set_rules('scheduled_check_out_date', 'Scheduled Check-Out', 'required|callback_valid_stay_dates');
+        $this->form_validation->set_rules('room_id', 'Allot Room', 'callback_room_available_for_stay');
 
         if ($this->form_validation->run() === FALSE) {
             $data = array(
                 'booking'        => $booking,
                 'customer'       => $customer,
                 'status_opts'    => $this->Customer_model->all_statuses(),
-                'room_opts'      => $this->Customer_model->available_rooms($booking_id),
+                'room_opts'      => $this->Customer_model->available_rooms(
+                    $booking_id,
+                    $this->_date($this->input->post('scheduled_check_in_date')),
+                    $this->_date($this->input->post('scheduled_check_out_date'))
+                ),
                 'identity_types' => $this->_identity_types(),
                 'identities'     => $this->Customer_model->get_identities($customer->id),
             );
@@ -961,6 +1011,63 @@ class Customers extends Secure_Controller
         return ($dt && $dt->format('Y-m-d') === $value) ? $value : NULL;
     }
 
+    /**
+     * Convert Booking Form datetime-local values into the nightly half-open
+     * range used by room inventory.
+     */
+    private function _datetime_availability_range($check_in, $check_out)
+    {
+        if ( ! is_string($check_in) || ! is_string($check_out)) {
+            return NULL;
+        }
+        $check_in = $this->_datetime($check_in);
+        $check_out = $this->_datetime($check_out);
+        if ( ! $check_in || ! $check_out || strtotime($check_out) <= strtotime($check_in)) {
+            return NULL;
+        }
+
+        $start = substr($check_in, 0, 10);
+        $end = substr($check_out, 0, 10);
+        // A same-day stay still occupies that calendar night.
+        if ($end <= $start) {
+            $end = date('Y-m-d', strtotime($start.' +1 day'));
+        }
+        return array($start, $end);
+    }
+
+    /** Stored API schedule first, then actual/manual range, then current night. */
+    private function _room_availability_range($booking = NULL, $use_post = FALSE)
+    {
+        if ($use_post) {
+            $posted = $this->_datetime_availability_range(
+                $this->input->post('checked_in_at'),
+                $this->input->post('checked_out_at')
+            );
+            if ($posted) {
+                return $posted;
+            }
+        }
+
+        if ($booking) {
+            $scheduled_in = $this->_date($booking->scheduled_check_in_date);
+            $scheduled_out = $this->_date($booking->scheduled_check_out_date);
+            if ($scheduled_in && $scheduled_out && $scheduled_out > $scheduled_in) {
+                return array($scheduled_in, $scheduled_out);
+            }
+
+            $actual = $this->_datetime_availability_range(
+                $booking->checked_in_at,
+                $booking->checked_out_at
+            );
+            if ($actual) {
+                return $actual;
+            }
+        }
+
+        $today = date('Y-m-d');
+        return array($today, date('Y-m-d', strtotime($today.' +1 day')));
+    }
+
     /** Form-validation callback: checkout is an exclusive date after check-in. */
     public function valid_stay_dates($checkout)
     {
@@ -972,6 +1079,39 @@ class Customers extends Secure_Controller
         $this->form_validation->set_message(
             'valid_stay_dates',
             'Scheduled Check-Out must be after Scheduled Check-In.'
+        );
+        return FALSE;
+    }
+
+    /** Reject an allotted room when another live booking overlaps this stay. */
+    public function room_available_for_stay($room_id)
+    {
+        if ($room_id === NULL || $room_id === '') {
+            return TRUE;
+        }
+
+        $booking_id = (int) $this->input->post('booking_id');
+        $check_in = $this->_date($this->input->post('scheduled_check_in_date'));
+        $check_out = $this->_date($this->input->post('scheduled_check_out_date'));
+        if ( ! $check_in || ! $check_out || $check_out <= $check_in) {
+            $existing = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+            $range = $this->_room_availability_range($existing, TRUE);
+            $check_in = $range[0];
+            $check_out = $range[1];
+        }
+
+        if ($this->Customer_model->is_room_available(
+            (int) $room_id,
+            $check_in,
+            $check_out,
+            $booking_id ?: NULL
+        )) {
+            return TRUE;
+        }
+
+        $this->form_validation->set_message(
+            'room_available_for_stay',
+            'The selected room is already booked for the applicable stay dates.'
         );
         return FALSE;
     }
@@ -1030,9 +1170,8 @@ class Customers extends Secure_Controller
      */
     private function _booking_from_post()
     {
-        // NOTE: scheduled_check_in_date / scheduled_check_out_date / length_of_stay
-        // are intentionally NOT written here — their inputs were removed from the
-        // form (view-only on the list), so we leave any stored values untouched.
+        // Scheduled stay dates are supplied by API bookings, not the manual
+        // Booking form. Omitting them here preserves stored API values on edit.
         $status_id   = $this->_status_id();
         $status_code = $this->Customer_model->status_code($status_id);
         $room_id = $this->input->post('room_id') ?: NULL;

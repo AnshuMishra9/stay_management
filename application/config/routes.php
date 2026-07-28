@@ -80,6 +80,7 @@ $route['customers/booking_form']        = 'customers/booking_form';        // ne
 $route['customers/booking_form/(:num)'] = 'customers/booking_form/$1';     // edit booking
 $route['customers/booking_save']        = 'customers/booking_save';
 $route['customers/booking_view/(:num)'] = 'customers/booking_view/$1';     // [AJAX] booking detail (eye)
+$route['customers/available_rooms']      = 'customers/available_rooms_ajax';
 $route['customers/checkin/(:num)']      = 'customers/checkin/$1';          // check-in page
 $route['customers/checkin_save']        = 'customers/checkin_save';
 $route['customers/bookings/checkin/(:num)']     = 'customers/checkin/$1';

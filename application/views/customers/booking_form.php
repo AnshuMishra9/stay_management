@@ -154,6 +154,17 @@ $dtlocal = function ($field) use ($bval) {
 
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
+                    <label>Check In</label>
+                    <input class="erp-input" type="datetime-local" id="bk_checkin" name="checked_in_at" value="<?= html_escape($dtlocal('checked_in_at')) ?>">
+                </div>
+                <div class="erp-form-field">
+                    <label>Check Out</label>
+                    <input class="erp-input" type="datetime-local" id="bk_checkout" name="checked_out_at" value="<?= html_escape($dtlocal('checked_out_at')) ?>">
+                </div>
+            </div>
+
+            <div class="erp-grid-2" style="margin-bottom:16px;">
+                <div class="erp-form-field">
                     <label>Room Category</label>
                     <select class="erp-select" id="bk_room_category" name="room_category_id">
                         <option value="">Select</option>
@@ -163,13 +174,6 @@ $dtlocal = function ($field) use ($bval) {
                     </select>
                 </div>
                 <div class="erp-form-field">
-                    <label>Room Quantity</label>
-                    <input class="erp-input" type="number" min="0" name="room_quantity" value="<?= html_escape($bval('room_quantity')) ?>">
-                </div>
-            </div>
-
-            <div class="erp-grid-2" style="margin-bottom:16px;">
-                <div class="erp-form-field">
                     <label>Allot Room <span class="erp-muted" style="font-weight:400;">(only rooms not already assigned)</span></label>
                     <select class="erp-select" id="bk_room" name="room_id" data-search="always" data-placeholder="Select a room">
                         <option value="">— No room —</option>
@@ -177,19 +181,16 @@ $dtlocal = function ($field) use ($bval) {
                             <option value="<?= (int) $rm->id ?>" data-category-id="<?= (int) $rm->category_id ?>" <?= (string) $sel_room === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <?= form_error('room_id', '<div class="erp-error">', '</div>') ?>
                 </div>
-                <div class="erp-form-field"></div>
             </div>
 
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
-                    <label>Actual Checked-In At <span class="erp-muted" style="font-weight:400;">(auto-set on "Checked In")</span></label>
-                    <input class="erp-input" type="datetime-local" name="checked_in_at" value="<?= html_escape($dtlocal('checked_in_at')) ?>">
+                    <label>Room Quantity</label>
+                    <input class="erp-input" type="number" min="0" name="room_quantity" value="<?= html_escape($bval('room_quantity')) ?>">
                 </div>
-                <div class="erp-form-field">
-                    <label>Actual Checked-Out At <span class="erp-muted" style="font-weight:400;">(auto-set on "Checked Out")</span></label>
-                    <input class="erp-input" type="datetime-local" name="checked_out_at" value="<?= html_escape($dtlocal('checked_out_at')) ?>">
-                </div>
+                <div class="erp-form-field"></div>
             </div>
 
             <div class="erp-grid-2" style="margin-bottom:16px;">

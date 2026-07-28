@@ -178,37 +178,104 @@ class Customer_model extends CI_Model
     }
 
     /**
-     * Rooms available to allot on a booking: active rooms NOT already
-     * allotted to another booking. When editing a booking, the room
-     * currently on THAT booking is kept in the list (so it stays selectable).
+     * Active rooms available for the requested stay [check-in, check-out).
      *
-     * @param  int|null $current_booking_id  booking being edited (excluded)
+     * A room is excluded only when another Room Booked / Checked In booking
+     * overlaps the requested nights. This allows the same physical room to be
+     * selected for a non-overlapping past or future stay. The current booking
+     * is excluded while editing so its allotted room remains selectable.
+     *
+     * When the manual form has no API-supplied stay range, availability is
+     * evaluated for the current night (today through tomorrow).
+     *
+     * @param  int|null $current_booking_id booking being edited (excluded)
+     * @param  string|null $check_in         Y-m-d (inclusive)
+     * @param  string|null $check_out        Y-m-d (exclusive)
      * @return array of {id, room_no, category_id}
      */
-    public function available_rooms($current_booking_id = NULL)
+    public function available_rooms($current_booking_id = NULL, $check_in = NULL, $check_out = NULL)
     {
         if ( ! $this->db->table_exists('rooms')) {
             return array();
         }
 
-        // room_ids still held by OTHER active bookings. A room is only "taken"
-        // while its booking is live (room_booked / checked_in); once the booking
-        // is checked_out / cancelled / no_show the room returns to inventory.
-        $this->db->select('bd.room_id')->from('booking_details bd')
+        $rooms = $this->db
+            ->select('id, room_no, category_id')
+            ->from('rooms')
+            ->where('is_active', 1)
+            ->order_by('room_no', 'ASC')
+            ->get()->result();
+
+        $start = is_string($check_in) ? DateTime::createFromFormat('!Y-m-d', $check_in) : FALSE;
+        $end = is_string($check_out) ? DateTime::createFromFormat('!Y-m-d', $check_out) : FALSE;
+        if (
+            ! $start || $start->format('Y-m-d') !== $check_in
+            || ! $end || $end->format('Y-m-d') !== $check_out
+            || $check_out <= $check_in
+        ) {
+            $check_in = date('Y-m-d');
+            $check_out = date('Y-m-d', strtotime('+1 day'));
+        }
+
+        // Fetch other live room holds and resolve their effective stay ranges
+        // exactly like Inventory_model: scheduled dates first, actual stamps
+        // as fallback, and an open end for a checked-in guest without checkout.
+        $this->db
+            ->select('bd.id, bd.room_id, bd.scheduled_check_in_date AS cin,
+                      bd.scheduled_check_out_date AS cout,
+                      bd.checked_in_at, bd.checked_out_at, sm.status_code')
+            ->from('booking_details bd')
             ->join('status_master sm', 'sm.status_id = bd.status_id', 'inner')
             ->where('bd.room_id IS NOT NULL')
-            ->where_not_in('sm.status_code', array('checked_out', 'cancelled', 'no_show'));
+            ->where_in('sm.status_code', array('room_booked', 'checked_in'));
         if ($current_booking_id) {
             $this->db->where('bd.id !=', (int) $current_booking_id);
         }
-        $taken = array_map(function ($r) { return (int) $r->room_id; },
-                           $this->db->get()->result());
 
-        $this->db->select('id, room_no, category_id')->from('rooms')->where('is_active', 1);
-        if ($taken) {
-            $this->db->where_not_in('id', $taken);
+        $taken = array();
+        foreach ($this->db->get()->result() as $booking) {
+            $cin = $booking->cin
+                ?: ($booking->checked_in_at ? substr($booking->checked_in_at, 0, 10) : NULL);
+
+            // An undated live hold cannot safely be offered for a dated stay.
+            if ( ! $cin) {
+                $taken[(int) $booking->room_id] = TRUE;
+                continue;
+            }
+
+            if ($booking->cout) {
+                $cout = $booking->cout;
+            } elseif ($booking->checked_out_at) {
+                $cout = substr($booking->checked_out_at, 0, 10);
+            } elseif ($booking->status_code === 'checked_in') {
+                $cout = NULL;
+            } else {
+                $cout = date('Y-m-d', strtotime($cin.' +1 day'));
+            }
+
+            // Half-open date ranges overlap when each starts before the other ends.
+            if ($cin < $check_out && ($cout === NULL || $cout > $check_in)) {
+                $taken[(int) $booking->room_id] = TRUE;
+            }
         }
-        return $this->db->order_by('room_no', 'ASC')->get()->result();
+
+        return array_values(array_filter($rooms, function ($room) use ($taken) {
+            return ! isset($taken[(int) $room->id]);
+        }));
+    }
+
+    /** Server-side guard against overlapping room allotments. */
+    public function is_room_available($room_id, $check_in, $check_out, $current_booking_id = NULL)
+    {
+        if ( ! $room_id) {
+            return TRUE;
+        }
+        foreach ($this->available_rooms($current_booking_id, $check_in, $check_out) as $room) {
+            if ((int) $room->id === (int) $room_id) {
+                return TRUE;
+            }
+        }
+        return FALSE;
     }
 
     /** Return the category of an active room, or NULL for an invalid room. */
