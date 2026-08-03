@@ -11,15 +11,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *                               − rooms occupied by active bookings that night
  *
  * A booking occupies a room on night D when D is within [check-in, check-out)
- * and its status is "occupying" (Room booked / Checked in). A booking with an
+ * and its status is "occupying" (Room booked / Checked in). Completed stays
+ * remain visible on their historical nights as Checked out. A booking with an
  * allotted room (room_id) consumes 1 room of that room's category; otherwise it
- * consumes its room_quantity of its booked category. Cancelled / No-show /
- * Checked-out bookings free their rooms.
+ * consumes its room_quantity of its booked category. Cancelled / No-show
+ * bookings do not appear, and checked-out rooms are free from the checkout date.
  */
 class Inventory_model extends CI_Model
 {
-    /** Statuses (status_master.status_code) that hold a room. */
-    protected $occupying = array('room_booked', 'checked_in');
+    /** Booking statuses (status_master.status_code) shown in inventory. */
+    protected $occupying = array('room_booked', 'checked_in', 'checked_out');
 
     /**
      * Active room categories with their count of active physical rooms.
@@ -88,8 +89,8 @@ class Inventory_model extends CI_Model
     }
 
     /**
-     * All occupying (Room booked / Checked in) bookings. The per-night overlap
-     * and effective stay range are resolved by the caller in PHP.
+     * All inventory-visible bookings. The per-night overlap and effective stay
+     * range are resolved by the caller in PHP.
      *
      * The allotted-room join is guarded by is_active = 1 so it stays consistent
      * with categories_with_totals() (which counts active rooms only): a booking
@@ -142,6 +143,13 @@ class Inventory_model extends CI_Model
             $state[(int) $r->id] = array_fill_keys($dates, 'available');
         }
 
+        $status_priority = array(
+            'available'   => 0,
+            'checked_out' => 1,
+            'room_booked' => 2,
+            'checked_in'  => 3,
+        );
+
         foreach ($this->occupying_bookings() as $b) {
             $room_id = $b->room_id;
             if (!$room_id || !isset($state[$room_id])) {
@@ -168,8 +176,9 @@ class Inventory_model extends CI_Model
 
             foreach ($dates as $dt) {
                 if ($dt >= $cin && ($cout === NULL || $dt < $cout)) {
-                    // Checked-in takes precedence if overlapping records exist.
-                    if ($b->status_code === 'checked_in' || $state[$room_id][$dt] === 'available') {
+                    // An active stay takes precedence over completed history if
+                    // records overlap for the same room and date.
+                    if ($status_priority[$b->status_code] > $status_priority[$state[$room_id][$dt]]) {
                         $state[$room_id][$dt] = $b->status_code;
                     }
                 }
@@ -180,6 +189,7 @@ class Inventory_model extends CI_Model
         $avail_totals  = array_fill_keys($dates, 0);
         $booked_totals = array_fill_keys($dates, 0);
         $checked_in_totals = array_fill_keys($dates, 0);
+        $checked_out_totals = array_fill_keys($dates, 0);
         $total_rooms   = 0;
 
         foreach ($rooms as $r) {
@@ -205,6 +215,8 @@ class Inventory_model extends CI_Model
                     $booked_totals[$dt]++;
                 } elseif ($current_status === 'checked_in') {
                     $checked_in_totals[$dt]++;
+                } elseif ($current_status === 'checked_out') {
+                    $checked_out_totals[$dt]++;
                 }
                 $occupied_count += $bk;
             }
@@ -229,6 +241,7 @@ class Inventory_model extends CI_Model
             'avail_totals'  => $avail_totals,
             'booked_totals' => $booked_totals,
             'checked_in_totals' => $checked_in_totals,
+            'checked_out_totals' => $checked_out_totals,
             'total_rooms'   => $total_rooms,
         );
     }

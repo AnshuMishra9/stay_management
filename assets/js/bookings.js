@@ -32,7 +32,30 @@
         vm.loading   = true;
         vm.showModal = false;
         vm.detail    = {};
-        vm.filters   = { booking_no: '', customer_name: '', room_no: '', room_category: '' };
+        vm.filters   = { booking_no: '', customer_name: '', room_no: '', room_category: '', date: '' };
+        vm.dateFilter = null;
+
+        var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        // Keep the displayed date independent of browser locale/timezone.
+        vm.formatStayDate = function (value) {
+            var match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value || '');
+            if (!match) { return '—'; }
+            return match[3] + ' ' + MONTHS[parseInt(match[2], 10) - 1] + ' ' + match[1].slice(-2);
+        };
+
+        function dateParam(value) {
+            if (!value) { return ''; }
+            if (angular.isDate(value) && !isNaN(value.getTime())) {
+                var year  = value.getFullYear();
+                var month = ('0' + (value.getMonth() + 1)).slice(-2);
+                var day   = ('0' + value.getDate()).slice(-2);
+                return year + '-' + month + '-' + day;
+            }
+            var match = /^(\d{4}-\d{2}-\d{2})/.exec(String(value));
+            return match ? match[1] : '';
+        }
 
         // status_code -> badge css class (status_master is the source of truth).
         var STATUS_CLASS = {
@@ -58,8 +81,14 @@
             debounce = $timeout(vm.load, 300);
         };
 
+        vm.onDateFilter = function () {
+            vm.filters.date = dateParam(vm.dateFilter);
+            vm.onFilter();
+        };
+
         vm.clearFilters = function () {
             angular.forEach(vm.filters, function (v, k) { vm.filters[k] = ''; });
+            vm.dateFilter = null;
             vm.load();
         };
 

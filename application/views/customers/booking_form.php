@@ -170,7 +170,6 @@ $dtlocal = function ($field) use ($bval) {
                         <option value="">Select</option>
                         <?php foreach ($room_cat_opts as $rc): ?>
                             <option value="<?= (int) $rc->category_id ?>"
-                                    data-base-price="<?= html_escape($rc->base_price) ?>"
                                     <?= (string) $sel_roomcat === (string) $rc->category_id ? 'selected' : '' ?>><?= html_escape($rc->category_name) ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -180,7 +179,10 @@ $dtlocal = function ($field) use ($bval) {
                     <select class="erp-select" id="bk_room" name="room_id" data-search="always" data-placeholder="Select a room">
                         <option value="">— No room —</option>
                         <?php foreach ($room_opts as $rm): ?>
-                            <option value="<?= (int) $rm->id ?>" data-category-id="<?= (int) $rm->category_id ?>" <?= (string) $sel_room === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
+                            <option value="<?= (int) $rm->id ?>"
+                                    data-category-id="<?= (int) $rm->category_id ?>"
+                                    data-selling-price="<?= html_escape($rm->selling_price) ?>"
+                                    <?= (string) $sel_room === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
                         <?php endforeach; ?>
                     </select>
                     <?= form_error('room_id', '<div class="erp-error">', '</div>') ?>

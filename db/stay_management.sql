@@ -296,7 +296,6 @@ CREATE TABLE `room_categories` (
   `bed_type` varchar(40) DEFAULT NULL,
   `bed_count` int(11) DEFAULT NULL,
   `smoking_allowed` tinyint(1) NOT NULL DEFAULT 0,
-  `base_price` decimal(12,2) DEFAULT NULL,
   `default_tax_id` bigint(20) unsigned DEFAULT NULL,
   `default_sac_code` varchar(20) DEFAULT NULL,
   `image` varchar(255) DEFAULT NULL,
@@ -315,7 +314,7 @@ CREATE TABLE `room_categories` (
 
 LOCK TABLES `room_categories` WRITE;
 /*!40000 ALTER TABLE `room_categories` DISABLE KEYS */;
-INSERT INTO `room_categories` VALUES (1,'Standard','STD','Comfortable standard room',2,1,'180','sq.ft','Double',1,0,2000.00,3,'996311',NULL,1,1,'2026-07-02 16:25:10',NULL),(2,'Deluxe','DLX','Spacious deluxe room',2,2,'250','sq.ft','Queen',1,0,3200.00,4,'996311',NULL,2,1,'2026-07-02 16:25:10',NULL),(3,'Super Deluxe','SDLX','Premium super deluxe room',3,2,'320','sq.ft','King',1,0,4500.00,4,'996311',NULL,3,1,'2026-07-02 16:25:10',NULL),(4,'Suite','STE','Luxury suite with living area',3,2,'480','sq.ft','King',1,0,7000.00,4,'996311',NULL,4,1,'2026-07-02 16:25:10',NULL),(5,'Executive Suite','EXE','Top-tier executive suite',4,2,'650','sq.ft','King',2,0,9500.00,4,'996311',NULL,5,1,'2026-07-02 16:25:10',NULL);
+INSERT INTO `room_categories` VALUES (1,'Standard','STD','Comfortable standard room',2,1,'180','sq.ft','Double',1,0,3,'996311',NULL,1,1,'2026-07-02 16:25:10',NULL),(2,'Deluxe','DLX','Spacious deluxe room',2,2,'250','sq.ft','Queen',1,0,4,'996311',NULL,2,1,'2026-07-02 16:25:10',NULL),(3,'Super Deluxe','SDLX','Premium super deluxe room',3,2,'320','sq.ft','King',1,0,4,'996311',NULL,3,1,'2026-07-02 16:25:10',NULL),(4,'Suite','STE','Luxury suite with living area',3,2,'480','sq.ft','King',1,0,4,'996311',NULL,4,1,'2026-07-02 16:25:10',NULL),(5,'Executive Suite','EXE','Top-tier executive suite',4,2,'650','sq.ft','King',2,0,4,'996311',NULL,5,1,'2026-07-02 16:25:10',NULL);
 /*!40000 ALTER TABLE `room_categories` ENABLE KEYS */;
 UNLOCK TABLES;
 

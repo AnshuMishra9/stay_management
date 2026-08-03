@@ -105,6 +105,7 @@ class Customers extends Secure_Controller
             'workflow_icon'  => 'checkout',
             'edit_url'       => 'customers/checkins/edit',
             'edit_title'     => 'Edit check-in',
+            'show_date'      => TRUE,
         ));
     }
 
@@ -122,6 +123,7 @@ class Customers extends Secure_Controller
             'workflow_icon'  => 'checkout',
             'edit_url'       => 'customers/checkedouts/edit',
             'edit_title'     => 'Edit (read only)',
+            'show_date'      => TRUE,
         ));
     }
 
@@ -274,6 +276,7 @@ class Customers extends Secure_Controller
             'customer_name' => $this->input->get('customer_name'),
             'room_no'       => $this->input->get('room_no'),
             'room_category' => $this->input->get('room_category'),
+            'date'          => $this->_date($this->input->get('date')),
         );
     }
 
@@ -636,7 +639,17 @@ class Customers extends Secure_Controller
     {
         $booking_id = (int) $this->input->post('booking_id');
         $booking = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
-        if ( ! $booking || $this->Customer_model->status_code($booking->status_id) !== 'checked_in') {
+        if ( ! $booking) {
+            show_404();
+            return;
+        }
+
+        $current_status = $this->Customer_model->status_code($booking->status_id);
+        if ($current_status === 'checked_out') {
+            redirect('customers/checkedouts');
+            return;
+        }
+        if ($current_status !== 'checked_in') {
             show_404();
             return;
         }
@@ -1222,6 +1235,7 @@ class Customers extends Secure_Controller
             'room_id'            => $room_id,   // allotted room
             'checked_in_at'      => $this->_datetime($this->input->post('checked_in_at')),
             'checked_out_at'     => $this->_datetime($this->input->post('checked_out_at')),
+            'length_of_stay'     => $this->_int($this->input->post('length_of_stay')),
             'total_guest'        => $this->_int($this->input->post('total_guest')),
             'room_category_id'   => $room_category_id,
             'room_quantity'      => $this->_int($this->input->post('room_quantity')),

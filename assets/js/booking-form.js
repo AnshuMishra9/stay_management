@@ -70,6 +70,7 @@
     var total = document.getElementById('bk_total');
     var paid = document.getElementById('bk_paid');
     var rem = document.getElementById('bk_remaining');
+    var los = document.getElementById('bk_los');
 
     function refreshSelect(el) {
         if (window.SearchableSelect && window.SearchableSelect.refresh) {
@@ -96,14 +97,24 @@
         refreshSelect(room);
     }
 
-    function applyCategoryBasePrice() {
-        if (!roomCategory || !total) { return; }
-        var selected = roomCategory.options[roomCategory.selectedIndex];
-        var basePrice = selected ? selected.getAttribute('data-base-price') : '';
-        if (basePrice === null || basePrice === '') { return; }
+    function applyStayPrice() {
+        if (!total) { return; }
 
-        var parsedPrice = parseFloat(basePrice);
-        total.value = isNaN(parsedPrice) ? basePrice : parsedPrice.toFixed(2);
+        var selectedRoom = room && room.options[room.selectedIndex];
+        var roomPrice = selectedRoom && selectedRoom.value
+            ? selectedRoom.getAttribute('data-selling-price')
+            : '';
+        var parsedPrice = parseFloat(roomPrice);
+        if (isNaN(parsedPrice)) {
+            total.value = '';
+            calcRemaining();
+            return;
+        }
+
+        var nights = los && los.value !== '' ? parseFloat(los.value) : 1;
+        if (isNaN(nights) || nights < 0) { nights = 1; }
+
+        total.value = (parsedPrice * nights).toFixed(2);
         calcRemaining();
     }
 
@@ -117,14 +128,14 @@
         }
         filterRoomsByCategory();
         if (updatePrice) {
-            applyCategoryBasePrice();
+            applyStayPrice();
         }
     }
 
     if (roomCategory && room) {
         roomCategory.addEventListener('change', function () {
             filterRoomsByCategory();
-            applyCategoryBasePrice();
+            applyStayPrice();
         });
         room.addEventListener('change', function () {
             syncCategoryFromRoom(true);
@@ -138,17 +149,27 @@
         }
     }
     if (roomCategory && total && total.value === '') {
-        applyCategoryBasePrice();
+        applyStayPrice();
     }
 
     // ---- Auto-calc: Length of Stay + Remaining Amount ----
     var ci    = document.getElementById('bk_checkin');
     var co    = document.getElementById('bk_checkout');
-    var los   = document.getElementById('bk_los');
     var bookingIdEl = document.querySelector('[name="booking_id"]');
     var availabilityRequest = 0;
+    var selectedCheckoutDate = co && co.value ? co.value.slice(0, 10) : '';
 
     function num(el) { var v = parseFloat(el && el.value); return isNaN(v) ? 0 : v; }
+
+    function applyDefaultCheckoutTime() {
+        if (!co || (bookingIdEl && bookingIdEl.value)) { return; }
+
+        var date = co.value ? co.value.slice(0, 10) : '';
+        if (date && date !== selectedCheckoutDate) {
+            co.value = date + 'T11:00';
+        }
+        selectedCheckoutDate = date;
+    }
 
     function calcLOS() {
         if (!ci || !co || !los) { return; }
@@ -158,6 +179,7 @@
         } else {
             los.value = '';
         }
+        applyStayPrice();
     }
 
     function refreshAvailableRooms() {
@@ -193,6 +215,12 @@
                 option.value = String(availableRoom.id);
                 option.textContent = availableRoom.room_no;
                 option.setAttribute('data-category-id', String(availableRoom.category_id || ''));
+                option.setAttribute(
+                    'data-selling-price',
+                    availableRoom.selling_price === null || availableRoom.selling_price === undefined
+                        ? ''
+                        : String(availableRoom.selling_price)
+                );
                 room.appendChild(option);
             });
 
@@ -220,7 +248,9 @@
             calcLOS();
             refreshAvailableRooms();
         });
+        co.addEventListener('input', applyDefaultCheckoutTime);
         co.addEventListener('change', function () {
+            applyDefaultCheckoutTime();
             calcLOS();
             refreshAvailableRooms();
         });

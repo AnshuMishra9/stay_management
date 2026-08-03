@@ -163,7 +163,7 @@ class Customer_model extends CI_Model
 
     /**
      * Active room categories for the "Room Category" dropdown.
-     * @return array of {category_id, category_name, base_price}
+     * @return array of {category_id, category_name}
      */
     public function room_categories()
     {
@@ -171,7 +171,7 @@ class Customer_model extends CI_Model
             return array();
         }
         return $this->db
-            ->select('category_id, category_name, base_price')
+            ->select('category_id, category_name')
             ->where('status', 1)
             ->order_by('display_order', 'ASC')->order_by('category_name', 'ASC')
             ->get('room_categories')->result();
@@ -191,7 +191,7 @@ class Customer_model extends CI_Model
      * @param  int|null $current_booking_id booking being edited (excluded)
      * @param  string|null $check_in         Y-m-d (inclusive)
      * @param  string|null $check_out        Y-m-d (exclusive)
-     * @return array of {id, room_no, category_id}
+     * @return array of {id, room_no, category_id, selling_price}
      */
     public function available_rooms($current_booking_id = NULL, $check_in = NULL, $check_out = NULL)
     {
@@ -200,7 +200,7 @@ class Customer_model extends CI_Model
         }
 
         $rooms = $this->db
-            ->select('id, room_no, category_id')
+            ->select('id, room_no, category_id, selling_price')
             ->from('rooms')
             ->where('is_active', 1)
             ->order_by('room_no', 'ASC')
@@ -299,17 +299,28 @@ class Customer_model extends CI_Model
      *
      * @param  array $filters  Keys: status (status_code; defaults to
      *                         'room_booked'), booking_no, customer_name,
-     *                         room_no, room_category (all partial/LIKE).
+     *                         room_no, room_category (all partial/LIKE), date
+     *                         (exact actual check-in/check-out date).
      * @return array  rows: id, booking_number, customer_id, customer_code,
-     *                customer_name, allotted_room_no, room_category, status_name.
+     *                customer_name, allotted_room_no, room_category, stay_date,
+     *                status_name.
      */
     public function get_bookings(array $filters = array())
     {
+        $status = ! empty($filters['status']) ? $filters['status'] : 'room_booked';
+        $date_column = NULL;
+        if ($status === 'checked_in') {
+            $date_column = 'b.checked_in_at';
+        } elseif ($status === 'checked_out') {
+            $date_column = 'b.checked_out_at';
+        }
+
         $this->db
             ->select('b.id, b.booking_number, b.customer_id,
                       c.customer_code, c.customer_name,
                       b.room_id, r.room_no AS allotted_room_no,
                       sm.status_name, sm.status_code')
+            ->select($date_column ? $date_column.' AS stay_date' : 'NULL AS stay_date', FALSE)
             // Room Category: the allotted room's category when a room is assigned,
             // otherwise the category the booking itself booked (room may be pending).
             ->select('COALESCE(r_cat.category_name, b_cat.category_name) AS room_category', FALSE)
@@ -321,7 +332,6 @@ class Customer_model extends CI_Model
             ->join('room_categories b_cat', 'b_cat.category_id = b.room_category_id', 'left');
 
         // Filter to a single status (defaults to "Room booked").
-        $status = ! empty($filters['status']) ? $filters['status'] : 'room_booked';
         $this->db->where('sm.status_code', $status);
 
         // Per-column LIKE filters.
@@ -333,6 +343,15 @@ class Customer_model extends CI_Model
         if ( ! empty($filters['room_category'])) {
             $needle = $this->db->escape('%'.$filters['room_category'].'%');
             $this->db->where("COALESCE(r_cat.category_name, b_cat.category_name) LIKE $needle", NULL, FALSE);
+        }
+        // Match the complete calendar day without applying DATE() to the DB
+        // column, so the query can still use an index when one is available.
+        if ($date_column && ! empty($filters['date'])) {
+            $date = $filters['date'];
+            $next_date = date('Y-m-d', strtotime($date.' +1 day'));
+            $this->db
+                ->where($date_column.' >=', $date.' 00:00:00')
+                ->where($date_column.' <', $next_date.' 00:00:00');
         }
 
         return $this->db

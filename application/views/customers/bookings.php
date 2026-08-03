@@ -5,6 +5,7 @@ $sub        = isset($sub)        ? $sub        : 'Customers with a room booked';
 $ajax       = isset($ajax)       ? $ajax       : 'customers/bookings_ajax';
 $ns         = isset($ns)         ? $ns         : 'bookings';
 $show_new   = isset($show_new)   ? $show_new   : TRUE;
+$show_date  = isset($show_date)  ? (bool) $show_date : FALSE;
 $categories = isset($categories) ? $categories : array();
 $workflow_url   = isset($workflow_url)   ? $workflow_url   : 'customers/bookings/checkin';
 $workflow_title = isset($workflow_title) ? $workflow_title : 'Check-in';
@@ -80,6 +81,7 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
                         <th>Customer Name</th>
                         <th>Room No</th>
                         <th>Room Category</th>
+                        <?php if ($show_date): ?><th>Date</th><?php endif; ?>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -95,6 +97,9 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
                                 <?php endforeach; ?>
                             </select>
                         </th>
+                        <?php if ($show_date): ?>
+                        <th><input class="erp-input" type="date" ng-model="vm.dateFilter" ng-change="vm.onDateFilter()" aria-label="Filter by date"></th>
+                        <?php endif; ?>
                         <th></th>
                         <th></th>
                     </tr>
@@ -105,6 +110,7 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
                         <td>{{ c.customer_name }}</td>
                         <td>{{ c.allotted_room_no || '—' }}</td>
                         <td>{{ c.room_category || '—' }}</td>
+                        <?php if ($show_date): ?><td>{{ vm.formatStayDate(c.stay_date) }}</td><?php endif; ?>
                         <td><span class="erp-badge" ng-class="vm.statusClass(c.status_code)">{{ c.status_name }}</span></td>
                         <td>
                             <span class="erp-actions">
