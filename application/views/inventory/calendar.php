@@ -4,7 +4,7 @@
  * $dates[]        -> Y-m-d for each column
  * $rows[]         -> per category { name, total, avail{date=>n}, booked{date=>n} }
  * $avail_totals{} -> all-rooms available per date
- * $booked_totals{}, $checked_in_totals{}, $checked_out_totals{} -> booking status per date
+ * Backend booking states are presented here as a single "Booked" status.
  * $total_rooms    -> total active rooms
  * $start/$selected,$window_start,$prev,$next,$end,$today -> Y-m-d
  */
@@ -23,13 +23,7 @@ $cell_class = function ($avail) {
     return $avail <= 0 ? 'inv-a inv-a-0' : 'inv-a inv-a-ok';
 };
 $room_cell_class = function ($status) {
-    if ($status === 'room_booked') {
-        return 'inv-a inv-a-booked';
-    }
-    if ($status === 'checked_in') {
-        return 'inv-a inv-a-checked-in';
-    }
-    return $status === 'checked_out' ? 'inv-a inv-a-checked-out' : 'inv-a inv-a-ok';
+    return $status === 'available' ? 'inv-a inv-a-ok' : 'inv-a inv-a-booked';
 };
 $navigation_query = function ($date) use ($filters) {
     $query = array(
@@ -123,12 +117,9 @@ $navigation_query = function ($date) use ($filters) {
         .inv-a-ok { background:var(--green-soft); color:#15803d; }
         .inv-a-0  { background:var(--red-soft);   color:#be123c; }
         .inv-a-booked { background:#fff3d6; color:#b45309; }
-        .inv-a-checked-in { background:var(--red-soft); color:#be123c; }
-        .inv-a-checked-out { background:#ede9fe; color:#6d28d9; }
         .inv-bk   { display:block; font-size:.64rem; color:var(--muted); margin-top:3px; white-space:nowrap; }
+        .inv-bk-available { color:#15803d; }
         .inv-bk-booked { color:#b45309; }
-        .inv-bk-checked-in { color:#be123c; }
-        .inv-bk-checked-out { color:#6d28d9; }
 
         .inv-total-row td { background:#fbfaff; }
         .inv-total-row .inv-roomcol { background:#fbfaff; }
@@ -217,39 +208,22 @@ $navigation_query = function ($date) use ($filters) {
                                 <?php
                                     $total_available = 0;
                                     $total_booked = 0;
-                                    $total_checked_in = 0;
-                                    $total_checked_out = 0;
                                     foreach ($dates as $d) {
                                         $total_available += $avail_totals[$d];
-                                        $total_booked += $booked_totals[$d];
-                                        $total_checked_in += $checked_in_totals[$d];
-                                        $total_checked_out += $checked_out_totals[$d];
+                                        $total_booked += $booked_totals[$d]
+                                            + $checked_in_totals[$d]
+                                            + $checked_out_totals[$d];
                                     }
                                     echo (int) $total_rooms . ' rooms &middot; ';
-                                    if ($total_booked > 0 || $total_checked_in > 0 || $total_checked_out > 0) {
-                                        $summary_parts = array();
-                                        if ($total_booked > 0) {
-                                            $summary_parts[] = $total_booked . ' booked';
-                                        }
-                                        if ($total_checked_in > 0) {
-                                            $summary_parts[] = $total_checked_in . ' checked in';
-                                        }
-                                        if ($total_checked_out > 0) {
-                                            $summary_parts[] = $total_checked_out . ' checked out';
-                                        }
-                                        echo implode(' &middot; ', $summary_parts);
-                                    } else {
-                                        echo 'all available';
-                                    }
+                                    echo $total_available . ' Available &middot; ' . $total_booked . ' Booked';
                                 ?>
                             </div>
                         </td>
-                        <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $avail_totals[$d]; $bk = (int) $booked_totals[$d]; $ci = (int) $checked_in_totals[$d]; $co = (int) $checked_out_totals[$d]; ?>
+                        <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $avail_totals[$d]; $bk = (int) $booked_totals[$d] + (int) $checked_in_totals[$d] + (int) $checked_out_totals[$d]; ?>
                             <td class="inv-cell <?= $f['selected'] ? 'inv-selected' : ($f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '')) ?>">
-                                <span class="<?= $cell_class($av) ?>" title="Total rooms"><?= (int) $total_rooms ?></span>
-                                <?php if ($bk > 0): ?><span class="inv-bk inv-bk-booked"><?= $bk ?> booked</span><?php endif; ?>
-                                <?php if ($ci > 0): ?><span class="inv-bk inv-bk-checked-in"><?= $ci ?> checked in</span><?php endif; ?>
-                                <?php if ($co > 0): ?><span class="inv-bk inv-bk-checked-out"><?= $co ?> checked out</span><?php endif; ?>
+                                <span class="<?= $cell_class($av) ?>" title="Available rooms"><?= $av ?></span>
+                                <span class="inv-bk inv-bk-available"><?= $av ?> Available</span>
+                                <span class="inv-bk inv-bk-booked"><?= $bk ?> Booked</span>
                             </td>
                         <?php endforeach; ?>
                     </tr>
@@ -263,10 +237,8 @@ $navigation_query = function ($date) use ($filters) {
                             </td>
                             <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $room['avail'][$d]; $status = $room['status'][$d]; ?>
                                 <td class="inv-cell <?= $f['selected'] ? 'inv-selected' : ($f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '')) ?>">
-                                    <span class="<?= $room_cell_class($status) ?>" title="<?= $status === 'checked_in' ? 'Checked in' : ($status === 'checked_out' ? 'Checked out' : ($status === 'room_booked' ? 'Room booked' : 'Available')) ?>"><?= $av ? '1' : '0' ?></span>
-                                    <?php if ($status === 'room_booked'): ?><span class="inv-bk inv-bk-booked">Booked</span><?php endif; ?>
-                                    <?php if ($status === 'checked_in'): ?><span class="inv-bk inv-bk-checked-in">Checked in</span><?php endif; ?>
-                                    <?php if ($status === 'checked_out'): ?><span class="inv-bk inv-bk-checked-out">Checked out</span><?php endif; ?>
+                                    <span class="<?= $room_cell_class($status) ?>" title="<?= $av ? 'Available' : 'Booked' ?>"><?= $av ? '1' : '0' ?></span>
+                                    <span class="inv-bk <?= $av ? 'inv-bk-available' : 'inv-bk-booked' ?>"><?= $av ? 'Available' : 'Booked' ?></span>
                                 </td>
                             <?php endforeach; ?>
                         </tr>
@@ -281,9 +253,7 @@ $navigation_query = function ($date) use ($filters) {
 
         <div class="inv-legend">
             <span class="k"><span class="inv-swatch" style="background:var(--green-soft);"></span> Available</span>
-            <span class="k"><span class="inv-swatch" style="background:#fff3d6;"></span> Room booked</span>
-            <span class="k"><span class="inv-swatch" style="background:var(--red-soft);"></span> Checked in</span>
-            <span class="k"><span class="inv-swatch" style="background:#ede9fe;"></span> Checked out</span>
+            <span class="k"><span class="inv-swatch" style="background:#fff3d6;"></span> Booked</span>
             <span class="k"><span class="inv-swatch" style="background:var(--brand-soft);"></span> Today</span>
             <span class="k"><span class="inv-swatch" style="background:#e8f2ff;border-bottom:3px solid #2563eb;"></span> Selected date</span>
             <span class="k">Number = rooms available that day</span>
