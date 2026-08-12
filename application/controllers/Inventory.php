@@ -6,8 +6,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *
  * A date-wise room AVAILABILITY calendar. For every day (present + future) it
  * shows how many rooms are still available per room type — total active rooms
- * minus the rooms held by active bookings that night. Read-only: the numbers
- * are derived from `rooms` + `booking_details`, not manually set.
+ * minus the rooms held by active bookings that night. Availability remains
+ * derived data; available room nights can launch the in-page booking flow.
  */
 class Inventory extends Secure_Controller
 {
@@ -70,6 +70,7 @@ class Inventory extends Secure_Controller
             strtotime($selected.' +'.self::NAVIGATION_STEP.' day')
         );
         $data['end']   = end($data['dates']);
+        $data['flash'] = $this->session->flashdata('inventory_msg');
 
         // Pass filters and categories for dropdown
         $data['filters'] = $filters;

@@ -1,263 +1,305 @@
 /* ============================================================
-   Stay Management ERP — Booking form (vanilla JS)
+   Stay Management ERP — shared Booking form behaviour.
 
-   1) MOBILE LOOKUP: typing a mobile number that already exists in
-      `customers` pulls that customer's saved details into the form
-      (still editable — saving writes any edits back to the customer).
-      An unknown number just means a new customer will be created.
-   2) Auto-calc: Length of Stay (nights) and Remaining Amount.
+   BookingForm.init(root) is idempotent so the same form can run on the
+   full Booking page or after it is injected into the Inventory modal.
    ============================================================ */
-(function () {
+(function (global) {
     'use strict';
 
-    var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
+    var base = (global.APP_BASE || '/').replace(/\/?$/, '/');
 
-    var phoneEl = document.getElementById('bf_phone');
+    function initForm(form) {
+        if (!form || form.dataset.bookingFormReady) { return; }
+        form.dataset.bookingFormReady = '1';
 
-    // Customer fields the lookup fills in (name attribute -> element).
-    var FIELDS = ['customer_name', 'pincode', 'country'];
+        var phoneEl = form.querySelector('#bf_phone');
+        var customerFields = ['customer_name', 'pincode', 'country'];
 
-    function field(name) { return document.querySelector('[name="' + name + '"]'); }
-
-    // Setting .value on a <select> enhanced by searchable-select.js re-syncs its
-    // trigger (the setter is hooked), so this works for plain inputs AND selects.
-    function setField(name, value) {
-        var el = field(name);
-        if (!el) { return; }
-        el.value = (value === null || value === undefined) ? '' : value;
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    // ---- Mobile lookup ----
-    var lookupTimer = null;
-    var autofilled  = false;   // did WE fill the fields? (so we can clear them)
-
-    function lookup() {
-        var phone = (phoneEl.value || '').trim();
-
-        if (phone.length < 6) { return; }
-
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', base + 'customers/lookup?phone=' + encodeURIComponent(phone), true);
-        xhr.onload = function () {
-            var res;
-            try { res = JSON.parse(xhr.responseText); } catch (e) { return; }
-
-            if (res && res.found && res.data) {
-                FIELDS.forEach(function (f) { setField(f, res.data[f]); });
-                autofilled = true;
-            } else if (autofilled) {
-                // Unknown number: clear anything WE auto-filled so the previous
-                // customer's details don't get saved onto a new customer.
-                FIELDS.forEach(function (f) { setField(f, ''); });
-                autofilled = false;
-            }
-        };
-        xhr.send();
-    }
-
-    if (phoneEl) {
-        phoneEl.addEventListener('input', function () {
-            if (lookupTimer) { clearTimeout(lookupTimer); }
-            lookupTimer = setTimeout(lookup, 400);   // debounce while typing
-        });
-        phoneEl.addEventListener('blur', lookup);
-    }
-
-    // ---- Linked Room Category / Allot Room dropdowns ----
-    var roomCategory = document.getElementById('bk_room_category');
-    var room = document.getElementById('bk_room');
-    var total = document.getElementById('bk_total');
-    var paid = document.getElementById('bk_paid');
-    var rem = document.getElementById('bk_remaining');
-    var los = document.getElementById('bk_los');
-
-    function refreshSelect(el) {
-        if (window.SearchableSelect && window.SearchableSelect.refresh) {
-            window.SearchableSelect.refresh(el);
+        function field(name) {
+            return form.querySelector('[name="' + name + '"]');
         }
-    }
 
-    function filterRoomsByCategory() {
-        if (!roomCategory || !room) { return; }
-        var categoryId = roomCategory.value;
-        var selected = room.options[room.selectedIndex];
+        function setField(name, value) {
+            var el = field(name);
+            if (!el) { return; }
+            el.value = (value === null || value === undefined) ? '' : value;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
 
-        Array.prototype.forEach.call(room.options, function (opt) {
-            if (!opt.value) {
-                opt.disabled = false;
+        // ---- Existing-customer lookup by mobile number -----------------
+        var lookupTimer = null;
+        var autofilled = false;
+
+        function lookup() {
+            var phone = phoneEl ? (phoneEl.value || '').trim() : '';
+            if (phone.length < 6) { return; }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', base + 'customers/lookup?phone=' + encodeURIComponent(phone), true);
+            xhr.onload = function () {
+                var response;
+                try { response = JSON.parse(xhr.responseText); } catch (error) { return; }
+
+                if (response && response.found && response.data) {
+                    customerFields.forEach(function (name) {
+                        setField(name, response.data[name]);
+                    });
+                    autofilled = true;
+                } else if (autofilled) {
+                    customerFields.forEach(function (name) { setField(name, ''); });
+                    autofilled = false;
+                }
+            };
+            xhr.send();
+        }
+
+        if (phoneEl) {
+            phoneEl.addEventListener('input', function () {
+                if (lookupTimer) { global.clearTimeout(lookupTimer); }
+                lookupTimer = global.setTimeout(lookup, 400);
+            });
+            phoneEl.addEventListener('blur', lookup);
+        }
+
+        // ---- Linked Room Category / Allot Room dropdowns ---------------
+        var roomCategory = form.querySelector('#bk_room_category');
+        var room = form.querySelector('#bk_room');
+        var total = form.querySelector('#bk_total');
+        var paid = form.querySelector('#bk_paid');
+        var remaining = form.querySelector('#bk_remaining');
+        var lengthOfStay = form.querySelector('#bk_los');
+
+        function refreshSelect(el) {
+            if (global.SearchableSelect && global.SearchableSelect.refresh) {
+                global.SearchableSelect.refresh(el);
+            }
+        }
+
+        function filterRoomsByCategory() {
+            if (!roomCategory || !room) { return; }
+            var categoryId = roomCategory.value;
+            var selected = room.options[room.selectedIndex];
+
+            Array.prototype.forEach.call(room.options, function (option) {
+                if (!option.value) {
+                    option.disabled = false;
+                    return;
+                }
+                option.disabled = !!categoryId
+                    && option.getAttribute('data-category-id') !== categoryId;
+            });
+
+            if (selected && selected.value && selected.disabled) {
+                room.value = '';
+            }
+            refreshSelect(room);
+        }
+
+        function numberValue(el) {
+            var value = parseFloat(el && el.value);
+            return isNaN(value) ? 0 : value;
+        }
+
+        function calculateRemaining() {
+            if (!remaining) { return; }
+            if ((total && total.value !== '') || (paid && paid.value !== '')) {
+                remaining.value = (numberValue(total) - numberValue(paid)).toFixed(2);
+            } else {
+                remaining.value = '';
+            }
+        }
+
+        function applyStayPrice() {
+            if (!total) { return; }
+
+            var selectedRoom = room && room.options[room.selectedIndex];
+            var roomPrice = selectedRoom && selectedRoom.value
+                ? selectedRoom.getAttribute('data-selling-price')
+                : '';
+            var parsedPrice = parseFloat(roomPrice);
+            if (isNaN(parsedPrice)) {
+                total.value = '';
+                calculateRemaining();
                 return;
             }
-            opt.disabled = !!categoryId && opt.getAttribute('data-category-id') !== categoryId;
-        });
 
-        if (selected && selected.value && selected.disabled) {
-            room.value = '';
+            var nights = lengthOfStay && lengthOfStay.value !== ''
+                ? parseFloat(lengthOfStay.value)
+                : 1;
+            if (isNaN(nights) || nights < 1) { nights = 1; }
+
+            total.value = (parsedPrice * nights).toFixed(2);
+            calculateRemaining();
         }
-        refreshSelect(room);
-    }
 
-    function applyStayPrice() {
-        if (!total) { return; }
+        function syncCategoryFromRoom(updatePrice) {
+            if (!roomCategory || !room) { return; }
+            var selected = room.options[room.selectedIndex];
+            var categoryId = selected ? selected.getAttribute('data-category-id') : '';
+            if (categoryId) {
+                roomCategory.value = categoryId;
+                refreshSelect(roomCategory);
+            }
+            filterRoomsByCategory();
+            if (updatePrice) { applyStayPrice(); }
+        }
 
-        var selectedRoom = room && room.options[room.selectedIndex];
-        var roomPrice = selectedRoom && selectedRoom.value
-            ? selectedRoom.getAttribute('data-selling-price')
+        if (roomCategory && room) {
+            roomCategory.addEventListener('change', function () {
+                filterRoomsByCategory();
+                applyStayPrice();
+            });
+            room.addEventListener('change', function () {
+                syncCategoryFromRoom(true);
+            });
+
+            if (room.value) {
+                syncCategoryFromRoom(false);
+            } else {
+                filterRoomsByCategory();
+            }
+        }
+
+        // ---- Stay range, live room availability, and totals -------------
+        var checkIn = form.querySelector('#bk_checkin');
+        var checkOut = form.querySelector('#bk_checkout');
+        var bookingIdEl = form.querySelector('[name="booking_id"]');
+        var availabilityRequest = 0;
+        var selectedCheckoutDate = checkOut && checkOut.value
+            ? checkOut.value.slice(0, 10)
             : '';
-        var parsedPrice = parseFloat(roomPrice);
-        if (isNaN(parsedPrice)) {
-            total.value = '';
-            calcRemaining();
-            return;
+
+        function calendarOrdinal(value) {
+            var match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value || '');
+            if (!match) { return null; }
+            return Date.UTC(+match[1], +match[2] - 1, +match[3]) / 86400000;
         }
 
-        var nights = los && los.value !== '' ? parseFloat(los.value) : 1;
-        if (isNaN(nights) || nights < 0) { nights = 1; }
+        function applyDefaultCheckoutTime() {
+            if (!checkOut || checkOut.type !== 'datetime-local'
+                || (bookingIdEl && bookingIdEl.value)) {
+                return;
+            }
 
-        total.value = (parsedPrice * nights).toFixed(2);
-        calcRemaining();
-    }
-
-    function syncCategoryFromRoom(updatePrice) {
-        if (!roomCategory || !room) { return; }
-        var selected = room.options[room.selectedIndex];
-        var categoryId = selected ? selected.getAttribute('data-category-id') : '';
-        if (categoryId) {
-            roomCategory.value = categoryId;
-            refreshSelect(roomCategory);
-        }
-        filterRoomsByCategory();
-        if (updatePrice) {
-            applyStayPrice();
-        }
-    }
-
-    if (roomCategory && room) {
-        roomCategory.addEventListener('change', function () {
-            filterRoomsByCategory();
-            applyStayPrice();
-        });
-        room.addEventListener('change', function () {
-            syncCategoryFromRoom(true);
-        });
-
-        // On edit/validation reload, the allotted room is authoritative.
-        if (room.value) {
-            syncCategoryFromRoom(false);
-        } else {
-            filterRoomsByCategory();
-        }
-    }
-    if (roomCategory && total && total.value === '') {
-        applyStayPrice();
-    }
-
-    // ---- Auto-calc: Length of Stay + Remaining Amount ----
-    var ci    = document.getElementById('bk_checkin');
-    var co    = document.getElementById('bk_checkout');
-    var bookingIdEl = document.querySelector('[name="booking_id"]');
-    var availabilityRequest = 0;
-    var selectedCheckoutDate = co && co.value ? co.value.slice(0, 10) : '';
-
-    function num(el) { var v = parseFloat(el && el.value); return isNaN(v) ? 0 : v; }
-
-    function applyDefaultCheckoutTime() {
-        if (!co || (bookingIdEl && bookingIdEl.value)) { return; }
-
-        var date = co.value ? co.value.slice(0, 10) : '';
-        if (date && date !== selectedCheckoutDate) {
-            co.value = date + 'T11:00';
-        }
-        selectedCheckoutDate = date;
-    }
-
-    function calcLOS() {
-        if (!ci || !co || !los) { return; }
-        if (ci.value && co.value) {
-            var d = Math.round((new Date(co.value) - new Date(ci.value)) / 86400000);
-            los.value = d >= 0 ? d : '';
-        } else {
-            los.value = '';
-        }
-        applyStayPrice();
-    }
-
-    function refreshAvailableRooms() {
-        if (!ci || !co || !room || !ci.value || !co.value || co.value <= ci.value) {
-            return;
+            var date = checkOut.value ? checkOut.value.slice(0, 10) : '';
+            if (date && date !== selectedCheckoutDate) {
+                checkOut.value = date + 'T11:00';
+            }
+            selectedCheckoutDate = date;
         }
 
-        var requestId = ++availabilityRequest;
-        var selectedRoom = room.value;
-        var query = 'check_in=' + encodeURIComponent(ci.value)
-            + '&check_out=' + encodeURIComponent(co.value);
-        if (bookingIdEl && bookingIdEl.value) {
-            query += '&booking_id=' + encodeURIComponent(bookingIdEl.value);
+        function calculateLengthOfStay(updatePrice) {
+            if (!checkIn || !checkOut || !lengthOfStay) { return; }
+            var start = calendarOrdinal(checkIn.value);
+            var end = calendarOrdinal(checkOut.value);
+            lengthOfStay.value = start !== null && end !== null && end > start
+                ? String(end - start)
+                : '';
+            if (updatePrice !== false) { applyStayPrice(); }
         }
 
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', base + 'customers/available_rooms?' + query, true);
-        xhr.onload = function () {
-            if (requestId !== availabilityRequest) { return; }
+        function refreshAvailableRooms() {
+            if (!checkIn || !checkOut || !room || !checkIn.value || !checkOut.value) {
+                return;
+            }
+            var start = calendarOrdinal(checkIn.value);
+            var end = calendarOrdinal(checkOut.value);
+            if (start === null || end === null || end <= start) { return; }
 
-            var res;
-            try { res = JSON.parse(xhr.responseText); } catch (e) { return; }
-            if (!res || !res.status || !Array.isArray(res.data)) { return; }
+            var requestId = ++availabilityRequest;
+            var selectedRoom = room.value;
+            var query = 'check_in=' + encodeURIComponent(checkIn.value)
+                + '&check_out=' + encodeURIComponent(checkOut.value);
+            if (bookingIdEl && bookingIdEl.value) {
+                query += '&booking_id=' + encodeURIComponent(bookingIdEl.value);
+            }
 
-            room.innerHTML = '';
-            var empty = document.createElement('option');
-            empty.value = '';
-            empty.textContent = '\u2014 No room \u2014';
-            room.appendChild(empty);
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', base + 'customers/available_rooms?' + query, true);
+            xhr.onload = function () {
+                if (requestId !== availabilityRequest) { return; }
 
-            res.data.forEach(function (availableRoom) {
-                var option = document.createElement('option');
-                option.value = String(availableRoom.id);
-                option.textContent = availableRoom.room_no;
-                option.setAttribute('data-category-id', String(availableRoom.category_id || ''));
-                option.setAttribute(
-                    'data-selling-price',
-                    availableRoom.selling_price === null || availableRoom.selling_price === undefined
-                        ? ''
-                        : String(availableRoom.selling_price)
+                var response;
+                try { response = JSON.parse(xhr.responseText); } catch (error) { return; }
+                if (!response || !response.status || !Array.isArray(response.data)) { return; }
+
+                room.innerHTML = '';
+                var empty = document.createElement('option');
+                empty.value = '';
+                empty.textContent = '\u2014 No room \u2014';
+                room.appendChild(empty);
+
+                response.data.forEach(function (availableRoom) {
+                    var option = document.createElement('option');
+                    option.value = String(availableRoom.id);
+                    option.textContent = availableRoom.room_no;
+                    option.setAttribute('data-category-id', String(availableRoom.category_id || ''));
+                    option.setAttribute(
+                        'data-selling-price',
+                        availableRoom.selling_price === null
+                            || availableRoom.selling_price === undefined
+                            ? ''
+                            : String(availableRoom.selling_price)
+                    );
+                    room.appendChild(option);
+                });
+
+                var selectedStillAvailable = Array.prototype.some.call(
+                    room.options,
+                    function (option) { return option.value === selectedRoom; }
                 );
-                room.appendChild(option);
-            });
+                room.value = selectedStillAvailable ? selectedRoom : '';
+                if (room.value) { syncCategoryFromRoom(false); }
+                filterRoomsByCategory();
+                refreshSelect(room);
+                if (selectedRoom && !selectedStillAvailable) { applyStayPrice(); }
+            };
+            xhr.send();
+        }
 
-            var selectedStillAvailable = Array.prototype.some.call(room.options, function (option) {
-                return option.value === selectedRoom;
+        if (checkIn && checkOut) {
+            checkIn.addEventListener('change', function () {
+                calculateLengthOfStay(true);
+                refreshAvailableRooms();
             });
-            room.value = selectedStillAvailable ? selectedRoom : '';
-            filterRoomsByCategory();
-            refreshSelect(room);
-        };
-        xhr.send();
-    }
+            checkOut.addEventListener('input', applyDefaultCheckoutTime);
+            checkOut.addEventListener('change', function () {
+                applyDefaultCheckoutTime();
+                calculateLengthOfStay(true);
+                refreshAvailableRooms();
+            });
+            calculateLengthOfStay(!!total && total.value === '');
+            refreshAvailableRooms();
+        } else if (roomCategory && total && total.value === '') {
+            applyStayPrice();
+        }
 
-    function calcRemaining() {
-        if (!rem) { return; }
-        if ((total && total.value !== '') || (paid && paid.value !== '')) {
-            rem.value = (num(total) - num(paid)).toFixed(2);
-        } else {
-            rem.value = '';
+        if (total && paid) {
+            total.addEventListener('input', calculateRemaining);
+            paid.addEventListener('input', calculateRemaining);
+            calculateRemaining();
         }
     }
 
-    if (ci && co) {
-        ci.addEventListener('change', function () {
-            calcLOS();
-            refreshAvailableRooms();
-        });
-        co.addEventListener('input', applyDefaultCheckoutTime);
-        co.addEventListener('change', function () {
-            applyDefaultCheckoutTime();
-            calcLOS();
-            refreshAvailableRooms();
-        });
-        refreshAvailableRooms();
+    function init(root) {
+        var scope = root && root.querySelectorAll ? root : document;
+        var forms = [];
+        if (scope.matches && scope.matches('[data-booking-form]')) {
+            forms.push(scope);
+        }
+        Array.prototype.forEach.call(
+            scope.querySelectorAll('[data-booking-form]'),
+            function (form) { forms.push(form); }
+        );
+        forms.forEach(initForm);
     }
-    if (total && paid) {
-        total.addEventListener('input', calcRemaining);
-        paid.addEventListener('input', calcRemaining);
+
+    global.BookingForm = { init: init };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { init(document); });
+    } else {
+        init(document);
     }
-})();
+})(window);

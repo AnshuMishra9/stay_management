@@ -45,6 +45,13 @@ $navigation_query = function ($date) use ($filters) {
     <title>Inventory &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
+    <script>
+        window.APP_BASE = <?= json_encode(base_url()) ?>;
+        window.INVENTORY_BOOKING_CONFIG = {
+            formUrl: <?= json_encode(site_url('inventory/booking_form')) ?>,
+            today: <?= json_encode($today) ?>
+        };
+    </script>
     <style>
         .inv-head-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
         .inv-nav { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
@@ -96,6 +103,7 @@ $navigation_query = function ($date) use ($filters) {
             padding:12px 16px; width:220px; min-width:220px;
             border-right:1px solid var(--line); box-shadow:6px 0 8px -6px rgba(30,35,60,.14); }
         thead .inv-roomcol { z-index:5; background:var(--head); }
+        .inv-room-title-mobile { display:none; }
         .inv-rt-name { font-weight:700; color:var(--text); font-size:.92rem; white-space:nowrap; }
         .inv-rt-sub  { color:var(--muted); font-size:.75rem; margin-top:2px; white-space:nowrap; }
 
@@ -121,12 +129,110 @@ $navigation_query = function ($date) use ($filters) {
         .inv-bk-available { color:#15803d; }
         .inv-bk-booked { color:#b45309; }
 
+        .inv-room-slot { border:0; font-family:inherit; transition:transform .12s ease, box-shadow .12s ease, outline-color .12s ease; }
+        button.inv-room-slot { cursor:pointer; }
+        button.inv-room-slot:hover { transform:translateY(-1px); box-shadow:0 5px 12px rgba(21,128,61,.2); }
+        button.inv-room-slot:focus-visible { outline:3px solid rgba(37,99,235,.38); outline-offset:2px; }
+        .inv-room-slot.is-range-selected { outline:3px solid #2563eb; outline-offset:2px; transform:translateY(-1px); }
+        .inv-room-slot.is-range-start, .inv-room-slot.is-range-end { background:#2563eb; color:#fff; }
+        .inv-room-slot.inv-slot-past { opacity:.58; cursor:not-allowed; }
+        .inv-cell-bookable { cursor:pointer; transition:background-color .12s ease, box-shadow .12s ease; }
+        .inv-cell-bookable:hover { background:#f0fdf4 !important; }
+        .inv-cell-bookable.is-range-selected { background:#eff6ff !important; box-shadow:inset 0 -3px 0 #2563eb; }
+
         .inv-total-row td { background:#fbfaff; }
         .inv-total-row .inv-roomcol { background:#fbfaff; }
         .inv-total-row .inv-a { background:var(--brand-soft); color:var(--brand-dark); }
         .inv-legend { display:flex; gap:16px; align-items:center; justify-content:center; color:var(--muted); font-size:.78rem; margin-top:14px; flex-wrap:wrap; }
         .inv-legend .k { display:inline-flex; align-items:center; gap:6px; }
         .inv-swatch { width:14px; height:14px; border-radius:4px; display:inline-block; }
+
+        /* Compact floating selection popup, with the current range controls. */
+        .inv-selection-popup { position:fixed; right:18px; bottom:18px; z-index:1040;
+            width:min(320px, calc(100vw - 20px)); background:#fff; border:1px solid #dce2f2;
+            border-radius:12px; box-shadow:0 14px 38px rgba(24,29,68,.2); overflow:hidden; }
+        .inv-selection-popup[hidden], .inv-booking-backdrop[hidden] { display:none !important; }
+        .inv-selection-head { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:10px 12px 6px; }
+        .inv-selection-title { color:var(--text); font-size:.88rem; font-weight:800; line-height:1.2; }
+        .inv-selection-room { color:var(--brand-dark); font-size:.73rem; font-weight:700; margin-top:1px; }
+        .inv-selection-close { border:0; padding:2px; background:transparent; color:var(--muted); font-size:1.2rem; line-height:1; cursor:pointer; }
+        .inv-selection-body { padding:0 12px 9px; color:var(--muted); font-size:.75rem; line-height:1.35; }
+        .inv-selection-meta { color:var(--text); font-size:.73rem; font-weight:700; }
+        .inv-selection-picker { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; }
+        .inv-selection-picker label { display:block; color:var(--muted); font-size:.64rem; font-weight:700; }
+        .inv-selection-picker .erp-input { margin-top:2px; min-width:0; height:31px; padding:4px 6px; font-size:.7rem; }
+        .inv-selection-error { margin-top:6px; padding:6px 8px; border-radius:7px; background:var(--red-soft); color:#9f1239; }
+        .inv-selection-actions { display:flex; justify-content:flex-end; gap:6px; padding:8px 12px; background:var(--head); border-top:1px solid var(--line); }
+        .inv-selection-actions .erp-btn { min-height:31px; padding:5px 10px; font-size:.72rem; }
+
+        .inv-booking-backdrop { z-index:1100; padding:20px 14px; align-items:flex-start; }
+        .inv-booking-modal { max-width:1000px; max-height:calc(100vh - 40px); display:flex; flex-direction:column; overflow:hidden; }
+        .inv-booking-modal .erp-modal-head { flex:0 0 auto; }
+        .inv-booking-modal-body { padding:0; overflow-y:auto; }
+        .inv-booking-modal-body .booking-form-card { max-width:none !important; border-radius:0; box-shadow:none; }
+        .inv-booking-loading { min-height:260px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--muted); }
+        .inv-booking-load-error { margin:22px; }
+        body.inv-modal-open { overflow:hidden; }
+        @media (max-width:700px) {
+            table.inv-table { width:748px; min-width:748px; }
+            .inv-roomcol { width:88px; min-width:88px; max-width:88px; padding:8px 7px; }
+            .inv-room-title-desktop { display:none; }
+            .inv-room-title-mobile { display:inline; }
+            .inv-rt-name, .inv-rt-sub { display:block; max-width:74px; overflow:hidden; text-overflow:ellipsis; }
+            .inv-rt-name { font-size:.78rem; }
+            .inv-rt-sub { font-size:.62rem; }
+            .inv-dh, .inv-cell { width:60px; min-width:60px; max-width:60px; }
+            .inv-selection-popup { right:10px; bottom:10px; }
+            .inv-booking-backdrop { padding:8px; }
+            .inv-booking-modal { max-height:calc(100vh - 16px); }
+        }
+        @media (max-width:600px) {
+            /* Keep this page compact without changing the shared desktop navbar. */
+            .erp-nav { padding:0 10px; }
+            .erp-nav-brand { padding:8px 0; font-size:.98rem; gap:8px; }
+            .erp-nav-brand svg { width:20px; height:20px; padding:5px; border-radius:8px; }
+            .erp-nav-right { width:100%; padding:3px 0 8px; gap:5px; flex-wrap:nowrap;
+                overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+            .erp-nav-right::-webkit-scrollbar { display:none; }
+            .erp-nav-link { flex:0 0 auto; gap:5px; padding:7px 9px; border-radius:8px; font-size:.74rem; }
+            .erp-nav-link svg { width:14px; height:14px; }
+            .erp-nav-right .erp-btn-sm { flex:0 0 auto; padding:7px 10px; border-radius:8px; font-size:.74rem; }
+
+            .erp-wrap { padding:8px; }
+            .erp-card { border-radius:14px; }
+            .erp-page-head { display:block; padding:10px 12px; }
+            .erp-page-head h1 { font-size:1.06rem; }
+            .erp-page-head h1 svg { width:17px; height:17px; padding:5px; }
+            .inv-head-right { width:100%; margin-top:8px; gap:4px; }
+            .inv-nav { width:100%; display:grid; grid-template-columns:34px minmax(0, 1fr) 34px;
+                align-items:center; gap:6px; }
+            .inv-nav .erp-head-total { grid-column:1 / -1; margin:0 !important; font-size:.82rem; }
+            .inv-nav .erp-input { width:100%; height:34px; padding:5px 8px; font-size:.76rem; }
+            .inv-navbtn { width:34px; height:34px; border-radius:8px; }
+            .inv-range { text-align:center; font-size:.67rem; }
+
+            .inv-filterbar { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+                align-items:end; gap:7px 8px; padding:9px 12px; }
+            .inv-filter-title { grid-column:1; grid-row:1; width:auto; margin:0; gap:5px;
+                align-self:center; font-size:.72rem; }
+            .inv-filter-title svg { width:14px; height:14px; }
+            .inv-filter-room { grid-column:1; grid-row:2; }
+            .inv-filter-category { grid-column:2; grid-row:2; }
+            .inv-filter-field { width:auto; min-width:0; flex:none; gap:4px; }
+            .inv-filter-field label { min-width:0; overflow:hidden; text-overflow:ellipsis;
+                white-space:nowrap; font-size:.56rem; }
+            .inv-filterbar .erp-input, .inv-filterbar .erp-select,
+            .inv-filterbar .erp-ss-trigger { height:34px; padding:5px 8px; font-size:.74rem; }
+            .inv-filterbar .erp-select, .inv-filterbar .erp-ss-trigger { padding-right:25px; }
+            .inv-filter-actions { grid-column:2; grid-row:1; width:auto; justify-self:end; flex:none; }
+            .inv-filter-actions .erp-btn { height:27px; padding:0 9px; flex:none;
+                border-radius:8px; font-size:.68rem; }
+
+            table.inv-table { width:740px; min-width:740px; }
+            .inv-roomcol { width:80px; min-width:80px; max-width:80px; padding:7px 6px; }
+            .inv-rt-name, .inv-rt-sub { max-width:68px; }
+            .inv-scroll { -webkit-overflow-scrolling:touch; overscroll-behavior-inline:contain; }
+        }
     </style>
 </head>
 <body class="erp-body">
@@ -159,6 +265,12 @@ $navigation_query = function ($date) use ($filters) {
             </div>
         </div>
 
+        <?php if ( ! empty($flash)): ?>
+            <div class="erp-alert <?= $flash['type'] === 'success' ? 'erp-alert-success' : 'erp-alert-danger' ?>" role="status">
+                <?= html_escape($flash['text']) ?>
+            </div>
+        <?php endif; ?>
+
         <!-- Filters -->
         <form method="get" class="inv-filterbar" id="invFilterForm">
             <input type="hidden" name="start" value="<?= html_escape($start) ?>">
@@ -184,12 +296,40 @@ $navigation_query = function ($date) use ($filters) {
             </div>
         </form>
 
+        <!-- Compact floating selection popup with First/Last night range controls. -->
+        <aside class="inv-selection-popup" id="invSelectionPopup" hidden aria-live="polite" aria-label="Selected booking range">
+            <div class="inv-selection-head">
+                <div>
+                    <div class="inv-selection-title">New Booking</div>
+                    <div class="inv-selection-room" id="invSelectionRoom"></div>
+                </div>
+                <button type="button" class="inv-selection-close" id="invSelectionClose" aria-label="Clear selected dates">&times;</button>
+            </div>
+            <div class="inv-selection-body">
+                <div id="invSelectionDates" hidden></div>
+                <div class="inv-selection-meta" id="invSelectionNights"></div>
+                <div class="inv-selection-picker">
+                    <label>From
+                        <input class="erp-input" type="date" id="invSelectionStartDate" readonly aria-readonly="true">
+                    </label>
+                    <label>Last night
+                        <input class="erp-input" type="date" id="invSelectionEndDate">
+                    </label>
+                </div>
+                <div class="inv-selection-error" id="invSelectionError" role="alert" hidden></div>
+            </div>
+            <div class="inv-selection-actions">
+                <button type="button" class="erp-btn erp-btn-ghost" id="invSelectionClear">Clear</button>
+                <button type="button" class="erp-btn erp-btn-primary" id="invCreateBooking">New Booking</button>
+            </div>
+        </aside>
+
         <!-- Calendar -->
         <div class="inv-scroll">
             <table class="inv-table">
                 <thead>
                     <tr>
-                        <th class="inv-roomcol">Room Type</th>
+                        <th class="inv-roomcol"><span class="inv-room-title-desktop">Room Type</span><span class="inv-room-title-mobile">Room</span></th>
                         <?php foreach ($dates as $d): $f = $fmt($d); ?>
                             <th class="inv-dh <?= $f['wknd'] ? 'inv-wknd' : '' ?> <?= $f['today'] ? 'inv-today' : '' ?> <?= $f['selected'] ? 'inv-selected' : '' ?>">
                                 <span class="d-wd"><?= $f['wd'] ?></span>
@@ -235,9 +375,27 @@ $navigation_query = function ($date) use ($filters) {
                                 <div class="inv-rt-name"><?= html_escape($room['room_no']) ?></div>
                                 <div class="inv-rt-sub"><?= html_escape($room['category_name'] ?: 'No Category') ?></div>
                             </td>
-                            <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $room['avail'][$d]; $status = $room['status'][$d]; ?>
-                                <td class="inv-cell <?= $f['selected'] ? 'inv-selected' : ($f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '')) ?>">
-                                    <span class="<?= $room_cell_class($status) ?>" title="<?= $av ? 'Available' : 'Booked' ?>"><?= $av ? '1' : '0' ?></span>
+                            <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $room['avail'][$d]; $status = $room['status'][$d]; $bookable = ($av === 1 && $d >= $today); ?>
+                                <td class="inv-cell <?= $f['selected'] ? 'inv-selected' : ($f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '')) ?><?= $bookable ? ' inv-cell-bookable' : '' ?>">
+                                    <?php if ($bookable): ?>
+                                        <button type="button"
+                                                class="<?= $room_cell_class($status) ?> inv-room-slot"
+                                                data-room-id="<?= (int) $room['id'] ?>"
+                                                data-room-no="<?= html_escape($room['room_no']) ?>"
+                                                data-category-name="<?= html_escape($room['category_name'] ?: 'No Category') ?>"
+                                                data-date="<?= html_escape($d) ?>"
+                                                data-bookable="1"
+                                                aria-label="Room <?= html_escape($room['room_no']) ?>, <?= html_escape(date('d M Y', strtotime($d))) ?>, Available. Select booking night."
+                                                aria-pressed="false"
+                                                title="Select this available night">1</button>
+                                    <?php else: ?>
+                                        <span class="<?= $room_cell_class($status) ?> inv-room-slot <?= ($av && $d < $today) ? 'inv-slot-past' : '' ?>"
+                                              data-room-id="<?= (int) $room['id'] ?>"
+                                              data-date="<?= html_escape($d) ?>"
+                                              data-bookable="0"
+                                              aria-disabled="true"
+                                              title="<?= $av ? 'Past date - not selectable' : 'Booked - not selectable' ?>"><?= $av ? '1' : '0' ?></span>
+                                    <?php endif; ?>
                                     <span class="inv-bk <?= $av ? 'inv-bk-available' : 'inv-bk-booked' ?>"><?= $av ? 'Available' : 'Booked' ?></span>
                                 </td>
                             <?php endforeach; ?>
@@ -245,7 +403,7 @@ $navigation_query = function ($date) use ($filters) {
                     <?php endforeach; ?>
 
                     <?php if (empty($rooms)): ?>
-                        <tr><td class="inv-roomcol">—</td><td colspan="<?= (int) count($dates) ?>" style="padding:20px;color:var(--muted);">No active rooms found. Add rooms in Room Master.</td></tr>
+                        <tr><td class="inv-roomcol">&mdash;</td><td colspan="<?= (int) count($dates) ?>" style="padding:20px;color:var(--muted);">No active rooms found. Add rooms in Room Master.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -257,11 +415,25 @@ $navigation_query = function ($date) use ($filters) {
             <span class="k"><span class="inv-swatch" style="background:var(--brand-soft);"></span> Today</span>
             <span class="k"><span class="inv-swatch" style="background:#e8f2ff;border-bottom:3px solid #2563eb;"></span> Selected date</span>
             <span class="k">Number = rooms available that day</span>
+            <span class="k">Select one or more available nights in the same room to create a booking</span>
         </div>
     </div>
 </div>
 
+<!-- The same shared New Booking form is loaded here without leaving Inventory. -->
+<div class="erp-modal-backdrop inv-booking-backdrop" id="invBookingBackdrop" hidden>
+    <section class="erp-modal inv-booking-modal" id="invBookingModal" role="dialog" aria-modal="true" aria-labelledby="invBookingModalTitle">
+        <div class="erp-modal-head">
+            <h3 id="invBookingModalTitle">New Booking from Inventory</h3>
+            <button type="button" class="erp-modal-close" id="invBookingClose" aria-label="Close booking form">&times;</button>
+        </div>
+        <div class="inv-booking-modal-body" id="invBookingModalBody"></div>
+    </section>
+</div>
+
 <script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
+<script src="<?= base_url('assets/js/booking-form.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/booking-form.js') ?>"></script>
+<script src="<?= base_url('assets/js/inventory-booking.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/inventory-booking.js') ?>"></script>
 <script>
     // Apply inventory filters automatically; no separate submit button needed.
     (function () {

@@ -180,8 +180,82 @@ class Customers extends Secure_Controller
                 $room_range[1]
             ),
             'status_opts'   => $this->Customer_model->all_statuses(),
+            'booking_defaults' => array(),
+            'booking_form_error' => '',
         );
         $this->load->view('customers/booking_form', $data);
+    }
+
+    /**
+     * Shared New Booking form rendered inside the Inventory modal.
+     *
+     * Calendar cells represent occupied nights. The browser sends an
+     * inclusive first/last selection as the canonical half-open stay
+     * [check_in, check_out), where check_out is already last night + 1 day.
+     */
+    public function inventory_booking_form()
+    {
+        $check_in = $this->_date($this->input->get('check_in'));
+        $check_out = $this->_date($this->input->get('check_out'));
+        $room_id = (int) $this->input->get('room_id');
+
+        if (
+            ! $check_in || ! $check_out || $check_out <= $check_in
+            || $check_in < date('Y-m-d') || ! $room_id
+        ) {
+            return $this->_json(array(
+                'status' => FALSE,
+                'message' => 'Select a valid available room and a present or future stay range.',
+            ), 422);
+        }
+
+        $room_opts = $this->Customer_model->available_rooms(NULL, $check_in, $check_out);
+        $selected_room = NULL;
+        foreach ($room_opts as $room) {
+            if ((int) $room->id === $room_id) {
+                $selected_room = $room;
+                break;
+            }
+        }
+
+        // The calendar may have become stale after another user booked it.
+        if ( ! $selected_room) {
+            return $this->_json(array(
+                'status' => FALSE,
+                'message' => 'This room is no longer available for the selected dates. Refresh Inventory and choose another range.',
+            ), 409);
+        }
+
+        $nights = (int) ((strtotime($check_out) - strtotime($check_in)) / 86400);
+        $room_booked_id = $this->Customer_model->status_id_by_code('room_booked');
+        $data = array(
+            'booking'       => NULL,
+            'customer'      => NULL,
+            'country_opts'  => $this->_country_options(),
+            'channel_opts'  => $this->Customer_model->booking_channels(),
+            'room_cat_opts' => $this->Customer_model->room_categories(),
+            'room_opts'     => $room_opts,
+            'status_opts'   => $this->Customer_model->all_statuses(),
+            'form_context'  => 'inventory',
+            'booking_form_error' => '',
+            'booking_defaults' => array(
+                'status_id' => $room_booked_id,
+                'room_id' => $room_id,
+                'room_category_id' => (int) $selected_room->category_id,
+                'scheduled_check_in_date' => $check_in,
+                'scheduled_check_out_date' => $check_out,
+                'length_of_stay' => $nights,
+                'room_quantity' => 1,
+                'total_unit' => 1,
+            ),
+        );
+
+        $html = $this->load->view(
+            'customers/components/booking_form_card',
+            $data,
+            TRUE
+        );
+        return $this->_json(array('status' => TRUE, 'html' => $html));
     }
 
     // ---------------------------------------------------------------------
@@ -386,6 +460,8 @@ class Customers extends Secure_Controller
     {
         $booking_id = (int) $this->input->post('booking_id');
         $booking_id = $booking_id > 0 ? $booking_id : NULL;
+        $inventory_source = ! $booking_id
+            && $this->input->post('booking_source') === 'inventory';
         $existing_booking = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
         if ($booking_id && ! $existing_booking) {
             show_404();
@@ -403,31 +479,42 @@ class Customers extends Secure_Controller
             }
         }
 
+        // Inventory creates are reservations, never operational status changes.
+        if ($inventory_source) {
+            $_POST['status_id'] = (string) $this->Customer_model->status_id_by_code('room_booked');
+        }
+
         // --- Validation --------------------------------------------------
         $this->load->library('form_validation');
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
         $this->form_validation->set_rules('status_id', 'Booking Status', 'required|callback_can_check_in_on_scheduled_date');
-        $this->form_validation->set_rules('room_id', 'Allot Room', 'callback_room_available_for_stay');
+        if ($inventory_source) {
+            $this->form_validation->set_rules(
+                'scheduled_check_in_date',
+                'Scheduled Check-In',
+                'required|callback_inventory_checkin_date'
+            );
+            $this->form_validation->set_rules(
+                'scheduled_check_out_date',
+                'Scheduled Check-Out',
+                'required|callback_valid_stay_dates'
+            );
+            $this->form_validation->set_rules(
+                'room_id',
+                'Allot Room',
+                'required|callback_room_available_for_stay'
+            );
+        } else {
+            $this->form_validation->set_rules('room_id', 'Allot Room', 'callback_room_available_for_stay');
+        }
 
         if ($this->form_validation->run() === FALSE) {
-            $existing = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
-            $room_range = $this->_room_availability_range($existing, TRUE);
-            $data = array(
-                'booking'       => $existing,
-                'customer'      => $existing ? $this->Customer_model->get_by_id($existing->customer_id) : NULL,
-                'country_opts'  => $this->_country_options(),
-                'channel_opts'  => $this->Customer_model->booking_channels(),
-                'room_cat_opts' => $this->Customer_model->room_categories(),
-                'room_opts'     => $this->Customer_model->available_rooms(
-                    $booking_id,
-                    $room_range[0],
-                    $room_range[1]
-                ),
-                'status_opts'   => $this->Customer_model->all_statuses(),
+            return $this->_booking_form_failure(
+                $existing_booking,
+                $booking_id,
+                $inventory_source
             );
-            $this->load->view('customers/booking_form', $data);
-            return;
         }
 
         $phone = trim($this->input->post('phone', TRUE));
@@ -443,19 +530,62 @@ class Customers extends Secure_Controller
             }
         }
 
-        $customer = $this->Customer_model->get_by_phone($phone);
+        $booking = $this->_booking_from_post();
+        $room_id = isset($booking['room_id']) ? (int) $booking['room_id'] : 0;
+        $room_range = $this->_posted_booking_range($existing_booking);
 
+        // Customer + booking write is atomic. Lock the room first, then repeat
+        // the availability test as a locking/current read to close stale-page
+        // and simultaneous-submit races.
+        $this->db->trans_begin();
+
+        if ($room_id) {
+            $rooms_to_lock = array($room_id);
+            if ($existing_booking && $existing_booking->room_id) {
+                $rooms_to_lock[] = (int) $existing_booking->room_id;
+            }
+            $locked_rooms = $this->Customer_model->lock_rooms_for_booking($rooms_to_lock);
+            if (
+                ! in_array($room_id, $locked_rooms, TRUE)
+                || ! $this->Customer_model->is_room_available_for_update(
+                    $room_id,
+                    $room_range[0],
+                    $room_range[1],
+                    $booking_id
+                )
+            ) {
+                $this->db->trans_rollback();
+                return $this->_booking_form_failure(
+                    $existing_booking,
+                    $booking_id,
+                    $inventory_source,
+                    'The selected room was just booked for part of this stay. Choose another available room or date range.',
+                    409
+                );
+            }
+        }
+
+        // MAX+1 codes are protected by one stable row lock for new bookings.
+        if ( ! $booking_id && ! $this->Customer_model->lock_booking_creation_sequence()) {
+            $this->db->trans_rollback();
+            return $this->_booking_form_failure(
+                $existing_booking,
+                $booking_id,
+                $inventory_source,
+                'The booking could not be created right now. Please try again.',
+                503
+            );
+        }
+
+        $customer = $this->Customer_model->get_by_phone($phone);
         if ($customer) {
-            $this->Customer_model->update($customer->id, $cdata);   // edits flow back to `customers`
+            $this->Customer_model->update($customer->id, $cdata);
             $cust_id = (int) $customer->id;
         } else {
             $cdata['customer_code'] = $this->Customer_model->next_code();
-            $cdata['is_active']     = 1;
+            $cdata['is_active'] = 1;
             $cust_id = $this->Customer_model->insert($cdata);
         }
-
-        // --- Booking -------------------------------------------------------
-        $booking = $this->_booking_from_post();
 
         if ($booking_id) {
             $this->Customer_model->update_booking($booking_id, $booking);
@@ -466,6 +596,31 @@ class Customers extends Secure_Controller
             $bkg    = $this->Customer_model->get_booking($new_id);
             $name   = isset($cdata['customer_name']) ? $cdata['customer_name'] : $phone;
             $msg    = 'Booking '.($bkg ? $bkg->booking_number : '').' created for "'.$name.'".';
+        }
+
+        if ($this->db->trans_status() === FALSE || ! $cust_id || ! $bkg) {
+            $this->db->trans_rollback();
+            return $this->_booking_form_failure(
+                $existing_booking,
+                $booking_id,
+                $inventory_source,
+                'The booking could not be saved. Please try again.',
+                500
+            );
+        }
+        $this->db->trans_commit();
+
+        if ($inventory_source) {
+            $this->session->set_flashdata('inventory_msg', array(
+                'type' => 'success',
+                'text' => $msg,
+            ));
+            return $this->_json(array(
+                'status' => TRUE,
+                'message' => $msg,
+                'booking_id' => (int) $bkg->id,
+                'booking_number' => $bkg->booking_number,
+            ));
         }
 
         $this->session->set_flashdata('booking_msg', array('type' => 'success', 'text' => $msg));
@@ -723,44 +878,13 @@ class Customers extends Secure_Controller
         $this->form_validation->set_rules('room_id', 'Allot Room', 'callback_room_available_for_stay');
 
         if ($this->form_validation->run() === FALSE) {
-            $data = array(
-                'booking'        => $booking,
-                'customer'       => $customer,
-                'status_opts'    => $this->Customer_model->all_statuses(),
-                'room_cat_opts'  => $this->Customer_model->room_categories(),
-                'room_opts'      => $this->Customer_model->available_rooms(
-                    $booking_id,
-                    $this->_date($this->input->post('scheduled_check_in_date')),
-                    $this->_date($this->input->post('scheduled_check_out_date'))
-                ),
-                'identity_types' => $this->_identity_types(),
-                'identities'     => $this->Customer_model->get_identities($customer->id),
+            return $this->_checkin_form_failure(
+                $booking,
+                $customer,
+                $booking_id,
+                $page_context
             );
-            if ($page_context === 'checkins') {
-                $data = array_merge($data, array(
-                    'page_title'    => 'Edit Check-in',
-                    'page_subtitle' => 'Update the checked-in customer and stay details',
-                    'active_nav'    => 'checkins',
-                    'back_url'      => 'customers/checkins',
-                    'page_context'  => 'checkins',
-                    'lock_status'   => TRUE,
-                    'submit_label'  => 'Update Check-in',
-                ));
-                $this->load->view('customers/checkins/edit', $data);
-            } else {
-                $this->load->view('customers/checkin', $data);
-            }
-            return;
         }
-
-        // --- Update the booking's customer (name + mobile only) ----------
-        $this->Customer_model->update($customer->id, array(
-            'customer_name' => $this->input->post('customer_name', TRUE),
-            'phone'         => $this->input->post('phone', TRUE),
-        ));
-
-        // --- Identity proofs (same repeatable block as the customer master)
-        $this->_save_identities($customer->id, $customer->customer_code);
 
         // --- Booking status (+ deterministic check-in/out stamps) --------
         // Fill the timestamp the target status implies (keeping any existing
@@ -791,7 +915,104 @@ class Customers extends Secure_Controller
         $upd['length_of_stay'] = (int) (
             (strtotime($upd['scheduled_check_out_date']) - strtotime($upd['scheduled_check_in_date'])) / 86400
         );
-        $this->Customer_model->update_booking($booking_id, $upd);
+
+        // Use the same room-lock protocol as Inventory booking creation.
+        // Validation above gives quick feedback; this second, locking read is
+        // what prevents a stale check-in form racing a simultaneous booking.
+        $this->db->trans_begin();
+        $rooms_to_lock = array();
+        if ($room_id) {
+            $rooms_to_lock[] = (int) $room_id;
+        }
+        if ($booking->room_id) {
+            $rooms_to_lock[] = (int) $booking->room_id;
+        }
+        $locked_rooms = $this->Customer_model->lock_rooms_for_booking($rooms_to_lock);
+
+        // A checkout or another status workflow may have completed after the
+        // page was opened. Lock/re-read the booking so stale Check-in data can
+        // never overwrite a newer terminal status.
+        $locked_booking = $this->Customer_model->get_booking_for_update($booking_id);
+        if (
+            ! $locked_booking
+            || $this->Customer_model->status_code($locked_booking->status_id) !== $required_status
+        ) {
+            $this->db->trans_rollback();
+            return $this->_checkin_form_failure(
+                $booking,
+                $customer,
+                $booking_id,
+                $page_context,
+                'This booking status changed while the form was open. Refresh the booking before making further changes.'
+            );
+        }
+
+        // Preserve any operational timestamp committed before this row lock.
+        $booking = $locked_booking;
+        $upd['checked_in_at'] = in_array($status_code, array('checked_in', 'checked_out'), TRUE)
+            ? ($booking->checked_in_at ?: $now)
+            : NULL;
+        $upd['checked_out_at'] = $status_code === 'checked_out'
+            ? ($booking->checked_out_at ?: $now)
+            : NULL;
+
+        if (
+            $room_id
+            && (
+                ! in_array((int) $room_id, $locked_rooms, TRUE)
+                || ! $this->Customer_model->is_room_available_for_update(
+                    $room_id,
+                    $upd['scheduled_check_in_date'],
+                    $upd['scheduled_check_out_date'],
+                    $booking_id
+                )
+            )
+        ) {
+            $this->db->trans_rollback();
+            return $this->_checkin_form_failure(
+                $booking,
+                $customer,
+                $booking_id,
+                $page_context,
+                'The selected room was just booked for part of this stay. Choose another available room or date range.'
+            );
+        }
+
+        // Customer and stay updates commit together while the room lock is
+        // held, so another writer cannot slip between recheck and update.
+        $customer_updated = $this->Customer_model->update($customer->id, array(
+            'customer_name' => $this->input->post('customer_name', TRUE),
+            'phone'         => $this->input->post('phone', TRUE),
+        ));
+        $booking_updated = $this->Customer_model->update_booking($booking_id, $upd);
+
+        if (
+            $this->db->trans_status() === FALSE
+            || ! $customer_updated
+            || ! $booking_updated
+        ) {
+            $this->db->trans_rollback();
+            return $this->_checkin_form_failure(
+                $booking,
+                $customer,
+                $booking_id,
+                $page_context,
+                'The check-in details could not be saved. Please try again.'
+            );
+        }
+        if ( ! $this->db->trans_commit()) {
+            return $this->_checkin_form_failure(
+                $booking,
+                $customer,
+                $booking_id,
+                $page_context,
+                'The check-in details could not be saved. Please try again.'
+            );
+        }
+
+        // Filesystem changes cannot participate in a database rollback. Run
+        // identity document syncing only after the room/customer/stay commit.
+        $this->_save_identities($customer->id, $customer->customer_code);
 
         $this->session->set_flashdata('booking_msg', array(
             'type' => 'success',
@@ -1005,10 +1226,97 @@ class Customers extends Secure_Controller
         return $this->_handle_upload('identity_upload', $code, $base_name, $old_path, $error);
     }
 
+    /**
+     * Re-render the shared booking form after validation or a late conflict.
+     * Inventory receives the fragment as JSON so its modal stays open; the
+     * normal Booking page keeps its existing full-page response.
+     */
+    private function _booking_form_failure(
+        $existing,
+        $booking_id,
+        $inventory_source,
+        $message = '',
+        $http_status = 422
+    ) {
+        $room_range = $this->_posted_booking_range($existing);
+        $data = array(
+            'booking'       => $existing,
+            'customer'      => $existing ? $this->Customer_model->get_by_id($existing->customer_id) : NULL,
+            'country_opts'  => $this->_country_options(),
+            'channel_opts'  => $this->Customer_model->booking_channels(),
+            'room_cat_opts' => $this->Customer_model->room_categories(),
+            'room_opts'     => $this->Customer_model->available_rooms(
+                $booking_id,
+                $room_range[0],
+                $room_range[1]
+            ),
+            'status_opts'   => $this->Customer_model->all_statuses(),
+            'booking_defaults' => array(),
+            'booking_form_error' => $message,
+        );
+
+        if ($inventory_source) {
+            $data['form_context'] = 'inventory';
+            $html = $this->load->view(
+                'customers/components/booking_form_card',
+                $data,
+                TRUE
+            );
+            return $this->_json(array(
+                'status' => FALSE,
+                'message' => $message ?: 'Please correct the highlighted booking details.',
+                'html' => $html,
+            ), $http_status);
+        }
+
+        $this->load->view('customers/booking_form', $data);
+    }
+
+    /** Re-render the focused check-in editor after validation or a late race. */
+    private function _checkin_form_failure(
+        $booking,
+        $customer,
+        $booking_id,
+        $page_context,
+        $message = ''
+    ) {
+        $data = array(
+            'booking'        => $booking,
+            'customer'       => $customer,
+            'status_opts'    => $this->Customer_model->all_statuses(),
+            'room_cat_opts'  => $this->Customer_model->room_categories(),
+            'room_opts'      => $this->Customer_model->available_rooms(
+                $booking_id,
+                $this->_date($this->input->post('scheduled_check_in_date')),
+                $this->_date($this->input->post('scheduled_check_out_date'))
+            ),
+            'identity_types' => $this->_identity_types(),
+            'identities'     => $this->Customer_model->get_identities($customer->id),
+            'page_error'     => $message,
+        );
+
+        if ($page_context === 'checkins') {
+            $data = array_merge($data, array(
+                'page_title'    => 'Edit Check-in',
+                'page_subtitle' => 'Update the checked-in customer and stay details',
+                'active_nav'    => 'checkins',
+                'back_url'      => 'customers/checkins',
+                'page_context'  => 'checkins',
+                'lock_status'   => TRUE,
+                'submit_label'  => 'Update Check-in',
+            ));
+            $this->load->view('customers/checkins/edit', $data);
+            return;
+        }
+
+        $this->load->view('customers/checkin', $data);
+    }
+
     /** JSON output helper. */
-    private function _json($payload)
+    private function _json($payload, $http_status = 200)
     {
         $this->output
+            ->set_status_header((int) $http_status)
             ->set_content_type('application/json')
             ->set_output(json_encode($payload));
     }
@@ -1100,6 +1408,31 @@ class Customers extends Secure_Controller
 
         $today = date('Y-m-d');
         return array($today, date('Y-m-d', strtotime($today.' +1 day')));
+    }
+
+    /** Prefer posted scheduled dates, then the legacy/manual form range. */
+    private function _posted_booking_range($booking = NULL)
+    {
+        $scheduled_in = $this->_date($this->input->post('scheduled_check_in_date'));
+        $scheduled_out = $this->_date($this->input->post('scheduled_check_out_date'));
+        if ($scheduled_in && $scheduled_out && $scheduled_out > $scheduled_in) {
+            return array($scheduled_in, $scheduled_out);
+        }
+        return $this->_room_availability_range($booking, TRUE);
+    }
+
+    /** Inventory creates cannot start before the current hotel date. */
+    public function inventory_checkin_date($checkin)
+    {
+        $checkin = $this->_date($checkin);
+        if ($checkin && $checkin >= date('Y-m-d')) {
+            return TRUE;
+        }
+        $this->form_validation->set_message(
+            'inventory_checkin_date',
+            'Scheduled Check-In must be today or a future date.'
+        );
+        return FALSE;
     }
 
     /** Form-validation callback: checkout is an exclusive date after check-in. */
@@ -1219,8 +1552,8 @@ class Customers extends Secure_Controller
      */
     private function _booking_from_post()
     {
-        // Scheduled stay dates are supplied by API bookings, not the manual
-        // Booking form. Omitting them here preserves stored API values on edit.
+        $inventory_source = ! (int) $this->input->post('booking_id')
+            && $this->input->post('booking_source') === 'inventory';
         $status_id   = $this->_status_id();
         $status_code = $this->Customer_model->status_code($status_id);
         $room_id = $this->input->post('room_id') ?: NULL;
@@ -1233,8 +1566,12 @@ class Customers extends Secure_Controller
             'status_id'          => $status_id,
             'property_name'      => $this->input->post('property_name', TRUE),
             'room_id'            => $room_id,   // allotted room
-            'checked_in_at'      => $this->_datetime($this->input->post('checked_in_at')),
-            'checked_out_at'     => $this->_datetime($this->input->post('checked_out_at')),
+            'checked_in_at'      => $inventory_source
+                ? NULL
+                : $this->_datetime($this->input->post('checked_in_at')),
+            'checked_out_at'     => $inventory_source
+                ? NULL
+                : $this->_datetime($this->input->post('checked_out_at')),
             'length_of_stay'     => $this->_int($this->input->post('length_of_stay')),
             'total_guest'        => $this->_int($this->input->post('total_guest')),
             'room_category_id'   => $room_category_id,
@@ -1243,6 +1580,18 @@ class Customers extends Secure_Controller
             'total_amount'       => $this->_num($this->input->post('total_amount')),
             'amount_paid'        => $this->_num($this->input->post('amount_paid')),
         );
+
+        // Inventory selections are future reservations, stored as a canonical
+        // half-open scheduled range. Actual timestamps stay NULL until check-in.
+        if ($inventory_source) {
+            $scheduled_in = $this->_date($this->input->post('scheduled_check_in_date'));
+            $scheduled_out = $this->_date($this->input->post('scheduled_check_out_date'));
+            $booking['scheduled_check_in_date'] = $scheduled_in;
+            $booking['scheduled_check_out_date'] = $scheduled_out;
+            $booking['length_of_stay'] = ($scheduled_in && $scheduled_out)
+                ? (int) ((strtotime($scheduled_out) - strtotime($scheduled_in)) / 86400)
+                : NULL;
+        }
 
         // Derived server-side (never trust the client for these).
         $booking['remaining_amount'] = ($booking['total_amount'] !== NULL || $booking['amount_paid'] !== NULL)

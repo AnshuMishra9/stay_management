@@ -162,14 +162,29 @@ class Inventory_model extends CI_Model
             // check out (open-ended while still in-house).
             $cin = $b->cin ?: ($b->checked_in_at ? substr($b->checked_in_at, 0, 10) : NULL);
             if ( ! $cin) {
-                continue;   // no date at all -> can't place on the calendar
+                // Match the booking guard: an undated live room hold is unsafe
+                // to offer, so show it as booked throughout the visible window.
+                if (in_array($b->status_code, array('room_booked', 'checked_in'), TRUE)) {
+                    foreach ($dates as $dt) {
+                        if ($status_priority[$b->status_code] > $status_priority[$state[$room_id][$dt]]) {
+                            $state[$room_id][$dt] = $b->status_code;
+                        }
+                    }
+                }
+                continue;
             }
-            if ($b->cout) {
+
+            // Scheduled checkout is the exclusive boundary for an active stay:
+            // a booking for the 11th checks out on the 12th, so the 12th night
+            // can be sold again. Completed history may use its actual checkout.
+            if ($b->status_code === 'checked_out' && $b->checked_out_at) {
+                $cout = substr($b->checked_out_at, 0, 10);
+            } elseif ($b->cout) {
                 $cout = $b->cout;
             } elseif ($b->checked_out_at) {
                 $cout = substr($b->checked_out_at, 0, 10);
             } elseif ($b->status_code === 'checked_in') {
-                $cout = NULL;   // still in-house, no departure -> occupies onward
+                $cout = NULL;
             } else {
                 $cout = date('Y-m-d', strtotime($cin.' +1 day'));   // single night
             }

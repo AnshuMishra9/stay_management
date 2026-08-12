@@ -28,6 +28,7 @@ $sel_status = $lock_status
     ? (string) $booking->status_id
     : set_value('status_id', (string) $booking->status_id);
 $sel_roomcat = set_value('room_category_id', (string) ($booking->room_category_id ?? ''));
+$sel_room = set_value('room_id', (string) ($booking->room_id ?? ''));
 $scheduled_check_in = $booking->scheduled_check_in_date
     ?: ($booking->checked_in_at ? substr($booking->checked_in_at, 0, 10) : '');
 $scheduled_check_out = $booking->scheduled_check_out_date
@@ -48,7 +49,7 @@ $scheduled_check_out = $booking->scheduled_check_out_date
 <?php $this->load->view('layouts/erp_navbar', array('active' => $active_nav, 'back' => site_url($back_url))); ?>
 
 <div class="erp-wrap">
-    <form class="erp-card" style="max-width:920px;margin:0 auto;" action="<?= site_url('customers/checkin_save') ?>" method="post" enctype="multipart/form-data" novalidate>
+    <form class="erp-card" data-booking-form data-booking-context="checkin" style="max-width:920px;margin:0 auto;" action="<?= site_url('customers/checkin_save') ?>" method="post" enctype="multipart/form-data" novalidate>
         <input type="hidden" name="booking_id" value="<?= (int) $booking->id ?>">
         <input type="hidden" name="page_context" value="<?= html_escape($page_context) ?>">
 
@@ -66,6 +67,10 @@ $scheduled_check_out = $booking->scheduled_check_out_date
 
         <?php if (validation_errors()): ?>
             <div class="erp-alert erp-alert-danger"><?= validation_errors() ?></div>
+        <?php endif; ?>
+
+        <?php if ( ! empty($page_error)): ?>
+            <div class="erp-alert erp-alert-danger" role="alert"><?= html_escape($page_error) ?></div>
         <?php endif; ?>
 
         <!-- ===== Customer ===== -->
@@ -137,7 +142,7 @@ $scheduled_check_out = $booking->scheduled_check_out_date
                     <select class="erp-select" id="bk_room" name="room_id" data-search="always" data-placeholder="Select a room">
                         <option value="">— No room —</option>
                         <?php foreach ($room_opts as $rm): ?>
-                            <option value="<?= (int) $rm->id ?>" data-category-id="<?= (int) $rm->category_id ?>" <?= (string) $booking->room_id === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
+                            <option value="<?= (int) $rm->id ?>" data-category-id="<?= (int) $rm->category_id ?>" <?= (string) $sel_room === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
                         <?php endforeach; ?>
                     </select>
                     <?= form_error('room_id', '<div class="erp-error">', '</div>') ?>

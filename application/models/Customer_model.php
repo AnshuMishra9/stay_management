@@ -278,6 +278,99 @@ class Customer_model extends CI_Model
         return FALSE;
     }
 
+    /**
+     * Lock active room rows in a stable order for an atomic availability check.
+     * Every booking writer that uses this protocol serializes on the physical
+     * room before checking and inserting an overlapping stay.
+     *
+     * @return array locked active room ids
+     */
+    public function lock_rooms_for_booking(array $room_ids)
+    {
+        $room_ids = array_values(array_unique(array_filter(array_map('intval', $room_ids))));
+        sort($room_ids, SORT_NUMERIC);
+        if (empty($room_ids)) {
+            return array();
+        }
+
+        $placeholders = implode(',', array_fill(0, count($room_ids), '?'));
+        $rows = $this->db->query(
+            'SELECT id FROM rooms WHERE is_active = 1 AND id IN ('.$placeholders.') ORDER BY id FOR UPDATE',
+            $room_ids
+        )->result();
+
+        return array_map(function ($room) { return (int) $room->id; }, $rows);
+    }
+
+    /**
+     * Locking/current-read version of the overlap guard. Call only after the
+     * target room row has been locked inside the same transaction.
+     */
+    public function is_room_available_for_update($room_id, $check_in, $check_out, $current_booking_id = NULL)
+    {
+        $room_id = (int) $room_id;
+        if ( ! $room_id || ! $this->_valid_stay_range($check_in, $check_out)) {
+            return FALSE;
+        }
+
+        $sql = 'SELECT bd.id, bd.scheduled_check_in_date AS cin,
+                       bd.scheduled_check_out_date AS cout,
+                       bd.checked_in_at, bd.checked_out_at, sm.status_code
+                  FROM booking_details bd
+                  JOIN status_master sm ON sm.status_id = bd.status_id
+                 WHERE bd.room_id = ?
+                   AND sm.status_code IN (\'room_booked\', \'checked_in\')';
+        $params = array($room_id);
+        if ($current_booking_id) {
+            $sql .= ' AND bd.id != ?';
+            $params[] = (int) $current_booking_id;
+        }
+        $sql .= ' FOR UPDATE';
+
+        foreach ($this->db->query($sql, $params)->result() as $booking) {
+            $cin = $booking->cin
+                ?: ($booking->checked_in_at ? substr($booking->checked_in_at, 0, 10) : NULL);
+            if ( ! $cin) {
+                return FALSE; // undated live holds are conservatively blocking
+            }
+
+            if ($booking->cout) {
+                $cout = $booking->cout;
+            } elseif ($booking->checked_out_at) {
+                $cout = substr($booking->checked_out_at, 0, 10);
+            } elseif ($booking->status_code === 'checked_in') {
+                $cout = NULL;
+            } else {
+                $cout = date('Y-m-d', strtotime($cin.' +1 day'));
+            }
+
+            // Half-open intervals overlap only when both strict comparisons hold.
+            if ($cin < $check_out && ($cout === NULL || $cout > $check_in)) {
+                return FALSE;
+            }
+        }
+
+        return TRUE;
+    }
+
+    /** Serialize MAX+1 customer/booking code generation for booking creates. */
+    public function lock_booking_creation_sequence()
+    {
+        return (bool) $this->db->query(
+            'SELECT status_id FROM status_master WHERE status_code = \'room_booked\' LIMIT 1 FOR UPDATE'
+        )->row();
+    }
+
+    /** Validate a strict real-date [check-in, check-out) range. */
+    private function _valid_stay_range($check_in, $check_out)
+    {
+        $start = is_string($check_in) ? DateTime::createFromFormat('!Y-m-d', $check_in) : FALSE;
+        $end = is_string($check_out) ? DateTime::createFromFormat('!Y-m-d', $check_out) : FALSE;
+        return $start && $start->format('Y-m-d') === $check_in
+            && $end && $end->format('Y-m-d') === $check_out
+            && $check_out > $check_in;
+    }
+
     /** Return the category of an active room, or NULL for an invalid room. */
     public function room_category_for_room($room_id)
     {
@@ -413,6 +506,15 @@ class Customer_model extends CI_Model
             ->where('id', (int) $booking_id)
             ->limit(1)
             ->get('booking_details')->row();
+    }
+
+    /** Lock and return one booking row inside the caller's transaction. */
+    public function get_booking_for_update($booking_id)
+    {
+        return $this->db->query(
+            'SELECT * FROM booking_details WHERE id = ? LIMIT 1 FOR UPDATE',
+            array((int) $booking_id)
+        )->row();
     }
 
     /**
