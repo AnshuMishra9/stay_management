@@ -12,7 +12,7 @@
  */
 $active     = isset($active) ? $active : '';
 $back       = isset($back) ? $back : '';
-$is_landing = ($active === 'customers');   // Customers is the default/landing page
+$is_landing = ($active === 'inventory');   // Inventory is the default/landing page
 
 // Brand inner markup (logo chip + name), reused for the link/static variants.
 $brand_inner =

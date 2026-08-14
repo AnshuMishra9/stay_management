@@ -7,6 +7,9 @@
 (function (global) {
     'use strict';
 
+    var SELECTION_STORAGE_KEY = 'stay.inventory.booking.selection.v1';
+    var SELECTION_MAX_AGE_MS = 4 * 60 * 60 * 1000;
+
     function pad(value) { return String(value).padStart(2, '0'); }
 
     function parseDate(value) {
@@ -19,6 +22,27 @@
         if (!parts) { return ''; }
         var date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + amount));
         return date.getUTCFullYear() + '-' + pad(date.getUTCMonth() + 1) + '-' + pad(date.getUTCDate());
+    }
+
+    function utcDay(value) {
+        var parts = parseDate(value);
+        if (!parts) { return null; }
+        var timestamp = Date.UTC(parts.year, parts.month - 1, parts.day);
+        var date = new Date(timestamp);
+        if (
+            date.getUTCFullYear() !== parts.year
+            || date.getUTCMonth() + 1 !== parts.month
+            || date.getUTCDate() !== parts.day
+        ) {
+            return null;
+        }
+        return Math.floor(timestamp / 86400000);
+    }
+
+    function inclusiveNightCount(first, last) {
+        var start = utcDay(first);
+        var end = utcDay(last);
+        return start === null || end === null || end < start ? 0 : end - start + 1;
     }
 
     function rangeDates(first, last) {
@@ -65,7 +89,6 @@
         var rangeStartInput = doc.getElementById('invSelectionStartDate');
         var rangeEndInput = doc.getElementById('invSelectionEndDate');
         var popupError = doc.getElementById('invSelectionError');
-        var popupClose = doc.getElementById('invSelectionClose');
         var clearButton = doc.getElementById('invSelectionClear');
         var createButton = doc.getElementById('invCreateBooking');
         var backdrop = doc.getElementById('invBookingBackdrop');
@@ -88,6 +111,71 @@
         var selection = null;
         var modalInvoker = null;
         var loadRequest = 0;
+        var rangeCheckRequest = 0;
+
+        function effectiveToday() {
+            var browserToday = localToday();
+            return config.today && config.today > browserToday
+                ? config.today
+                : browserToday;
+        }
+
+        function forgetStoredSelection() {
+            try {
+                global.sessionStorage.removeItem(SELECTION_STORAGE_KEY);
+            } catch (error) {
+                // Storage may be unavailable in a private/restricted browser.
+            }
+        }
+
+        function persistSelection() {
+            if (!selection) {
+                forgetStoredSelection();
+                return;
+            }
+            try {
+                global.sessionStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify({
+                    roomId: selection.roomId,
+                    roomNo: selection.roomNo,
+                    categoryName: selection.categoryName || '',
+                    anchor: selection.anchor,
+                    start: selection.start,
+                    end: selection.end,
+                    savedAt: Date.now()
+                }));
+            } catch (error) {
+                // The range still works on this page when storage is blocked.
+            }
+        }
+
+        function restoreStoredSelection() {
+            try {
+                var saved = JSON.parse(global.sessionStorage.getItem(SELECTION_STORAGE_KEY) || 'null');
+                var valid = saved
+                    && saved.roomId
+                    && addDays(saved.start, 0) === saved.start
+                    && addDays(saved.end, 0) === saved.end
+                    && saved.end >= saved.start
+                    && saved.start >= effectiveToday()
+                    && Date.now() - Number(saved.savedAt || 0) <= SELECTION_MAX_AGE_MS;
+                if (!valid) {
+                    forgetStoredSelection();
+                    return null;
+                }
+                return {
+                    roomId: String(saved.roomId),
+                    roomNo: String(saved.roomNo || saved.roomId),
+                    categoryName: String(saved.categoryName || ''),
+                    anchor: addDays(saved.anchor, 0) === saved.anchor ? saved.anchor : saved.start,
+                    start: saved.start,
+                    end: saved.end,
+                    invoker: null
+                };
+            } catch (error) {
+                forgetStoredSelection();
+                return null;
+            }
+        }
 
         function hideError() {
             popupError.hidden = true;
@@ -109,9 +197,10 @@
             });
 
             if (!selection) { return; }
-            rangeDates(selection.start, selection.end).forEach(function (date) {
-                var slot = slotIndex[selection.roomId] && slotIndex[selection.roomId][date];
-                if (!slot) { return; }
+            var roomSlots = slotIndex[selection.roomId] || {};
+            Object.keys(roomSlots).forEach(function (date) {
+                if (date < selection.start || date > selection.end) { return; }
+                var slot = roomSlots[date];
                 slot.classList.add('is-range-selected');
                 var cell = slot.closest('.inv-cell');
                 if (cell) { cell.classList.add('is-range-selected'); }
@@ -126,12 +215,12 @@
                 popup.hidden = true;
                 hideError();
                 paintSelection();
+                forgetStoredSelection();
                 return;
             }
 
             var checkout = addDays(selection.end, 1);
-            var nights = rangeDates(selection.start, selection.end).length;
-            var visibleRoomDates = Object.keys(slotIndex[selection.roomId] || {}).sort();
+            var nights = inclusiveNightCount(selection.start, selection.end);
             popupRoom.textContent = 'Room ' + selection.roomNo;
             popupDates.textContent = 'Check-in ' + formatDate(selection.start)
                 + ' \u2192 Check-out ' + formatDate(checkout) + ', 11:00 AM';
@@ -141,38 +230,53 @@
             if (rangeEndInput) {
                 rangeEndInput.value = selection.end;
                 rangeEndInput.min = selection.start;
-                rangeEndInput.max = visibleRoomDates.length
-                    ? visibleRoomDates[visibleRoomDates.length - 1]
-                    : selection.end;
+                rangeEndInput.removeAttribute('max');
             }
             createButton.textContent = nights === 1 ? 'Book 1 Night' : 'Book ' + nights + ' Nights';
             popup.hidden = false;
             hideError();
             paintSelection();
+            persistSelection();
         }
 
         function clearSelection(restoreFocus) {
             var invoker = selection && selection.invoker;
+            rangeCheckRequest++;
+            createButton.disabled = false;
             selection = null;
             renderSelection();
             if (restoreFocus && invoker && doc.contains(invoker)) { invoker.focus(); }
         }
 
+        function firstVisibleBlockedDate(roomId, start, end) {
+            var roomSlots = slotIndex[roomId] || {};
+            var visibleDates = Object.keys(roomSlots).sort();
+            for (var index = 0; index < visibleDates.length; index++) {
+                var date = visibleDates[index];
+                if (
+                    date >= start
+                    && date <= end
+                    && roomSlots[date].getAttribute('data-bookable') !== '1'
+                ) {
+                    return date;
+                }
+            }
+            return null;
+        }
+
         function selectSlot(button) {
             var roomId = button.getAttribute('data-room-id');
             var date = button.getAttribute('data-date');
-            var effectiveToday = config.today && config.today > localToday()
-                ? config.today
-                : localToday();
-
             // A tab left open across midnight must not offer yesterday. Reload
             // so both the visual status and server-provided hotel date refresh.
-            if (date < effectiveToday) {
+            if (date < effectiveToday()) {
                 global.location.reload();
                 return;
             }
 
             if (!selection || selection.roomId !== roomId) {
+                rangeCheckRequest++;
+                createButton.disabled = false;
                 selection = {
                     roomId: roomId,
                     roomNo: button.getAttribute('data-room-no') || roomId,
@@ -186,11 +290,9 @@
                 return;
             }
 
-            var candidateDates = rangeDates(selection.anchor, date);
-            var blocked = candidateDates.filter(function (candidateDate) {
-                var candidate = slotIndex[roomId] && slotIndex[roomId][candidateDate];
-                return !candidate || candidate.getAttribute('data-bookable') !== '1';
-            })[0];
+            var candidateStart = selection.anchor <= date ? selection.anchor : date;
+            var candidateEnd = selection.anchor <= date ? date : selection.anchor;
+            var blocked = firstVisibleBlockedDate(roomId, candidateStart, candidateEnd);
 
             if (blocked) {
                 showError(
@@ -200,13 +302,62 @@
                 return;
             }
 
-            selection.start = selection.anchor <= date ? selection.anchor : date;
-            selection.end = selection.anchor <= date ? date : selection.anchor;
-            // Once both endpoints exist, future clicks adjust the last night
-            // from the chronological check-in date (also fixes reverse picks).
-            selection.anchor = selection.start;
-            selection.invoker = button;
-            renderSelection();
+            validateAndApplyRange(
+                roomId,
+                candidateStart,
+                candidateEnd,
+                button
+            );
+        }
+
+        function rangeCheckUrl(roomId, start, end) {
+            return config.formUrl
+                + '?room_id=' + encodeURIComponent(roomId)
+                + '&check_in=' + encodeURIComponent(start)
+                + '&check_out=' + encodeURIComponent(addDays(end, 1))
+                + '&check_only=1';
+        }
+
+        function validateAndApplyRange(roomId, start, end, invoker) {
+            var requestId = ++rangeCheckRequest;
+            createButton.disabled = true;
+            hideError();
+
+            global.fetch(rangeCheckUrl(roomId, start, end), {
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(function (response) {
+                return response.json().then(function (payload) {
+                    return { response: response, payload: payload };
+                });
+            }).then(function (result) {
+                if (requestId !== rangeCheckRequest) { return; }
+                if (!result.response.ok || !result.payload || !result.payload.status) {
+                    throw new Error(
+                        result.payload && result.payload.message
+                            ? result.payload.message
+                            : 'This room is not available for the complete selected range.'
+                    );
+                }
+
+                selection.start = start;
+                selection.end = end;
+                selection.anchor = start;
+                selection.invoker = invoker;
+                renderSelection();
+            }).catch(function (error) {
+                if (requestId !== rangeCheckRequest) { return; }
+                if (rangeEndInput && selection) { rangeEndInput.value = selection.end; }
+                showError(
+                    error.message
+                        || 'The complete date range could not be checked. Please try again.'
+                );
+            }).then(function () {
+                if (requestId === rangeCheckRequest) {
+                    createButton.disabled = false;
+                }
+            });
         }
 
         // The number button remains keyboard accessible, while event delegation
@@ -239,24 +390,26 @@
                     return;
                 }
 
-                var blocked = rangeDates(selection.start, requestedEnd).filter(function (candidateDate) {
-                    var candidate = slotIndex[selection.roomId]
-                        && slotIndex[selection.roomId][candidateDate];
-                    return !candidate || candidate.getAttribute('data-bookable') !== '1';
-                })[0];
+                var blocked = firstVisibleBlockedDate(
+                    selection.roomId,
+                    selection.start,
+                    requestedEnd
+                );
                 if (blocked) {
                     rangeEndInput.value = previousEnd;
                     showError(
                         'This range includes ' + formatDate(blocked)
-                        + ', which is booked or outside the visible Inventory dates.'
+                        + ', which is already booked.'
                     );
                     return;
                 }
 
-                selection.anchor = selection.start;
-                selection.end = requestedEnd;
-                selection.invoker = rangeEndInput;
-                renderSelection();
+                validateAndApplyRange(
+                    selection.roomId,
+                    selection.start,
+                    requestedEnd,
+                    rangeEndInput
+                );
             });
         }
 
@@ -391,9 +544,13 @@
                 return response.json();
             }).then(function (payload) {
                 if (payload && payload.status) {
-                    // Reload the exact same Inventory URL so filters/date stay put
-                    // and availability is recomputed from the committed booking.
-                    global.location.reload();
+                    // Do not reopen the committed selection after navigation.
+                    forgetStoredSelection();
+                    selection = null;
+                    global.location.assign(
+                        payload.redirect
+                            || ((global.APP_BASE || '/').replace(/\/?$/, '/') + 'customers/bookings')
+                    );
                     return;
                 }
                 replaceForm(payload && payload.html, payload && payload.message, form);
@@ -451,7 +608,11 @@
         modalClose.addEventListener('click', function () { closeBookingModal(true); });
         createButton.addEventListener('click', openBookingModal);
         clearButton.addEventListener('click', function () { clearSelection(true); });
-        popupClose.addEventListener('click', function () { clearSelection(true); });
+
+        // Restores the range after Inventory Previous/Next reloads. The stored
+        // selection is per-tab, short-lived, and cleared after save or Clear.
+        selection = restoreStoredSelection();
+        renderSelection();
     }
 
     global.InventoryBooking = {

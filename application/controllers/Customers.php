@@ -226,6 +226,16 @@ class Customers extends Secure_Controller
             ), 409);
         }
 
+        // Lightweight full-range check used while extending a selection over
+        // multiple Inventory pages. available_rooms() evaluates the complete
+        // [check-in, checkout) interval, including dates not currently visible.
+        if ($this->input->get('check_only') === '1') {
+            return $this->_json(array(
+                'status' => TRUE,
+                'available' => TRUE,
+            ));
+        }
+
         $nights = (int) ((strtotime($check_out) - strtotime($check_in)) / 86400);
         $room_booked_id = $this->Customer_model->status_id_by_code('room_booked');
         $data = array(
@@ -611,7 +621,9 @@ class Customers extends Secure_Controller
         $this->db->trans_commit();
 
         if ($inventory_source) {
-            $this->session->set_flashdata('inventory_msg', array(
+            // The Inventory modal finishes on Booking Details. This flash also
+            // tells the list page to invalidate its cached booking rows.
+            $this->session->set_flashdata('booking_msg', array(
                 'type' => 'success',
                 'text' => $msg,
             ));
@@ -620,6 +632,7 @@ class Customers extends Secure_Controller
                 'message' => $msg,
                 'booking_id' => (int) $bkg->id,
                 'booking_number' => $bkg->booking_number,
+                'redirect' => site_url('customers/bookings'),
             ));
         }
 

@@ -40,7 +40,7 @@ class Auth extends CI_Controller
     // ---------------------------------------------------------------------
 
     /**
-     * Login page. If already authenticated, skip straight to the dashboard.
+     * Login page. If already authenticated, skip straight to the landing page.
      */
     public function index()
     {
@@ -150,7 +150,9 @@ class Auth extends CI_Controller
             return $this->_json(array(
                 'status'   => TRUE,
                 'message'  => 'Login successful. Redirecting...',
-                'redirect' => site_url('customers'),
+                // Follow the configured landing page instead of coupling login
+                // to a particular module.
+                'redirect' => site_url(''),
             ));
         }
 

@@ -152,18 +152,18 @@ $navigation_query = function ($date) use ($filters) {
             width:min(320px, calc(100vw - 20px)); background:#fff; border:1px solid #dce2f2;
             border-radius:12px; box-shadow:0 14px 38px rgba(24,29,68,.2); overflow:hidden; }
         .inv-selection-popup[hidden], .inv-booking-backdrop[hidden] { display:none !important; }
-        .inv-selection-head { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:10px 12px 6px; }
+        .inv-selection-head { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:8px; align-items:center; padding:9px 10px 6px; }
+        .inv-selection-head > div:first-child { min-width:0; }
         .inv-selection-title { color:var(--text); font-size:.88rem; font-weight:800; line-height:1.2; }
-        .inv-selection-room { color:var(--brand-dark); font-size:.73rem; font-weight:700; margin-top:1px; }
-        .inv-selection-close { border:0; padding:2px; background:transparent; color:var(--muted); font-size:1.2rem; line-height:1; cursor:pointer; }
+        .inv-selection-room { color:var(--brand-dark); font-size:.73rem; font-weight:700; margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .inv-selection-head-actions { display:flex; align-items:center; gap:5px; }
+        .inv-selection-head-actions .erp-btn { min-height:27px; padding:4px 7px; border-radius:7px; font-size:.66rem; }
         .inv-selection-body { padding:0 12px 9px; color:var(--muted); font-size:.75rem; line-height:1.35; }
         .inv-selection-meta { color:var(--text); font-size:.73rem; font-weight:700; }
         .inv-selection-picker { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; }
         .inv-selection-picker label { display:block; color:var(--muted); font-size:.64rem; font-weight:700; }
         .inv-selection-picker .erp-input { margin-top:2px; min-width:0; height:31px; padding:4px 6px; font-size:.7rem; }
         .inv-selection-error { margin-top:6px; padding:6px 8px; border-radius:7px; background:var(--red-soft); color:#9f1239; }
-        .inv-selection-actions { display:flex; justify-content:flex-end; gap:6px; padding:8px 12px; background:var(--head); border-top:1px solid var(--line); }
-        .inv-selection-actions .erp-btn { min-height:31px; padding:5px 10px; font-size:.72rem; }
 
         .inv-booking-backdrop { z-index:1100; padding:20px 14px; align-items:flex-start; }
         .inv-booking-modal { max-width:1000px; max-height:calc(100vh - 40px); display:flex; flex-direction:column; overflow:hidden; }
@@ -303,7 +303,10 @@ $navigation_query = function ($date) use ($filters) {
                     <div class="inv-selection-title">New Booking</div>
                     <div class="inv-selection-room" id="invSelectionRoom"></div>
                 </div>
-                <button type="button" class="inv-selection-close" id="invSelectionClose" aria-label="Clear selected dates">&times;</button>
+                <div class="inv-selection-head-actions">
+                    <button type="button" class="erp-btn erp-btn-ghost" id="invSelectionClear">Clear</button>
+                    <button type="button" class="erp-btn erp-btn-primary" id="invCreateBooking">New Booking</button>
+                </div>
             </div>
             <div class="inv-selection-body">
                 <div id="invSelectionDates" hidden></div>
@@ -317,10 +320,6 @@ $navigation_query = function ($date) use ($filters) {
                     </label>
                 </div>
                 <div class="inv-selection-error" id="invSelectionError" role="alert" hidden></div>
-            </div>
-            <div class="inv-selection-actions">
-                <button type="button" class="erp-btn erp-btn-ghost" id="invSelectionClear">Clear</button>
-                <button type="button" class="erp-btn erp-btn-primary" id="invCreateBooking">New Booking</button>
             </div>
         </aside>
 

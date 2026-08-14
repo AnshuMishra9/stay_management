@@ -88,8 +88,8 @@
                     if (d.status) {
                         vm.success = d.message || 'Login successful.';
                         stopCountdown();
-                        // Redirect to the protected dashboard.
-                        window.location.href = d.redirect || (base + 'dashboard');
+                        // Follow the application's configured landing page.
+                        window.location.href = d.redirect || base;
                     } else {
                         vm.error = d.message || 'Verification failed.';
                         vm.fieldError = true;
