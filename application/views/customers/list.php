@@ -149,11 +149,12 @@
                 <div class="erp-detail-item" ng-repeat="idn in vm.detail.identities">
                     <div class="k">{{ idn.type_label }}</div>
                     <div class="v">{{ idn.identity_number || '—' }}</div>
-                    <a class="erp-doc-link" ng-if="idn.document_url" ng-href="{{ idn.document_url }}" target="_blank">
+                    <a class="erp-doc-link" ng-if="idn.document_url" ng-href="{{ idn.document_url }}" target="_blank" rel="noopener">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-                        View Document
+                        View Front / File
                     </a>
-                    <div class="v erp-muted" ng-if="!idn.document_url">No document uploaded</div>
+                    <a class="erp-doc-link" ng-if="idn.document_url_2" ng-href="{{ idn.document_url_2 }}" target="_blank" rel="noopener">View Back</a>
+                    <div class="v erp-muted" ng-if="!idn.document_url && !idn.document_url_2">No document uploaded</div>
                 </div>
                 <div class="erp-detail-item erp-muted" ng-if="!vm.detail.identities || !vm.detail.identities.length">
                     No identity proof added

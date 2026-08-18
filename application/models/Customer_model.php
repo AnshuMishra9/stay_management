@@ -650,14 +650,21 @@ class Customer_model extends CI_Model
     /**
      * All identity-proof rows for a customer (Aadhar / PAN / Passport / …).
      *
-     * @param  int $customer_id
-     * @return array of {id, identity_type, identity_number, document_path}
+     * @param  int      $customer_id
+     * @param  int|null $booking_id NULL means customer-level documents only
+     * @return array of identity rows including front/back document paths
      */
-    public function get_identities($customer_id)
+    public function get_identities($customer_id, $booking_id = NULL)
     {
+        $this->db
+            ->select('id, customer_id, booking_id, identity_type, identity_number, document_path, document_path_2')
+            ->where('customer_id', (int) $customer_id);
+        if ($booking_id === NULL) {
+            $this->db->where('booking_id IS NULL', NULL, FALSE);
+        } else {
+            $this->db->where('booking_id', (int) $booking_id);
+        }
         return $this->db
-            ->select('id, identity_type, identity_number, document_path')
-            ->where('customer_id', (int) $customer_id)
             ->order_by('id', 'ASC')
             ->get('customer_identities')
             ->result();
@@ -696,13 +703,19 @@ class Customer_model extends CI_Model
      * ones removed on the form. Returned so the caller can delete their files
      * before the rows go.
      *
-     * @param  int   $customer_id
-     * @param  array $keep_ids
+     * @param  int      $customer_id
+     * @param  array    $keep_ids
+     * @param  int|null $booking_id NULL scopes removal to customer-level rows
      * @return array
      */
-    public function identities_to_remove($customer_id, array $keep_ids)
+    public function identities_to_remove($customer_id, array $keep_ids, $booking_id = NULL)
     {
         $this->db->where('customer_id', (int) $customer_id);
+        if ($booking_id === NULL) {
+            $this->db->where('booking_id IS NULL', NULL, FALSE);
+        } else {
+            $this->db->where('booking_id', (int) $booking_id);
+        }
         $keep = array_filter(array_map('intval', $keep_ids));
         if ($keep) {
             $this->db->where_not_in('id', $keep);

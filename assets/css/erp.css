@@ -386,6 +386,14 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-check { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
 .erp-check input { width: 18px; height: 18px; accent-color: var(--brand); }
 
+/* Booking check-in uses a compact, even vertical rhythm. */
+.erp-checkin-card { max-width: 920px; margin: 0 auto; }
+.erp-checkin-card .erp-form-section { padding: 18px 20px; }
+.erp-checkin-card .erp-section-title { margin-bottom: 12px; }
+.erp-checkin-card .erp-checkin-grid + .erp-checkin-grid { margin-top: 12px; }
+.erp-checkin-card .idn-section { padding-bottom: 12px; }
+.erp-checkin-card .erp-checkin-status-section { padding-top: 12px; }
+
 /* ---- Responsive ---- */
 @media (max-width: 700px) {
     .erp-grid-2 { grid-template-columns: 1fr; }
@@ -439,11 +447,200 @@ span.flatpickr-weekday { color: var(--muted); font-weight: 700; font-size: .72re
 
 /* ===== Identity Proof repeatable rows (customer form + booking check-in) ===== */
 .idn-row { position: relative; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; background: var(--head); }
-.idn-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.idn-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .idn-remove { position: absolute; top: 8px; right: 10px; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: var(--red-soft); color: var(--red); font-size: 18px; line-height: 1; cursor: pointer; }
 .idn-remove:hover { background: var(--red); color: #fff; }
 .idn-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-@media (max-width: 720px) { .idn-fields { grid-template-columns: 1fr; } }
+.idn-document-field { grid-column: 1 / -1; }
+.idn-document-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.idn-document-heading > label { min-width: 0; margin: 0; }
+.idn-label-note { font-weight: 400; }
+.idn-add-second { display: none; align-items: center; justify-content: center; gap: 5px; min-height: 32px; padding: 5px 9px; border: 1px solid rgba(109,93,246,.2); border-radius: 8px; background: var(--brand-soft); color: var(--brand-dark); font: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.idn-add-second:hover, .idn-add-second:focus-visible { border-color: var(--brand); background: var(--brand-soft-hover); outline: none; }
+.idn-add-second[hidden] { display: none; }
+.idn-server-error { margin: 12px 0; }
+.idn-upload-widget { border: 1px solid var(--input-brd); border-radius: 12px; padding: 10px; background: #fff; }
+.idn-upload-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.idn-upload-actions .erp-btn { display: inline-flex; align-items: center; gap: 7px; }
+.idn-source-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.idn-upload-message { margin: 6px 2px 0; font-size: 12px; font-weight: 600; color: var(--green); }
+.idn-upload-message[hidden] { display: none; }
+.idn-upload-message.is-error { color: var(--red); }
+.idn-document-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.idn-document-slot { min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--head); transition: border-color .18s, box-shadow .18s; }
+.idn-document-slot.has-new-file { border-color: rgba(109,93,246,.55); box-shadow: 0 0 0 2px rgba(109,93,246,.08); }
+.idn-slot-head { display: flex; min-height: 32px; align-items: center; justify-content: space-between; gap: 8px; margin: -4px -4px 2px 0; font-size: 12px; color: var(--text); }
+.idn-preview-box { position: relative; height: 108px; overflow: hidden; border: 1px dashed var(--input-brd); border-radius: 8px; background: #fff; }
+.idn-preview-image { width: 100%; height: 100%; object-fit: contain; background: #eef0f5; }
+.idn-preview-placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 8px; color: var(--muted); font-size: 11px; text-align: center; overflow-wrap: anywhere; }
+.idn-preview-placeholder[hidden] { display: none; }
+.idn-preview-placeholder i { font-size: 24px; color: #a1a8bc; }
+.idn-preview-remove { display: inline-flex; flex: 0 0 auto; width: clamp(32px, 3.8vw, 38px); height: clamp(32px, 3.8vw, 38px); align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--red); font: inherit; font-size: clamp(18px, 2vw, 22px); line-height: 1; cursor: pointer; box-shadow: none; transition: color .16s ease, background-color .16s ease; }
+.idn-preview-remove:hover, .idn-preview-remove:focus-visible { background: var(--red-soft); color: var(--red); outline: none; }
+.idn-preview-remove[hidden] { display: none; }
+.idn-current-link { display: inline-block; margin: 0; font-size: 11px; }
+.idn-slot-actions { display: flex; flex-wrap: nowrap; gap: 5px; margin-top: 6px; }
+.idn-mini-btn { display: inline-flex; flex: 1 1 0; min-width: 0; align-items: center; justify-content: center; gap: 3px; min-height: 34px; padding: 4px 5px; border: 1px solid var(--input-brd); border-radius: 7px; background: #fff; color: var(--text); font: inherit; font-size: 11px; cursor: pointer; }
+.idn-mini-btn:hover { border-color: var(--brand); color: var(--brand-dark); }
+.idn-mini-btn:disabled { border-color: var(--line); background: #f2f3f8; color: #a3a8b8; cursor: not-allowed; box-shadow: none; }
+.idn-mini-btn[hidden] { display: none; }
+.idn-upload-widget.is-processing { opacity: .72; pointer-events: none; }
+
+.erp-checkin-card .idn-row { margin-bottom: 10px; padding: 14px; }
+.erp-checkin-card #identityRows .idn-row:last-child { margin-bottom: 0; }
+.erp-checkin-card .idn-fields { gap: 12px 16px; }
+.erp-checkin-card .idn-document-heading { margin-bottom: 4px; line-height: 1.25; }
+.erp-checkin-card .idn-upload-widget { padding: 8px; }
+.erp-checkin-card .idn-document-slots { margin-top: 6px; }
+
+body.idn-camera-open { overflow: hidden; }
+.idn-camera-modal { position: fixed; z-index: 10020; inset: 0; display: flex; align-items: center; justify-content: center; padding: 14px; }
+.idn-camera-modal[hidden] { display: none; }
+.idn-camera-backdrop { position: absolute; inset: 0; background: rgba(7,10,18,.82); backdrop-filter: blur(4px); }
+.idn-camera-dialog { position: relative; z-index: 1; width: min(920px, 100%); max-height: calc(100vh - 28px); overflow: auto; border-radius: 16px; background: #111827; box-shadow: var(--shadow-lg); }
+.idn-camera-head { display: flex; justify-content: space-between; gap: 15px; padding: 14px 17px; background: #fff; border-bottom: 1px solid var(--line); }
+.idn-camera-head h2 { margin: 0; color: var(--text); font-size: 19px; }
+.idn-camera-head p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+.idn-camera-close { align-self: flex-start; flex: 0 0 auto; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: var(--head); color: var(--muted); font-size: 23px; cursor: pointer; }
+.idn-camera-stage { position: relative; display: flex; align-items: center; justify-content: center; min-height: 360px; max-height: calc(100vh - 190px); overflow: hidden; background: #05070c; }
+.idn-camera-stage video { display: block; width: 100%; max-height: calc(100vh - 190px); object-fit: contain; background: #05070c; }
+.idn-camera-stage video.is-user-camera { transform: scaleX(-1); }
+.idn-camera-guide { position: absolute; left: 8%; top: 17%; width: 84%; height: 66%; border: 2px solid rgba(255,255,255,.9); border-radius: 14px; box-shadow: 0 0 0 999px rgba(0,0,0,.18), inset 0 0 0 1px rgba(0,0,0,.22); pointer-events: none; }
+.idn-camera-guide::before, .idn-camera-guide::after { content: ''; position: absolute; width: 34px; height: 34px; border-color: #a78bfa; border-style: solid; }
+.idn-camera-guide::before { left: -3px; top: -3px; border-width: 4px 0 0 4px; border-radius: 12px 0 0; }
+.idn-camera-guide::after { right: -3px; bottom: -3px; border-width: 0 4px 4px 0; border-radius: 0 0 12px; }
+.idn-camera-guide span { position: absolute; left: 50%; bottom: -34px; transform: translateX(-50%); width: max-content; max-width: 90%; padding: 5px 9px; border-radius: 999px; background: rgba(0,0,0,.65); color: #fff; font-size: 11px; text-align: center; }
+.idn-camera-loading { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); max-width: min(420px, 86%); padding: 10px 14px; border-radius: 10px; background: rgba(17,24,39,.86); color: #fff; font-size: 13px; text-align: center; }
+.idn-camera-loading.is-error { background: rgba(159,18,57,.92); }
+.idn-camera-loading[hidden] { display: none; }
+.idn-camera-foot { position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 12px 16px; background: #fff; }
+.idn-camera-foot [data-camera-action="native"] { justify-self: start; }
+.idn-camera-foot [data-camera-action="native"][hidden] { display: none; }
+.idn-camera-foot [data-camera-action="switch"] { justify-self: end; grid-column: 3; }
+.idn-camera-capture { grid-column: 2; grid-row: 1; width: 64px; height: 64px; padding: 5px; border: 3px solid var(--brand); border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 3px 14px rgba(109,93,246,.3); }
+.idn-camera-capture span { display: block; width: 100%; height: 100%; border-radius: 50%; background: var(--brand); transition: transform .12s, background .12s; }
+.idn-camera-capture:hover span { background: var(--brand-dark); transform: scale(.92); }
+
+body.idn-crop-open { overflow: hidden; }
+.idn-crop-modal { position: fixed; z-index: 10000; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; }
+.idn-crop-modal[hidden] { display: none; }
+.idn-crop-backdrop { position: absolute; inset: 0; background: rgba(16,20,32,.72); backdrop-filter: blur(3px); }
+.idn-crop-dialog { position: relative; z-index: 1; width: min(820px, 100%); max-height: calc(100vh - 36px); overflow: auto; border-radius: 16px; background: #fff; box-shadow: var(--shadow-lg); }
+.idn-crop-head { display: flex; justify-content: space-between; gap: 15px; padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+.idn-crop-head h2 { margin: 0; color: var(--text); font-size: 19px; }
+.idn-crop-head p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+.idn-crop-close { align-self: flex-start; flex: 0 0 auto; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: var(--head); color: var(--muted); font-size: 23px; cursor: pointer; }
+.idn-crop-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: #fff; }
+.idn-crop-ratios { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.idn-crop-ratios > span { margin-right: 2px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.idn-ratio-btn { min-width: 54px; min-height: 32px; padding: 5px 10px; border: 1px solid var(--input-brd); border-radius: 8px; background: var(--head); color: var(--text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.idn-ratio-btn:hover { border-color: var(--brand); color: var(--brand-dark); }
+.idn-ratio-btn.is-active { border-color: var(--brand); background: var(--brand); color: #fff; box-shadow: 0 3px 9px rgba(109,93,246,.24); }
+.idn-crop-size { flex: 0 0 auto; color: var(--muted); font-size: 12px; font-weight: 600; }
+.idn-crop-stage { display: flex; justify-content: center; padding: 14px; overflow: auto; background: #1b2030; }
+.idn-crop-stage canvas { display: block; max-width: 100%; height: auto; cursor: crosshair; touch-action: none; user-select: none; }
+.idn-crop-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); }
+
+@media (max-width: 720px) {
+    .idn-fields { grid-template-columns: 1fr; }
+    .idn-row { padding-top: 48px; }
+    .idn-remove { width: 40px; height: 40px; font-size: 22px; }
+    .idn-upload-actions .erp-btn { flex: 1 1 100px; min-height: 44px; justify-content: center; }
+    .idn-slot-actions .idn-mini-btn { min-height: 40px; }
+    .idn-preview-box { height: 112px; }
+    .idn-crop-modal { padding: 8px; }
+    .idn-crop-dialog { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
+    .idn-crop-close, .idn-camera-close { flex-basis: 44px; width: 44px; height: 44px; }
+    .idn-crop-toolbar { align-items: flex-start; flex-direction: column; gap: 7px; padding: 9px 12px; }
+    .idn-crop-ratios { width: 100%; }
+    .idn-ratio-btn { flex: 1; min-height: 44px; }
+    .idn-crop-size { align-self: flex-end; }
+    .idn-crop-foot { align-items: stretch; flex-direction: column; }
+    .idn-crop-foot > div { display: flex; gap: 8px; }
+    .idn-crop-foot .erp-btn { min-height: 44px; }
+    .idn-crop-foot > div .erp-btn { flex: 1; }
+    .idn-camera-modal { padding: 0; }
+    .idn-camera-dialog { width: 100%; max-height: 100vh; max-height: 100dvh; min-height: 100vh; min-height: 100dvh; border-radius: 0; display: flex; flex-direction: column; }
+    .idn-camera-stage { flex: 1 1 auto; min-height: 0; max-height: none; }
+    .idn-camera-stage video { max-height: none; }
+    .idn-camera-guide { left: 5%; width: 90%; top: 20%; height: 60%; }
+    .idn-camera-foot { flex: 0 0 auto; padding: 10px; }
+    .idn-camera-foot .erp-btn { min-height: 40px; padding: 7px 8px; font-size: 11px; }
+    .idn-camera-capture { width: 60px; height: 60px; }
+    .erp-checkin-card .erp-form-section { padding: 14px 12px; }
+    .erp-checkin-card .idn-section { padding-bottom: 10px; }
+    .erp-checkin-card .erp-checkin-status-section { padding-top: 10px; }
+    .erp-checkin-card .idn-row { padding: 48px 10px 10px; }
+    .erp-checkin-card .idn-fields { gap: 10px; }
+}
+
+@media (max-width: 520px) {
+    .idn-document-slots { grid-template-columns: 1fr; }
+    .idn-label-note { display: none; }
+    .idn-add-second:not([hidden]) { display: inline-flex; }
+    .idn-document-field.is-second-collapsed [data-idn-slot="2"] { display: none; }
+    .idn-upload-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .idn-upload-actions .erp-btn { width: 100%; padding-right: 6px; padding-left: 6px; font-size: 12px; }
+    .idn-preview-box { height: 104px; }
+}
+
+@media (max-width: 480px) {
+    .erp-nav { padding: 0 12px; }
+    .erp-nav-brand { padding: 10px 0; font-size: 1rem; gap: 8px; }
+    .erp-nav-brand svg { width: 22px; height: 22px; padding: 5px; }
+    .erp-nav-right {
+        width: 100%; flex-wrap: nowrap; gap: 7px; padding: 4px 0 10px; overflow-x: auto;
+        overscroll-behavior-inline: contain; scrollbar-width: thin;
+    }
+    .erp-nav-right > * { flex: 0 0 auto; }
+    .erp-nav-link, .erp-nav-right > .erp-btn, .erp-nav-back { min-height: 44px; }
+    .erp-nav-back { order: -1; margin-left: 0; }
+    .erp-form-section { padding: 16px 12px; }
+    .erp-form-foot { flex-wrap: wrap; padding: 14px 12px; }
+    .erp-form-foot .erp-btn { flex: 1 1 120px; min-height: 44px; justify-content: center; }
+    .idn-row { padding-right: 10px; padding-bottom: 12px; padding-left: 10px; }
+    .idn-upload-widget { padding: 8px; }
+    .idn-crop-head, .idn-camera-head { padding-left: 12px; padding-right: 12px; }
+    .idn-crop-stage { padding: 10px; }
+    .idn-crop-foot { padding: 10px 12px; }
+}
+
+/* Keep capture and crop controls visible when a phone is held sideways. */
+@media (max-height: 520px) and (orientation: landscape) {
+    .idn-camera-dialog {
+        width: 100%; height: 100vh; height: 100dvh; min-height: 0; max-height: none;
+        display: grid; grid-template-columns: minmax(0, 1fr) 156px; grid-template-rows: auto minmax(0, 1fr);
+        overflow: hidden; border-radius: 0;
+    }
+    .idn-camera-head { grid-column: 1 / -1; grid-row: 1; padding: 8px 12px; }
+    .idn-camera-head p { display: none; }
+    .idn-camera-stage { grid-column: 1; grid-row: 2; width: 100%; min-height: 0; max-height: none; }
+    .idn-camera-stage video { width: 100%; height: 100%; max-height: none; object-fit: contain; }
+    .idn-camera-guide { left: 7%; top: 10%; width: 86%; height: 72%; }
+    .idn-camera-foot {
+        grid-column: 2; grid-row: 2; display: flex; flex-direction: column; justify-content: center;
+        gap: 8px; padding: 8px;
+    }
+    .idn-camera-foot .erp-btn { width: 100%; min-height: 40px; justify-content: center; }
+    .idn-camera-foot [data-camera-action="native"] { order: 2; }
+    .idn-camera-foot [data-camera-action="switch"] { order: 3; grid-column: auto; }
+    .idn-camera-capture { order: 1; flex: 0 0 auto; width: 58px; height: 58px; }
+
+    .idn-crop-modal { padding: 0; }
+    .idn-crop-dialog {
+        width: 100%; height: 100vh; height: 100dvh; max-height: none; display: flex;
+        flex-direction: column; overflow: hidden; border-radius: 0;
+    }
+    .idn-crop-head { flex: 0 0 auto; padding: 7px 12px; }
+    .idn-crop-head p { display: none; }
+    .idn-crop-toolbar { flex: 0 0 auto; align-items: center; flex-direction: row; padding: 6px 10px; }
+    .idn-crop-ratios { flex-wrap: nowrap; width: auto; }
+    .idn-ratio-btn { min-height: 40px; }
+    .idn-crop-size { align-self: auto; }
+    .idn-crop-stage { flex: 1 1 auto; min-height: 0; padding: 7px; overflow: hidden; }
+    .idn-crop-stage canvas { width: auto; max-width: 100%; max-height: 100%; }
+    .idn-crop-foot { flex: 0 0 auto; align-items: center; flex-direction: row; padding: 7px 10px; }
+}
 
 /* Check-in action button (Booking Details) */
 .erp-icon-checkin { background: #e7f9ef; color: #16a34a; border-color: #c9efd8; }

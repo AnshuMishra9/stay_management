@@ -27,6 +27,7 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
     <title><?= $is_edit ? 'Edit' : 'Add' ?> Customer &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>">
 </head>
 <body class="erp-body">
 
@@ -35,6 +36,7 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
 <div class="erp-wrap">
     <form class="erp-card" style="max-width:920px;margin:0 auto;" action="<?= site_url('customers/save') ?>" method="post" enctype="multipart/form-data" novalidate>
         <input type="hidden" name="id" value="<?= $is_edit ? (int) $customer->id : '' ?>">
+        <input type="hidden" name="customer_write_token" value="<?= html_escape($this->session->userdata('customer_write_token')) ?>">
 
         <!-- Header -->
         <div class="erp-page-head">
@@ -105,6 +107,7 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
         <?php $this->load->view('customers/components/identity_proof', array(
             'identity_types' => $identity_types,
             'identities'     => $identities,
+            'identity_upload_error' => isset($identity_upload_error) ? $identity_upload_error : '',
         )); ?>
 
         <!-- Footer actions -->

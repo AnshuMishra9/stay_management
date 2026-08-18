@@ -20,12 +20,17 @@ class Customers extends Secure_Controller
     /** Allowed upload extensions / size (KB). */
     const UPLOAD_TYPES   = 'jpg|jpeg|png|pdf';
     const UPLOAD_MAX_KB  = 4096;
+    const MAX_IDENTITY_ROWS = 20;
 
     public function __construct()
     {
         parent::__construct();
         $this->load->model('Customer_model');
         $this->load->helper('file');
+        $this->load->library('Identity_upload_guard');
+        if ( ! $this->session->userdata('customer_write_token')) {
+            $this->session->set_userdata('customer_write_token', bin2hex(random_bytes(32)));
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -382,6 +387,7 @@ class Customers extends Secure_Controller
                 'type_label'      => isset($labels[$idn->identity_type]) ? $labels[$idn->identity_type] : $idn->identity_type,
                 'identity_number' => $idn->identity_number,
                 'document_url'    => $idn->document_path ? site_url('customers/identity_file/'.$idn->id) : NULL,
+                'document_url_2'  => $idn->document_path_2 ? site_url('customers/identity_file/'.$idn->id.'/2') : NULL,
             );
         }, $this->Customer_model->get_identities($customer->id));
 
@@ -397,6 +403,10 @@ class Customers extends Secure_Controller
      */
     public function save()
     {
+        if ( ! $this->_valid_customer_write_token()) {
+            show_error('This form expired or came from another site. Refresh the page and try again.', 403);
+            return;
+        }
         $id       = (int) $this->input->post('id');
         $is_edit  = $id > 0;
         $existing = $is_edit ? $this->Customer_model->get_by_id($id) : NULL;
@@ -410,7 +420,8 @@ class Customers extends Secure_Controller
         $this->load->library('form_validation');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
-        if ($this->form_validation->run() === FALSE) {
+        $identity_upload_error = $this->_identity_upload_error($id);
+        if ($this->form_validation->run() === FALSE || $identity_upload_error !== NULL) {
             // Re-render the form with errors + submitted values.
             $data = array(
                 'customer'       => $existing,
@@ -418,6 +429,7 @@ class Customers extends Secure_Controller
                 'country_opts'   => $this->_country_options(),
                 'identity_types' => $this->_identity_types(),
                 'identities'     => $existing ? $this->Customer_model->get_identities($existing->id) : array(),
+                'identity_upload_error' => $identity_upload_error,
             );
             $this->load->view('customers/form', $data);
             return;
@@ -450,9 +462,16 @@ class Customers extends Secure_Controller
         }
 
         // --- Identity proofs (dynamic rows + their uploaded documents) -------
-        $this->_save_identities($cust_id, $code);
+        $identity_save_errors = $this->_save_identities($cust_id, $code);
 
-        $this->session->set_flashdata('customer_msg', array('type' => 'success', 'text' => $msg));
+        if ($identity_save_errors) {
+            $msg .= ' Customer details were saved, but a document could not be stored: '.reset($identity_save_errors);
+        }
+
+        $this->session->set_flashdata('customer_msg', array(
+            'type' => $identity_save_errors ? 'danger' : 'success',
+            'text' => $msg,
+        ));
         redirect('customers');
     }
 
@@ -658,8 +677,9 @@ class Customers extends Secure_Controller
                 'type_label'      => isset($labels[$idn->identity_type]) ? $labels[$idn->identity_type] : $idn->identity_type,
                 'identity_number' => $idn->identity_number,
                 'document_url'    => $idn->document_path ? site_url('customers/identity_file/'.$idn->id) : NULL,
+                'document_url_2'  => $idn->document_path_2 ? site_url('customers/identity_file/'.$idn->id.'/2') : NULL,
             );
-        }, $this->Customer_model->get_identities($booking->customer_id));
+        }, $this->Customer_model->get_identities($booking->customer_id, $booking->id));
 
         return $this->_json(array('status' => TRUE, 'data' => $booking));
     }
@@ -689,7 +709,7 @@ class Customers extends Secure_Controller
                 $this->_date($booking->scheduled_check_out_date)
             ),
             'identity_types' => $this->_identity_types(),
-            'identities'     => $customer ? $this->Customer_model->get_identities($customer->id) : array(),
+            'identities'     => $customer ? $this->Customer_model->get_identities($customer->id, $booking->id) : array(),
         );
         $this->load->view('customers/checkin', $data);
     }
@@ -724,7 +744,7 @@ class Customers extends Secure_Controller
                 $this->_date($booking->scheduled_check_out_date)
             ),
             'identity_types' => $this->_identity_types(),
-            'identities'     => $this->Customer_model->get_identities($customer->id),
+            'identities'     => $this->Customer_model->get_identities($customer->id, $booking->id),
             'page_title'     => 'Edit Check-in',
             'page_subtitle'  => 'Update the checked-in customer and stay details',
             'active_nav'     => 'checkins',
@@ -775,8 +795,11 @@ class Customers extends Secure_Controller
             $identity->document_url = $identity->document_path
                 ? site_url('customers/identity_file/'.$identity->id)
                 : NULL;
+            $identity->document_url_2 = $identity->document_path_2
+                ? site_url('customers/identity_file/'.$identity->id.'/2')
+                : NULL;
             return $identity;
-        }, $this->Customer_model->get_identities($booking->customer_id));
+        }, $this->Customer_model->get_identities($booking->customer_id, $booking->id));
 
         $is_confirm = ($mode === 'confirm');
         $is_edit = ($mode === 'edit');
@@ -860,6 +883,10 @@ class Customers extends Secure_Controller
      */
     public function checkin_save()
     {
+        if ( ! $this->_valid_customer_write_token()) {
+            show_error('This form expired or came from another site. Refresh the page and try again.', 403);
+            return;
+        }
         $booking_id = (int) $this->input->post('booking_id');
         $booking    = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
         if ( ! $booking) {
@@ -890,12 +917,14 @@ class Customers extends Secure_Controller
         $this->form_validation->set_rules('scheduled_check_out_date', 'Scheduled Check-Out', 'required|callback_valid_stay_dates');
         $this->form_validation->set_rules('room_id', 'Allot Room', 'callback_room_available_for_stay');
 
-        if ($this->form_validation->run() === FALSE) {
+        $identity_upload_error = $this->_identity_upload_error($customer->id, $booking_id);
+        if ($this->form_validation->run() === FALSE || $identity_upload_error !== NULL) {
             return $this->_checkin_form_failure(
                 $booking,
                 $customer,
                 $booking_id,
-                $page_context
+                $page_context,
+                $identity_upload_error ?: ''
             );
         }
 
@@ -1025,11 +1054,12 @@ class Customers extends Secure_Controller
 
         // Filesystem changes cannot participate in a database rollback. Run
         // identity document syncing only after the room/customer/stay commit.
-        $this->_save_identities($customer->id, $customer->customer_code);
+        $identity_save_errors = $this->_save_identities($customer->id, $customer->customer_code, $booking_id);
 
         $this->session->set_flashdata('booking_msg', array(
-            'type' => 'success',
-            'text' => 'Booking '.$booking->booking_number.' checked-in details updated.',
+            'type' => $identity_save_errors ? 'danger' : 'success',
+            'text' => 'Booking '.$booking->booking_number.' checked-in details updated.'
+                .($identity_save_errors ? ' A document could not be stored: '.reset($identity_save_errors) : ''),
         ));
         redirect($page_context === 'checkins' ? 'customers/checkins' : 'customers/bookings');
     }
@@ -1068,36 +1098,71 @@ class Customers extends Secure_Controller
      * outside the public tree; access is only possible here, behind the guard.
      *
      * @param int $identity_id
+     * @param int $slot 1 = front/file, 2 = back image
      */
-    public function identity_file($identity_id = NULL)
+    public function identity_file($identity_id = NULL, $slot = 1)
     {
         $identity = $identity_id ? $this->Customer_model->get_identity($identity_id) : NULL;
-        if ( ! $identity || empty($identity->document_path)) { show_404(); return; }
-
-        // Resolve + confine the path to the secure base (defence in depth).
-        $rel = str_replace(array('\\', '..'), array('/', ''), $identity->document_path);
-        $abs = SECURE_UPLOAD_PATH.str_replace('/', DIRECTORY_SEPARATOR, $rel);
-
-        if ( ! is_file($abs)) { show_404(); return; }
+        $slot = (int) $slot;
+        if ( ! $identity || ! in_array($slot, array(1, 2), TRUE)) { show_404(); return; }
+        $field = $slot === 2 ? 'document_path_2' : 'document_path';
+        $path  = isset($identity->$field) ? $identity->$field : NULL;
+        $abs   = $this->_secure_upload_file($path);
+        if ($abs === NULL) { show_404(); return; }
 
         $mimes = array(
             'pdf' => 'application/pdf', 'png' => 'image/png',
             'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
         );
         $ext  = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
-        $mime = isset($mimes[$ext]) ? $mimes[$ext] : 'application/octet-stream';
+        if ( ! isset($mimes[$ext])) { show_404(); return; }
+        $mime = $mimes[$ext];
 
-        // Inline display (opens in a new tab); switch to 'attachment' to force download.
+        // Stored identity documents are sensitive and must not be MIME-sniffed,
+        // embedded by another site, or retained in a shared browser cache.
+        $safe_name = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($abs));
+
         $this->output
             ->set_content_type($mime)
-            ->set_header('Content-Disposition: inline; filename="'.basename($abs).'"')
+            ->set_header('Content-Disposition: inline; filename="'.$safe_name.'"')
             ->set_header('Content-Length: '.filesize($abs))
+            ->set_header('X-Content-Type-Options: nosniff')
+            ->set_header('Content-Security-Policy: default-src \'none\'; img-src \'self\' data:; style-src \'unsafe-inline\'; sandbox')
+            ->set_header('Cache-Control: private, no-store, max-age=0')
+            ->set_header('Pragma: no-cache')
             ->set_output(file_get_contents($abs));
     }
 
     // ---------------------------------------------------------------------
     //  Helpers
     // ---------------------------------------------------------------------
+
+    /** Resolve a DB-relative upload path and prove it remains in the secure root. */
+    private function _secure_upload_file($relative)
+    {
+        if ( ! is_string($relative) || $relative === '' || strpos($relative, "\0") !== FALSE) {
+            return NULL;
+        }
+        $relative = str_replace('\\', '/', $relative);
+        if (
+            $relative[0] === '/'
+            || preg_match('/^[A-Za-z]:/', $relative)
+            || in_array('..', explode('/', $relative), TRUE)
+        ) {
+            return NULL;
+        }
+
+        $base = realpath(SECURE_UPLOAD_PATH);
+        $file = realpath(SECURE_UPLOAD_PATH.str_replace('/', DIRECTORY_SEPARATOR, $relative));
+        if ($base === FALSE || $file === FALSE || ! is_file($file)) {
+            return NULL;
+        }
+        $prefix = rtrim($base, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+        $inside = DIRECTORY_SEPARATOR === '\\'
+            ? stripos($file, $prefix) === 0
+            : strpos($file, $prefix) === 0;
+        return $inside ? $file : NULL;
+    }
 
     /**
      * Upload a single document into the customer's secure folder, replacing
@@ -1117,27 +1182,34 @@ class Customers extends Secure_Controller
             return NULL; // nothing uploaded for this slot
         }
 
+        if ( ! preg_match('/^[A-Za-z0-9_-]{1,40}$/', (string) $code)) {
+            $error = 'The customer upload folder is invalid.';
+            return NULL;
+        }
+
         $dir = SECURE_UPLOAD_PATH.'customers'.DIRECTORY_SEPARATOR.$code.DIRECTORY_SEPARATOR;
         if ( ! is_dir($dir) && ! @mkdir($dir, 0755, TRUE)) {
             $error = 'Could not create the upload folder. Check permissions.';
             return NULL;
         }
 
-        // Remove any previous file(s) for this slot (any extension).
-        foreach (glob($dir.$base_name.'.*') as $prev) {
-            @unlink($prev);
-        }
-        if ($old_path) {
-            $old_abs = SECURE_UPLOAD_PATH.str_replace('/', DIRECTORY_SEPARATOR, $old_path);
-            if (is_file($old_abs)) { @unlink($old_abs); }
+        // Use a new unpredictable name. The old document is deleted only after
+        // the replacement has passed validation and has been written safely.
+        try {
+            $suffix = bin2hex(random_bytes(12));
+        } catch (Exception $exception) {
+            $suffix = sha1(uniqid((string) mt_rand(), TRUE));
         }
 
         $config = array(
             'upload_path'   => $dir,
             'allowed_types' => self::UPLOAD_TYPES,
             'max_size'      => self::UPLOAD_MAX_KB,
-            'file_name'     => $base_name,   // extension appended by the library
-            'overwrite'     => TRUE,
+            'file_name'     => $base_name.'_'.$suffix,
+            'overwrite'     => FALSE,
+            'remove_spaces' => TRUE,
+            'detect_mime'   => TRUE,
+            'mod_mime_fix'  => TRUE,
         );
 
         $this->load->library('upload');
@@ -1149,32 +1221,203 @@ class Customers extends Secure_Controller
         }
 
         $info = $this->upload->data();
+        $stored_abs = $dir.$info['file_name'];
+        $stored_file = array(
+            'name'     => $info['file_name'],
+            'type'     => $info['file_type'],
+            'tmp_name' => $stored_abs,
+            'error'    => UPLOAD_ERR_OK,
+            'size'     => $info['file_size'] * 1024,
+        );
+        $post_write_error = $this->identity_upload_guard->validate($stored_file, TRUE, FALSE);
+        if ($post_write_error !== NULL) {
+            @unlink($stored_abs);
+            $error = $post_write_error;
+            return NULL;
+        }
+
+        $old_abs = $this->_secure_upload_file($old_path);
+        if ($old_abs !== NULL && $old_abs !== realpath($stored_abs)) {
+            @unlink($old_abs);
+        }
+
         // Store path relative to SECURE_UPLOAD_PATH, with forward slashes.
         return 'customers/'.$code.'/'.$info['file_name'];
+    }
+
+    /** Normalize one identity_document_N[] entry without trusting its shape. */
+    private function _identity_upload_entry($field, $index)
+    {
+        $empty = array(
+            'name' => '', 'type' => '', 'tmp_name' => '',
+            'error' => UPLOAD_ERR_NO_FILE, 'size' => 0,
+        );
+        if ( ! isset($_FILES[$field])) {
+            return $empty;
+        }
+        if ( ! is_array($_FILES[$field])) {
+            return array('name' => array(), 'type' => '', 'tmp_name' => '', 'error' => '', 'size' => '');
+        }
+        foreach ($empty as $key => $default) {
+            if ( ! isset($_FILES[$field][$key]) || ! is_array($_FILES[$field][$key])) {
+                return array('name' => array(), 'type' => '', 'tmp_name' => '', 'error' => '', 'size' => '');
+            }
+            $empty[$key] = array_key_exists($index, $_FILES[$field][$key])
+                ? $_FILES[$field][$key][$index]
+                : $default;
+        }
+        return $empty;
+    }
+
+    /** Validate every submitted identity upload before any customer data changes. */
+    private function _identity_upload_error($customer_id = 0, $booking_id = NULL)
+    {
+        $types = (array) $this->input->post('identity_type');
+        $numbers = (array) $this->input->post('identity_number');
+        $row_ids = (array) $this->input->post('identity_id');
+        $remove_fronts = (array) $this->input->post('identity_document_remove_1');
+        $remove_backs = (array) $this->input->post('identity_document_remove_2');
+        $valid_types = array_keys($this->_identity_types());
+        if (count($types) > self::MAX_IDENTITY_ROWS) {
+            return 'A maximum of '.self::MAX_IDENTITY_ROWS.' identity proofs can be saved at once.';
+        }
+
+        // Reject file indexes that do not map to a submitted identity row.
+        foreach (array('identity_document_1', 'identity_document_2') as $field) {
+            if ( ! isset($_FILES[$field])) { continue; }
+            if ( ! is_array($_FILES[$field]) || ! isset($_FILES[$field]['name']) || ! is_array($_FILES[$field]['name'])) {
+                return 'The uploaded document has an invalid request format.';
+            }
+            foreach ($_FILES[$field]['name'] as $index => $name) {
+                if (
+                    (! is_int($index) && ! ctype_digit((string) $index))
+                    || (int) $index >= count($types)
+                    || ! is_scalar($name)
+                ) {
+                    return 'The uploaded document does not match an identity proof row.';
+                }
+            }
+        }
+
+        foreach (array($remove_fronts, $remove_backs) as $removals) {
+            foreach ($removals as $index => $remove) {
+                if (
+                    (! is_int($index) && ! ctype_digit((string) $index))
+                    || (int) $index >= count($types)
+                    || ! is_scalar($remove)
+                    || ! in_array((string) $remove, array('0', '1'), TRUE)
+                ) {
+                    return 'The document removal request has an invalid format.';
+                }
+            }
+        }
+
+        foreach ($types as $index => $type) {
+            if (
+                (! is_int($index) && ! ctype_digit((string) $index))
+                || ! is_scalar($type)
+                || (isset($numbers[$index]) && ! is_scalar($numbers[$index]))
+                || (isset($row_ids[$index]) && ! is_scalar($row_ids[$index]))
+            ) {
+                return 'The identity proof row has an invalid request format.';
+            }
+            $existing_identity = NULL;
+            if (isset($row_ids[$index]) && (string) $row_ids[$index] !== '') {
+                $existing_identity = $this->Customer_model->get_identity((int) $row_ids[$index]);
+                if ( ! $this->_identity_belongs_to_scope($existing_identity, $customer_id, $booking_id)) {
+                    return 'The identity proof does not belong to this booking.';
+                }
+            }
+            $front = $this->_identity_upload_entry('identity_document_1', $index);
+            $back  = $this->_identity_upload_entry('identity_document_2', $index);
+            $has_front = $this->identity_upload_guard->is_present($front);
+            $has_back  = $this->identity_upload_guard->is_present($back);
+            $remove_front = isset($remove_fronts[$index]) && (string) $remove_fronts[$index] === '1';
+            $remove_back = isset($remove_backs[$index]) && (string) $remove_backs[$index] === '1';
+            if (($has_front && $remove_front) || ($has_back && $remove_back)) {
+                return 'Identity row '.((int) $index + 1).': an image cannot be uploaded and removed at the same time.';
+            }
+            if (($has_front || $has_back) && ! in_array(trim((string) $type), $valid_types, TRUE)) {
+                return 'Select a valid ID Proof Type before uploading its document.';
+            }
+
+            $error = $this->identity_upload_guard->validate($front, TRUE, TRUE);
+            if ($error !== NULL) { return 'Identity row '.((int) $index + 1).': '.$error; }
+            $error = $this->identity_upload_guard->validate($back, FALSE, TRUE);
+            if ($error !== NULL) { return 'Identity row '.((int) $index + 1).': '.$error; }
+
+            $front_is_pdf = $has_front
+                && strtolower(pathinfo((string) $front['name'], PATHINFO_EXTENSION)) === 'pdf';
+            if ($front_is_pdf && $has_back) {
+                return 'Identity row '.((int) $index + 1).': choose either one PDF or Image 1/Image 2, not both.';
+            }
+
+            // A new back cannot be attached to a previously stored PDF unless
+            // the same request also replaces that PDF with a front image.
+            if ($has_back && ! $has_front && ! $remove_front && $existing_identity) {
+                if (
+                    strtolower(pathinfo((string) $existing_identity->document_path, PATHINFO_EXTENSION)) === 'pdf'
+                ) {
+                    return 'Identity row '.((int) $index + 1).': replace the PDF with Image 1 before adding Image 2.';
+                }
+            }
+        }
+        return NULL;
+    }
+
+    /** Prove an identity row belongs to both the customer and document scope. */
+    private function _identity_belongs_to_scope($identity, $customer_id, $booking_id)
+    {
+        if ( ! $identity || (int) $identity->customer_id !== (int) $customer_id) {
+            return FALSE;
+        }
+        $row_booking_id = isset($identity->booking_id) && $identity->booking_id !== NULL
+            ? (int) $identity->booking_id
+            : NULL;
+        return $booking_id === NULL
+            ? $row_booking_id === NULL
+            : $row_booking_id === (int) $booking_id;
+    }
+
+    /** Per-session CSRF guard for the two forms that accept identity files. */
+    private function _valid_customer_write_token()
+    {
+        $expected = (string) $this->session->userdata('customer_write_token');
+        $received = (string) $this->input->post('customer_write_token');
+        return $expected !== '' && $received !== '' && hash_equals($expected, $received);
     }
 
     /**
      * Persist the dynamic identity-proof rows for a customer:
      *   - existing rows are updated, new rows inserted
-     *   - a freshly uploaded document replaces that row's file
+     *   - freshly uploaded front/back files replace their matching slots
+     *   - individually removed images are cleared from DB and secure storage
      *   - rows removed on the form are deleted (with their files)
      *
      * @param int    $customer_id
      * @param string $code  customer_code (upload folder)
      */
-    private function _save_identities($customer_id, $code)
+    private function _save_identities($customer_id, $code, $booking_id = NULL)
     {
         $types   = (array) $this->input->post('identity_type');
         $numbers = (array) $this->input->post('identity_number');
         $row_ids = (array) $this->input->post('identity_id');
+        $remove_fronts = (array) $this->input->post('identity_document_remove_1');
+        $remove_backs = (array) $this->input->post('identity_document_remove_2');
         $valid   = array_keys($this->_identity_types());
 
         $keep = array();
+        $errors = array();
         foreach ($types as $i => $type) {
             $type   = trim((string) $type);
             $number = isset($numbers[$i]) ? trim((string) $numbers[$i]) : '';
             $rid    = (isset($row_ids[$i]) && $row_ids[$i] !== '') ? (int) $row_ids[$i] : 0;
-            $hasfile = ! empty($_FILES['identity_document']['name'][$i]);
+            $front_file = $this->_identity_upload_entry('identity_document_1', $i);
+            $back_file  = $this->_identity_upload_entry('identity_document_2', $i);
+            $has_front  = $this->identity_upload_guard->is_present($front_file);
+            $has_back   = $this->identity_upload_guard->is_present($back_file);
+            $remove_front = isset($remove_fronts[$i]) && (string) $remove_fronts[$i] === '1';
+            $remove_back = isset($remove_backs[$i]) && (string) $remove_backs[$i] === '1';
 
             // A row is meaningful only when a valid identity type is chosen.
             if ($type === '' || ! in_array($type, $valid, TRUE)) {
@@ -1182,11 +1425,13 @@ class Customers extends Secure_Controller
             }
 
             $existing_row = $rid ? $this->Customer_model->get_identity($rid) : NULL;
-            $belongs = $existing_row && (int) $existing_row->customer_id === (int) $customer_id;
+            $belongs = $this->_identity_belongs_to_scope($existing_row, $customer_id, $booking_id);
 
             $fields = array(
                 'identity_type'   => $type,
-                'identity_number' => $number !== '' ? $number : NULL,
+                'identity_number' => $number !== ''
+                    ? (function_exists('mb_substr') ? mb_substr($number, 0, 50) : substr($number, 0, 50))
+                    : NULL,
             );
 
             if ($belongs) {
@@ -1194,48 +1439,97 @@ class Customers extends Secure_Controller
                 $iid = $rid;
             } else {
                 $fields['customer_id'] = $customer_id;
+                $fields['booking_id'] = $booking_id === NULL ? NULL : (int) $booking_id;
                 $iid = $this->Customer_model->insert_identity($fields);
             }
             $keep[] = $iid;
 
-            if ($hasfile) {
-                $err  = NULL;
-                $old  = $belongs ? $existing_row->document_path : NULL;
-                $path = $this->_upload_identity_file($i, $code, 'identity_'.$iid, $old, $err);
-                if ($path !== NULL) {
-                    $this->Customer_model->update_identity($iid, $customer_id, array('document_path' => $path));
+            if ($belongs) {
+                foreach (array(
+                    'document_path' => array($remove_front, $has_front),
+                    'document_path_2' => array($remove_back, $has_back),
+                ) as $path_field => $removal) {
+                    if ( ! $removal[0] || $removal[1] || empty($existing_row->$path_field)) {
+                        continue;
+                    }
+                    $old_path = $existing_row->$path_field;
+                    if ($this->Customer_model->update_identity($iid, $customer_id, array($path_field => NULL))) {
+                        $this->_delete_identity_path($old_path);
+                        $existing_row->$path_field = NULL;
+                    } else {
+                        $errors[] = 'Image removal could not be saved.';
+                    }
                 }
+            }
+
+            $front_replacement_saved = FALSE;
+            foreach (array(
+                1 => array('identity_document_1', 'document_path'),
+                2 => array('identity_document_2', 'document_path_2'),
+            ) as $slot => $upload) {
+                $has_file = $slot === 1 ? $has_front : $has_back;
+                if ( ! $has_file) { continue; }
+                $path_field = $upload[1];
+                $err = NULL;
+                $old = ($belongs && isset($existing_row->$path_field)) ? $existing_row->$path_field : NULL;
+                $path = $this->_upload_identity_file(
+                    $upload[0],
+                    $i,
+                    $code,
+                    'identity_'.$iid.'_side'.$slot,
+                    $old,
+                    $err
+                );
+                if ($path !== NULL) {
+                    $this->Customer_model->update_identity($iid, $customer_id, array($path_field => $path));
+                    if ($slot === 1) { $front_replacement_saved = TRUE; }
+                } elseif ($err) {
+                    $errors[] = $err;
+                }
+            }
+
+            // A PDF represents the complete document, so replacing the front
+            // with a PDF removes any old back-side image.
+            if (
+                $has_front
+                && $front_replacement_saved
+                && strtolower(pathinfo((string) $front_file['name'], PATHINFO_EXTENSION)) === 'pdf'
+                && $belongs
+                && ! empty($existing_row->document_path_2)
+            ) {
+                $this->_delete_identity_path($existing_row->document_path_2);
+                $this->Customer_model->update_identity($iid, $customer_id, array('document_path_2' => NULL));
             }
         }
 
         // Remove identity rows the user deleted on the form (and their files).
-        foreach ($this->Customer_model->identities_to_remove($customer_id, $keep) as $gone) {
-            if ( ! empty($gone->document_path)) {
-                $abs = SECURE_UPLOAD_PATH.str_replace('/', DIRECTORY_SEPARATOR, $gone->document_path);
-                if (is_file($abs)) { @unlink($abs); }
-            }
+        foreach ($this->Customer_model->identities_to_remove($customer_id, $keep, $booking_id) as $gone) {
+            $this->_delete_identity_path($gone->document_path);
+            $this->_delete_identity_path(isset($gone->document_path_2) ? $gone->document_path_2 : NULL);
             $this->Customer_model->delete_identity($gone->id, $customer_id);
         }
+        return $errors;
+    }
+
+    private function _delete_identity_path($path)
+    {
+        $absolute = $this->_secure_upload_file($path);
+        if ($absolute !== NULL) { @unlink($absolute); }
     }
 
     /**
-     * Upload the indexed identity document (from the identity_document[] array)
-     * by re-mapping it to a single-file field the upload library can consume.
+     * Upload one indexed front/back input by re-mapping it to the single-file
+     * field expected by CodeIgniter's upload library.
      *
      * @return string|null DB-relative path, or NULL when nothing uploaded.
      */
-    private function _upload_identity_file($index, $code, $base_name, $old_path, &$error)
+    private function _upload_identity_file($source_field, $index, $code, $base_name, $old_path, &$error)
     {
-        if (empty($_FILES['identity_document']['name'][$index])) {
+        $entry = $this->_identity_upload_entry($source_field, $index);
+        if ( ! $this->identity_upload_guard->is_present($entry)) {
             return NULL;
         }
-        $_FILES['identity_upload'] = array(
-            'name'     => $_FILES['identity_document']['name'][$index],
-            'type'     => $_FILES['identity_document']['type'][$index],
-            'tmp_name' => $_FILES['identity_document']['tmp_name'][$index],
-            'error'    => $_FILES['identity_document']['error'][$index],
-            'size'     => $_FILES['identity_document']['size'][$index],
-        );
+        $_FILES['identity_upload'] = $entry;
         return $this->_handle_upload('identity_upload', $code, $base_name, $old_path, $error);
     }
 
@@ -1304,7 +1598,7 @@ class Customers extends Secure_Controller
                 $this->_date($this->input->post('scheduled_check_out_date'))
             ),
             'identity_types' => $this->_identity_types(),
-            'identities'     => $this->Customer_model->get_identities($customer->id),
+            'identities'     => $this->Customer_model->get_identities($customer->id, $booking_id),
             'page_error'     => $message,
         );
 

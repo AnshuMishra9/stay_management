@@ -95,6 +95,13 @@
         var modal = doc.getElementById('invBookingModal');
         var modalBody = doc.getElementById('invBookingModalBody');
         var modalClose = doc.getElementById('invBookingClose');
+        var detailBackdrop = doc.getElementById('invGuestBackdrop');
+        var detailModal = doc.getElementById('invGuestModal');
+        var detailBody = doc.getElementById('invGuestModalBody');
+        var detailClose = doc.getElementById('invGuestClose');
+        var detailAction = doc.getElementById('invGuestAction');
+        var detailTitle = doc.getElementById('invGuestModalTitle');
+        var detailSubtitle = doc.getElementById('invGuestModalSubtitle');
 
         if (!popup || !createButton || !backdrop || !modalBody || !config.formUrl) {
             return;
@@ -112,6 +119,18 @@
         var modalInvoker = null;
         var loadRequest = 0;
         var rangeCheckRequest = 0;
+        var detailInvoker = null;
+        var detailRequest = 0;
+        var detailEnabled = !!(
+            detailBackdrop && detailModal && detailBody && detailClose
+            && detailAction && detailTitle && detailSubtitle && config.detailUrl
+        );
+
+        function syncBodyModalState() {
+            var bookingOpen = backdrop && !backdrop.hidden;
+            var detailOpen = detailBackdrop && !detailBackdrop.hidden;
+            doc.body.classList.toggle('inv-modal-open', bookingOpen || detailOpen);
+        }
 
         function effectiveToday() {
             var browserToday = localToday();
@@ -364,6 +383,17 @@
         // makes the full visible cell (including the "Available" label) clickable.
         doc.addEventListener('click', function (event) {
             if (!event.target || !event.target.closest) { return; }
+            var occupiedButton = event.target.closest('button.inv-room-slot[data-booking-id]');
+            if (!occupiedButton) {
+                var occupiedCell = event.target.closest('td.inv-cell-occupied');
+                occupiedButton = occupiedCell && occupiedCell.querySelector('button.inv-room-slot[data-booking-id]');
+            }
+            if (occupiedButton) {
+                event.preventDefault();
+                openGuestDetails(occupiedButton);
+                return;
+            }
+
             var button = event.target.closest('button.inv-room-slot[data-bookable="1"]');
             if (!button) {
                 var cell = event.target.closest('td.inv-cell-bookable');
@@ -431,6 +461,225 @@
             return el.innerHTML;
         }
 
+        function detailValue(value) {
+            if (value === null || value === undefined || value === '') { return '&mdash;'; }
+            return escapeHtml(String(value));
+        }
+
+        function detailDate(value) {
+            if (!value) { return '&mdash;'; }
+            return escapeHtml(formatDate(String(value).slice(0, 10)));
+        }
+
+        function detailDateTime(value) {
+            if (!value) { return '&mdash;'; }
+            var raw = String(value);
+            var date = formatDate(raw.slice(0, 10));
+            var timeMatch = /[ T](\d{2}:\d{2})/.exec(raw);
+            return escapeHtml(date + (timeMatch ? ' \u00b7 ' + timeMatch[1] : ''));
+        }
+
+        function detailItem(label, value, valueIsHtml) {
+            return '<div class="erp-detail-item">'
+                + '<div class="k">' + escapeHtml(label) + '</div>'
+                + '<div class="v">' + (valueIsHtml ? value : detailValue(value)) + '</div>'
+                + '</div>';
+        }
+
+        function detailStatusClass(status) {
+            var classes = {
+                room_booked: 'erp-badge-confirmed',
+                checked_in: 'erp-badge-checkedin',
+                checked_out: 'erp-badge-checkedout',
+                cancelled: 'erp-badge-cancelled',
+                no_show: 'erp-badge-noshow'
+            };
+            return classes[status] || 'erp-badge-active';
+        }
+
+        function detailStatusLabel(status) {
+            var labels = {
+                room_booked: 'Room Booked',
+                checked_in: 'Checked In',
+                checked_out: 'Checked Out',
+                cancelled: 'Cancelled',
+                no_show: 'No Show'
+            };
+            return labels[status] || 'Current status';
+        }
+
+        function workflowAction(status, bookingId, workflow) {
+            var definitions = {
+                room_booked: { label: 'Check-in' },
+                checked_in: { label: 'Check-out' },
+                checked_out: { label: 'View record' }
+            };
+            var definition = definitions[status];
+            var serverUrl = workflow && workflow.url;
+            if (!definition || !serverUrl || !Number.isInteger(bookingId) || bookingId < 1) { return null; }
+
+            try {
+                var url = new URL(String(serverUrl), global.location.href);
+                if (url.origin !== global.location.origin) { return null; }
+                if (!new RegExp('/' + bookingId + '/?$').test(url.pathname)) { return null; }
+                return { label: definition.label, url: url.href };
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function loadingDetailMarkup() {
+            return '<div class="inv-detail-loading" role="status">'
+                + '<span class="erp-spinner" aria-hidden="true"></span>'
+                + '<span>Loading guest details&hellip;</span>'
+                + '</div>';
+        }
+
+        function renderGuestDetails(booking) {
+            var status = String(booking.status_code || '');
+            var bookingId = Number.parseInt(booking.id, 10);
+            var statusName = booking.status_name || detailStatusLabel(status);
+            var action = workflowAction(status, bookingId, booking.workflow);
+            var room = booking.allotted_room_no || 'Room not assigned';
+            var dates = detailDate(booking.scheduled_check_in_date) + ' &ndash; '
+                + detailDate(booking.scheduled_check_out_date);
+            var meta = [];
+            if (booking.phone) { meta.push(String(booking.phone)); }
+            if (booking.customer_code) { meta.push(String(booking.customer_code)); }
+
+            detailTitle.textContent = booking.booking_number
+                ? 'Booking ' + booking.booking_number
+                : 'Booking Details';
+            detailSubtitle.textContent = room + ' \u00b7 ' + formatDate(String(booking.scheduled_check_in_date || '').slice(0, 10));
+
+            if (action) {
+                detailAction.textContent = action.label;
+                detailAction.href = action.url;
+                detailAction.hidden = false;
+            } else {
+                detailAction.hidden = true;
+                detailAction.removeAttribute('href');
+                detailAction.textContent = '';
+            }
+
+            var activity = '';
+            if (booking.checked_in_at || booking.checked_out_at) {
+                activity = '<div class="inv-detail-section">'
+                    + '<div class="erp-section-title">Stay Activity</div>'
+                    + '<div class="erp-detail-grid">'
+                    + detailItem('Checked-in At', detailDateTime(booking.checked_in_at), true)
+                    + detailItem('Checked-out At', detailDateTime(booking.checked_out_at), true)
+                    + '</div></div>';
+            }
+
+            detailBody.innerHTML = '<div class="inv-detail-summary">'
+                + '<div class="inv-detail-guest">'
+                + '<div class="inv-detail-guest-name">' + detailValue(booking.customer_name) + '</div>'
+                + '<div class="inv-detail-guest-meta">' + (meta.length ? escapeHtml(meta.join(' \u00b7 ')) : 'Guest details') + '</div>'
+                + '</div>'
+                + '<span class="erp-badge ' + detailStatusClass(status) + '">' + escapeHtml(statusName) + '</span>'
+                + '</div>'
+                + '<div class="inv-detail-section">'
+                + '<div class="erp-section-title">Customer</div>'
+                + '<div class="erp-detail-grid">'
+                + detailItem('Customer Name', booking.customer_name)
+                + detailItem('Mobile No', booking.phone)
+                + detailItem('Customer ID', booking.customer_code)
+                + detailItem('Country', booking.country)
+                + '</div></div>'
+                + '<div class="inv-detail-section">'
+                + '<div class="erp-section-title">Booking</div>'
+                + '<div class="erp-detail-grid">'
+                + detailItem('Booking No', booking.booking_number)
+                + detailItem('Room No', booking.allotted_room_no)
+                + detailItem('Room Category', booking.room_category)
+                + detailItem('Stay Dates', dates, true)
+                + detailItem('Total Guests', booking.total_guest)
+                + detailItem('Channel', booking.channel_name)
+                + '</div></div>'
+                + activity
+                + (action ? '' : '<div class="inv-detail-note" role="status">No action is available for the booking\'s current status.</div>');
+        }
+
+        function showDetailError(message) {
+            detailTitle.textContent = 'Booking Details';
+            detailSubtitle.textContent = 'Details could not be loaded';
+            detailAction.hidden = true;
+            detailAction.removeAttribute('href');
+            detailAction.textContent = '';
+            detailBody.innerHTML = '<div class="erp-alert erp-alert-danger inv-detail-error" role="alert">'
+                + escapeHtml(message || 'Guest details could not be loaded. Please try again.')
+                + '</div>';
+        }
+
+        function openGuestDetails(invoker) {
+            if (!detailEnabled) { return; }
+            var rawId = invoker.getAttribute('data-booking-id') || '';
+            if (!/^\d+$/.test(rawId)) { return; }
+            var bookingId = Number.parseInt(rawId, 10);
+            if (!Number.isInteger(bookingId) || bookingId < 1) { return; }
+
+            detailInvoker = invoker;
+            detailBackdrop.hidden = false;
+            syncBodyModalState();
+            detailTitle.textContent = 'Booking Details';
+            detailSubtitle.textContent = 'Loading current details\u2026';
+            detailAction.hidden = true;
+            detailAction.removeAttribute('href');
+            detailAction.textContent = '';
+            detailBody.innerHTML = loadingDetailMarkup();
+            detailClose.focus();
+
+            var requestId = ++detailRequest;
+            var detailUrl = String(config.detailUrl).replace(/\/+$/, '') + '/' + bookingId;
+            global.fetch(detailUrl, {
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).then(function (response) {
+                var contentType = response.headers.get('content-type') || '';
+                if (contentType.indexOf('application/json') === -1) {
+                    throw new Error(response.redirected
+                        ? 'Your session has expired. Sign in again to view booking details.'
+                        : 'Guest details could not be loaded.');
+                }
+                return response.json().then(function (payload) {
+                    return { response: response, payload: payload };
+                });
+            }).then(function (result) {
+                if (requestId !== detailRequest) { return; }
+                var booking = result.payload && result.payload.data;
+                if (!result.response.ok || !result.payload || !result.payload.status || !booking) {
+                    throw new Error(result.payload && result.payload.message
+                        ? result.payload.message
+                        : 'Guest details could not be loaded.');
+                }
+                if (Number.parseInt(booking.id, 10) !== bookingId) {
+                    throw new Error('The booking details did not match the selected room.');
+                }
+                renderGuestDetails(booking);
+            }).catch(function (error) {
+                if (requestId !== detailRequest) { return; }
+                showDetailError(error.message);
+            });
+        }
+
+        function closeGuestDetails(restoreFocus) {
+            if (!detailEnabled) { return; }
+            detailRequest++;
+            detailBackdrop.hidden = true;
+            detailBody.innerHTML = '';
+            detailAction.hidden = true;
+            detailAction.removeAttribute('href');
+            syncBodyModalState();
+            if (restoreFocus && detailInvoker && doc.contains(detailInvoker)) {
+                detailInvoker.focus();
+            }
+        }
+
         function initializeInjectedForm() {
             if (global.SearchableSelect && global.SearchableSelect.init) {
                 global.SearchableSelect.init(modalBody);
@@ -446,7 +695,7 @@
             if (!selection) { return; }
             modalInvoker = doc.activeElement;
             backdrop.hidden = false;
-            doc.body.classList.add('inv-modal-open');
+            syncBodyModalState();
             modalBody.innerHTML = loadingMarkup();
             modalClose.focus();
 
@@ -484,7 +733,7 @@
         function closeBookingModal(restoreFocus) {
             loadRequest++;
             backdrop.hidden = true;
-            doc.body.classList.remove('inv-modal-open');
+            syncBodyModalState();
             modalBody.innerHTML = '';
             if (restoreFocus && modalInvoker && doc.contains(modalInvoker)) {
                 modalInvoker.focus();
@@ -608,6 +857,35 @@
         modalClose.addEventListener('click', function () { closeBookingModal(true); });
         createButton.addEventListener('click', openBookingModal);
         clearButton.addEventListener('click', function () { clearSelection(true); });
+
+        if (detailEnabled) {
+            detailBackdrop.addEventListener('click', function (event) {
+                if (event.target === detailBackdrop) { closeGuestDetails(true); }
+            });
+            detailClose.addEventListener('click', function () { closeGuestDetails(true); });
+            detailBackdrop.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closeGuestDetails(true);
+                    return;
+                }
+                if (event.key !== 'Tab') { return; }
+                var focusable = Array.prototype.filter.call(
+                    detailModal.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'),
+                    function (element) { return element.offsetParent !== null; }
+                );
+                if (!focusable.length) { return; }
+                var first = focusable[0];
+                var last = focusable[focusable.length - 1];
+                if (event.shiftKey && doc.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && doc.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            });
+        }
 
         // Restores the range after Inventory Previous/Next reloads. The stored
         // selection is per-tab, short-lived, and cleared after save or Clear.

@@ -63,6 +63,7 @@ $route['auth/verify_otp'] = 'auth/verify_otp';
 $route['dashboard']       = 'rooms/index';   // legacy alias -> Room Master
 $route['inventory']       = 'inventory/index';   // room availability calendar
 $route['inventory/booking_form'] = 'customers/inventory_booking_form'; // modal form fragment
+$route['inventory/booking_detail/(:num)'] = 'inventory/booking_detail/$1'; // occupied-room guest popup
 
 // Customers Master
 $route['customers']              = 'customers/index';

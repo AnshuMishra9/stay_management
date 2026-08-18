@@ -96,13 +96,13 @@ class Inventory_model extends CI_Model
      * with categories_with_totals() (which counts active rooms only): a booking
      * on a de-activated room resolves to a NULL category and is skipped.
      *
-     * @return array of {room_id, room_category_id, room_quantity, total_unit,
+     * @return array of {booking_id, room_id, room_category_id, room_quantity, total_unit,
      *                   cin, cout, checked_in_at, checked_out_at, status_code, room_cat}
      */
     public function occupying_bookings()
     {
         return $this->db
-            ->select('b.room_id, b.room_category_id, b.room_quantity, b.total_unit,
+            ->select('b.id AS booking_id, b.room_id, b.room_category_id, b.room_quantity, b.total_unit,
                       b.scheduled_check_in_date AS cin, b.scheduled_check_out_date AS cout,
                       b.checked_in_at, b.checked_out_at, sm.status_code,
                       r.category_id AS room_cat')
@@ -111,6 +111,18 @@ class Inventory_model extends CI_Model
             ->join('rooms r', 'r.id = b.room_id AND r.is_active = 1', 'left')
             ->where_in('sm.status_code', $this->occupying)
             ->get()->result();
+    }
+
+    /** True only for a workflow booking assigned to an active inventory room. */
+    public function booking_is_inventory_visible($booking_id)
+    {
+        return $this->db
+            ->from('booking_details b')
+            ->join('status_master sm', 'sm.status_id = b.status_id', 'inner')
+            ->join('rooms r', 'r.id = b.room_id AND r.is_active = 1', 'inner')
+            ->where('b.id', (int) $booking_id)
+            ->where_in('sm.status_code', $this->occupying)
+            ->count_all_results() > 0;
     }
 
     /**
@@ -138,9 +150,13 @@ class Inventory_model extends CI_Model
         $rooms = $this->all_rooms_with_category($filters);
 
         // state[room_id][date] distinguishes a reservation from an in-house guest.
+        // booking_state mirrors the winning status so occupied calendar cells can
+        // open the exact booking without changing the availability calculation.
         $state = array();
+        $booking_state = array();
         foreach ($rooms as $r) {
             $state[(int) $r->id] = array_fill_keys($dates, 'available');
+            $booking_state[(int) $r->id] = array_fill_keys($dates, NULL);
         }
 
         $status_priority = array(
@@ -166,8 +182,12 @@ class Inventory_model extends CI_Model
                 // to offer, so show it as booked throughout the visible window.
                 if (in_array($b->status_code, array('room_booked', 'checked_in'), TRUE)) {
                     foreach ($dates as $dt) {
-                        if ($status_priority[$b->status_code] > $status_priority[$state[$room_id][$dt]]) {
+                        $current_booking_id = (int) $booking_state[$room_id][$dt];
+                        if ($status_priority[$b->status_code] > $status_priority[$state[$room_id][$dt]]
+                            || ($status_priority[$b->status_code] === $status_priority[$state[$room_id][$dt]]
+                                && (int) $b->booking_id > $current_booking_id)) {
                             $state[$room_id][$dt] = $b->status_code;
+                            $booking_state[$room_id][$dt] = (int) $b->booking_id;
                         }
                     }
                 }
@@ -193,8 +213,12 @@ class Inventory_model extends CI_Model
                 if ($dt >= $cin && ($cout === NULL || $dt < $cout)) {
                     // An active stay takes precedence over completed history if
                     // records overlap for the same room and date.
-                    if ($status_priority[$b->status_code] > $status_priority[$state[$room_id][$dt]]) {
+                    $current_booking_id = (int) $booking_state[$room_id][$dt];
+                    if ($status_priority[$b->status_code] > $status_priority[$state[$room_id][$dt]]
+                        || ($status_priority[$b->status_code] === $status_priority[$state[$room_id][$dt]]
+                            && (int) $b->booking_id > $current_booking_id)) {
                         $state[$room_id][$dt] = $b->status_code;
+                        $booking_state[$room_id][$dt] = (int) $b->booking_id;
                     }
                 }
             }
@@ -216,6 +240,7 @@ class Inventory_model extends CI_Model
             $avail = array();
             $booked = array();
             $room_status = array();
+            $room_booking_id = array();
             $occupied_count = 0;
 
             foreach ($dates as $dt) {
@@ -225,6 +250,7 @@ class Inventory_model extends CI_Model
                 $avail[$dt]  = $av;
                 $booked[$dt] = $bk;
                 $room_status[$dt] = $current_status;
+                $room_booking_id[$dt] = $booking_state[$rid][$dt];
                 $avail_totals[$dt]  += $av;
                 if ($current_status === 'room_booked') {
                     $booked_totals[$dt]++;
@@ -246,6 +272,7 @@ class Inventory_model extends CI_Model
                 'avail'     => $avail,
                 'booked'    => $booked,
                 'status'    => $room_status,
+                'booking_id' => $room_booking_id,
                 'occupied_count' => $occupied_count,
             );
         }

@@ -78,4 +78,89 @@ class Inventory extends Secure_Controller
 
         $this->load->view('inventory/calendar', $data);
     }
+
+    /**
+     * Minimal, read-only detail payload for an occupied inventory cell.
+     * The current database status is authoritative; document/identity records
+     * are intentionally omitted because this popup only identifies the guest.
+     */
+    public function booking_detail($booking_id = NULL)
+    {
+        $this->load->model('Customer_model');
+        $booking_id = is_numeric($booking_id) ? (int) $booking_id : 0;
+        $booking = $booking_id > 0
+            ? $this->Customer_model->get_booking_detail($booking_id)
+            : NULL;
+
+        if ( ! $booking) {
+            return $this->_json(array(
+                'status' => FALSE,
+                'message' => 'Booking not found. Refresh Inventory and try again.',
+            ), 404);
+        }
+
+        $workflow = array(
+            'room_booked' => array(
+                'label' => 'Check-in',
+                'url' => site_url('customers/bookings/checkin/'.$booking_id),
+            ),
+            'checked_in' => array(
+                'label' => 'Check-out',
+                'url' => site_url('customers/checkins/checkout/'.$booking_id),
+            ),
+            'checked_out' => array(
+                'label' => 'View record',
+                'url' => site_url('customers/checkedouts/details/'.$booking_id),
+            ),
+        );
+
+        if ( ! isset($workflow[$booking->status_code])) {
+            return $this->_json(array(
+                'status' => FALSE,
+                'message' => 'This booking status has changed. Refresh Inventory to see the latest availability.',
+            ), 409);
+        }
+
+        if ( ! $this->Inventory_model->booking_is_inventory_visible($booking_id)) {
+            return $this->_json(array(
+                'status' => FALSE,
+                'message' => 'This booking is no longer visible in Inventory. Refresh the page and try again.',
+            ), 404);
+        }
+
+        return $this->_json(array(
+            'status' => TRUE,
+            'data' => array(
+                'id' => (int) $booking->id,
+                'booking_number' => $booking->booking_number,
+                'customer_name' => $booking->customer_name,
+                'customer_code' => $booking->customer_code,
+                'phone' => $booking->phone,
+                'country' => $booking->country,
+                'allotted_room_no' => $booking->allotted_room_no,
+                'room_category' => $booking->room_category,
+                'scheduled_check_in_date' => $booking->scheduled_check_in_date,
+                'scheduled_check_out_date' => $booking->scheduled_check_out_date,
+                'total_guest' => $booking->total_guest,
+                'channel_name' => $booking->channel_name,
+                'checked_in_at' => $booking->checked_in_at,
+                'checked_out_at' => $booking->checked_out_at,
+                'status_name' => $booking->status_name,
+                'status_code' => $booking->status_code,
+                'workflow' => $workflow[$booking->status_code],
+            ),
+        ));
+    }
+
+    /** Send privacy-sensitive inventory JSON without allowing browser caches. */
+    private function _json(array $payload, $http_status = 200)
+    {
+        return $this->output
+            ->set_status_header((int) $http_status)
+            ->set_header('Cache-Control: private, no-store, max-age=0')
+            ->set_header('Pragma: no-cache')
+            ->set_header('X-Content-Type-Options: nosniff')
+            ->set_content_type('application/json')
+            ->set_output(json_encode($payload));
+    }
 }

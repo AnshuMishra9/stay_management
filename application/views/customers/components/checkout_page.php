@@ -218,9 +218,14 @@ $show_scheduled_dates = $scheduled_check_in_day
                     <div class="erp-detail-item">
                         <div class="k"><?= html_escape($identity->type_label) ?></div>
                         <div class="v"><?= html_escape($display($identity->identity_number)) ?></div>
-                        <?php if ($identity->document_url): ?>
+                        <?php if ($identity->document_url || $identity->document_url_2): ?>
                             <div class="identity-doc">
-                                <a class="erp-doc-link" href="<?= html_escape($identity->document_url) ?>" target="_blank">View Document</a>
+                                <?php if ($identity->document_url): ?>
+                                    <a class="erp-doc-link" href="<?= html_escape($identity->document_url) ?>" target="_blank" rel="noopener">View Front / File</a>
+                                <?php endif; ?>
+                                <?php if ($identity->document_url_2): ?>
+                                    <a class="erp-doc-link" href="<?= html_escape($identity->document_url_2) ?>" target="_blank" rel="noopener">View Back</a>
+                                <?php endif; ?>
                             </div>
                         <?php endif; ?>
                     </div>

@@ -42,6 +42,7 @@ $scheduled_check_out = $booking->scheduled_check_out_date
     <title><?= html_escape($page_title) ?> <?= html_escape($booking->booking_number) ?> &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>">
     <script>window.APP_BASE = "<?= base_url() ?>";</script>
 </head>
 <body class="erp-body">
@@ -49,9 +50,10 @@ $scheduled_check_out = $booking->scheduled_check_out_date
 <?php $this->load->view('layouts/erp_navbar', array('active' => $active_nav, 'back' => site_url($back_url))); ?>
 
 <div class="erp-wrap">
-    <form class="erp-card" data-booking-form data-booking-context="checkin" style="max-width:920px;margin:0 auto;" action="<?= site_url('customers/checkin_save') ?>" method="post" enctype="multipart/form-data" novalidate>
+    <form class="erp-card erp-checkin-card" data-booking-form data-booking-context="checkin" action="<?= site_url('customers/checkin_save') ?>" method="post" enctype="multipart/form-data" novalidate>
         <input type="hidden" name="booking_id" value="<?= (int) $booking->id ?>">
         <input type="hidden" name="page_context" value="<?= html_escape($page_context) ?>">
+        <input type="hidden" name="customer_write_token" value="<?= html_escape($this->session->userdata('customer_write_token')) ?>">
 
         <!-- Header -->
         <div class="erp-page-head">
@@ -76,7 +78,7 @@ $scheduled_check_out = $booking->scheduled_check_out_date
         <!-- ===== Customer ===== -->
         <div class="erp-form-section">
             <div class="erp-section-title">Customer</div>
-            <div class="erp-grid-2" style="margin-bottom:16px;">
+            <div class="erp-grid-2 erp-checkin-grid">
                 <div class="erp-form-field">
                     <label>Customer Name <span class="req">*</span></label>
                     <input class="erp-input" type="text" name="customer_name" required maxlength="150" value="<?= html_escape($cval('customer_name')) ?>">
@@ -94,12 +96,13 @@ $scheduled_check_out = $booking->scheduled_check_out_date
         <?php $this->load->view('customers/components/identity_proof', array(
             'identity_types' => $identity_types,
             'identities'     => $identities,
+            'identity_upload_error' => isset($identity_upload_error) ? $identity_upload_error : '',
         )); ?>
 
         <!-- ===== Status ===== -->
-        <div class="erp-form-section">
+        <div class="erp-form-section erp-checkin-status-section">
             <div class="erp-section-title">Status</div>
-            <div class="erp-grid-2">
+            <div class="erp-grid-2 erp-checkin-grid">
                 <div class="erp-form-field">
                     <label>Booking Status</label>
                     <?php if ($lock_status): ?>
@@ -115,7 +118,7 @@ $scheduled_check_out = $booking->scheduled_check_out_date
                 </div>
                 <div class="erp-form-field"></div>
             </div>
-            <div class="erp-grid-2" style="margin-top:16px;">
+            <div class="erp-grid-2 erp-checkin-grid">
                 <div class="erp-form-field">
                     <label>Scheduled Check-In <span class="req">*</span></label>
                     <input class="erp-input" type="date" id="bk_checkin" name="scheduled_check_in_date" required value="<?= html_escape(set_value('scheduled_check_in_date', $scheduled_check_in)) ?>">
@@ -127,7 +130,7 @@ $scheduled_check_out = $booking->scheduled_check_out_date
                     <?= form_error('scheduled_check_out_date', '<div class="erp-error">', '</div>') ?>
                 </div>
             </div>
-            <div class="erp-grid-2" style="margin-top:16px;">
+            <div class="erp-grid-2 erp-checkin-grid">
                 <div class="erp-form-field">
                     <label>Room Category</label>
                     <select class="erp-select" id="bk_room_category" name="room_category_id">

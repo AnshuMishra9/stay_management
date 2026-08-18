@@ -164,14 +164,18 @@ DROP TABLE IF EXISTS `customer_identities`;
 CREATE TABLE `customer_identities` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `customer_id` bigint(20) unsigned NOT NULL,
+  `booking_id` bigint(20) unsigned DEFAULT NULL,
   `identity_type` varchar(30) NOT NULL,
   `identity_number` varchar(50) DEFAULT NULL,
   `document_path` varchar(255) DEFAULT NULL,
+  `document_path_2` varchar(255) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_ci_customer` (`customer_id`),
-  CONSTRAINT `fk_ci_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `idx_ci_booking_customer` (`booking_id`,`customer_id`),
+  CONSTRAINT `fk_ci_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_ci_booking` FOREIGN KEY (`booking_id`) REFERENCES `booking_details` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -181,7 +185,11 @@ CREATE TABLE `customer_identities` (
 
 LOCK TABLES `customer_identities` WRITE;
 /*!40000 ALTER TABLE `customer_identities` DISABLE KEYS */;
-INSERT INTO `customer_identities` VALUES (1,10,'aadhar','234567890','customers/CUST00006/aadhar_card.png','2026-07-15 15:22:32',NULL),(2,10,'pan','234567890',NULL,'2026-07-15 15:22:32',NULL);
+INSERT INTO `customer_identities`
+  (`id`,`customer_id`,`booking_id`,`identity_type`,`identity_number`,`document_path`,`document_path_2`,`created_at`,`updated_at`)
+VALUES
+  (1,10,NULL,'aadhar','234567890','customers/CUST00006/aadhar_card.png',NULL,'2026-07-15 15:22:32',NULL),
+  (2,10,NULL,'pan','234567890',NULL,NULL,'2026-07-15 15:22:32',NULL);
 /*!40000 ALTER TABLE `customer_identities` ENABLE KEYS */;
 UNLOCK TABLES;
 

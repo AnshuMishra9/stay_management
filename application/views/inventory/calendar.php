@@ -25,6 +25,14 @@ $cell_class = function ($avail) {
 $room_cell_class = function ($status) {
     return $status === 'available' ? 'inv-a inv-a-ok' : 'inv-a inv-a-booked';
 };
+$booking_status_label = function ($status) {
+    $labels = array(
+        'room_booked' => 'Room Booked',
+        'checked_in'  => 'Checked In',
+        'checked_out' => 'Checked Out',
+    );
+    return isset($labels[$status]) ? $labels[$status] : 'Booked';
+};
 $navigation_query = function ($date) use ($filters) {
     $query = array(
         'start'       => $date,
@@ -49,6 +57,7 @@ $navigation_query = function ($date) use ($filters) {
         window.APP_BASE = <?= json_encode(base_url()) ?>;
         window.INVENTORY_BOOKING_CONFIG = {
             formUrl: <?= json_encode(site_url('inventory/booking_form')) ?>,
+            detailUrl: <?= json_encode(site_url('inventory/booking_detail')) ?>,
             today: <?= json_encode($today) ?>
         };
     </script>
@@ -131,7 +140,8 @@ $navigation_query = function ($date) use ($filters) {
 
         .inv-room-slot { border:0; font-family:inherit; transition:transform .12s ease, box-shadow .12s ease, outline-color .12s ease; }
         button.inv-room-slot { cursor:pointer; }
-        button.inv-room-slot:hover { transform:translateY(-1px); box-shadow:0 5px 12px rgba(21,128,61,.2); }
+        button.inv-room-slot[data-bookable="1"]:hover { transform:translateY(-1px); box-shadow:0 5px 12px rgba(21,128,61,.2); }
+        button.inv-room-slot[data-booking-id]:hover { transform:translateY(-1px); box-shadow:0 5px 12px rgba(180,83,9,.22); }
         button.inv-room-slot:focus-visible { outline:3px solid rgba(37,99,235,.38); outline-offset:2px; }
         .inv-room-slot.is-range-selected { outline:3px solid #2563eb; outline-offset:2px; transform:translateY(-1px); }
         .inv-room-slot.is-range-start, .inv-room-slot.is-range-end { background:#2563eb; color:#fff; }
@@ -139,6 +149,8 @@ $navigation_query = function ($date) use ($filters) {
         .inv-cell-bookable { cursor:pointer; transition:background-color .12s ease, box-shadow .12s ease; }
         .inv-cell-bookable:hover { background:#f0fdf4 !important; }
         .inv-cell-bookable.is-range-selected { background:#eff6ff !important; box-shadow:inset 0 -3px 0 #2563eb; }
+        .inv-cell-occupied { cursor:pointer; transition:background-color .12s ease; }
+        .inv-cell-occupied:hover { background:#fffaf0 !important; }
 
         .inv-total-row td { background:#fbfaff; }
         .inv-total-row .inv-roomcol { background:#fbfaff; }
@@ -151,7 +163,7 @@ $navigation_query = function ($date) use ($filters) {
         .inv-selection-popup { position:fixed; right:18px; bottom:18px; z-index:1040;
             width:min(320px, calc(100vw - 20px)); background:#fff; border:1px solid #dce2f2;
             border-radius:12px; box-shadow:0 14px 38px rgba(24,29,68,.2); overflow:hidden; }
-        .inv-selection-popup[hidden], .inv-booking-backdrop[hidden] { display:none !important; }
+        .inv-selection-popup[hidden], .inv-booking-backdrop[hidden], .inv-detail-backdrop[hidden] { display:none !important; }
         .inv-selection-head { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:8px; align-items:center; padding:9px 10px 6px; }
         .inv-selection-head > div:first-child { min-width:0; }
         .inv-selection-title { color:var(--text); font-size:.88rem; font-weight:800; line-height:1.2; }
@@ -172,6 +184,26 @@ $navigation_query = function ($date) use ($filters) {
         .inv-booking-modal-body .booking-form-card { max-width:none !important; border-radius:0; box-shadow:none; }
         .inv-booking-loading { min-height:260px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--muted); }
         .inv-booking-load-error { margin:22px; }
+        .inv-detail-backdrop { z-index:1120; padding:28px 14px; align-items:flex-start; }
+        .inv-detail-modal { max-width:760px; max-height:calc(100vh - 56px); display:flex; flex-direction:column; overflow:hidden; }
+        .inv-detail-head { flex:0 0 auto; align-items:flex-start; gap:14px; }
+        .inv-detail-heading { min-width:0; }
+        .inv-detail-heading h3 { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .inv-detail-kicker { margin-bottom:3px; color:var(--brand); font-size:.68rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+        .inv-detail-subtitle { margin-top:4px; color:var(--muted); font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .inv-detail-head-actions { display:flex; align-items:center; gap:8px; margin-left:auto; flex:0 0 auto; }
+        .inv-detail-action { min-height:36px; padding:7px 13px; white-space:nowrap; }
+        .inv-detail-head-actions .erp-modal-close { display:inline-flex; align-items:center; justify-content:center; min-width:40px; min-height:40px; padding:0; }
+        .inv-detail-body { flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+        .inv-detail-loading { min-height:210px; display:flex; align-items:center; justify-content:center; gap:11px; color:var(--muted); }
+        .inv-detail-error { margin:0; }
+        .inv-detail-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 14px; margin-bottom:18px; border:1px solid #e2e5f2; border-radius:13px; background:var(--head); }
+        .inv-detail-guest { min-width:0; }
+        .inv-detail-guest-name { color:var(--text); font-size:1rem; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .inv-detail-guest-meta { margin-top:3px; color:var(--muted); font-size:.78rem; overflow-wrap:anywhere; }
+        .inv-detail-section + .inv-detail-section { margin-top:20px; padding-top:18px; border-top:1px solid var(--line); }
+        .inv-detail-section .erp-section-title { margin-bottom:13px; }
+        .inv-detail-note { margin-top:16px; padding:10px 12px; border-radius:10px; background:#fef3c7; color:#92400e; font-size:.82rem; }
         body.inv-modal-open { overflow:hidden; }
         @media (max-width:700px) {
             table.inv-table { width:748px; min-width:748px; }
@@ -185,6 +217,8 @@ $navigation_query = function ($date) use ($filters) {
             .inv-selection-popup { right:10px; bottom:10px; }
             .inv-booking-backdrop { padding:8px; }
             .inv-booking-modal { max-height:calc(100vh - 16px); }
+            .inv-detail-backdrop { padding:8px; }
+            .inv-detail-modal { max-height:calc(100vh - 16px); }
         }
         @media (max-width:600px) {
             /* Keep this page compact without changing the shared desktop navbar. */
@@ -232,6 +266,17 @@ $navigation_query = function ($date) use ($filters) {
             .inv-roomcol { width:80px; min-width:80px; max-width:80px; padding:7px 6px; }
             .inv-rt-name, .inv-rt-sub { max-width:68px; }
             .inv-scroll { -webkit-overflow-scrolling:touch; overscroll-behavior-inline:contain; }
+            .inv-detail-head { padding:13px 14px; gap:8px; }
+            .inv-detail-heading h3 { font-size:1rem; }
+            .inv-detail-subtitle { max-width:150px; font-size:.7rem; }
+            .inv-detail-head-actions { gap:4px; }
+            .inv-detail-action { min-height:40px; padding:6px 9px; border-radius:8px; font-size:.72rem; }
+            .inv-detail-head .erp-modal-close { min-width:40px; min-height:40px; font-size:1.45rem; }
+            .inv-detail-body { padding:14px 13px; }
+            .inv-detail-body .erp-detail-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px 14px; }
+            .inv-detail-summary { align-items:flex-start; padding:11px 12px; margin-bottom:15px; }
+            .inv-detail-summary .erp-badge { padding:4px 8px; font-size:.68rem; }
+            .inv-detail-section + .inv-detail-section { margin-top:16px; padding-top:15px; }
         }
     </style>
 </head>
@@ -374,8 +419,8 @@ $navigation_query = function ($date) use ($filters) {
                                 <div class="inv-rt-name"><?= html_escape($room['room_no']) ?></div>
                                 <div class="inv-rt-sub"><?= html_escape($room['category_name'] ?: 'No Category') ?></div>
                             </td>
-                            <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $room['avail'][$d]; $status = $room['status'][$d]; $bookable = ($av === 1 && $d >= $today); ?>
-                                <td class="inv-cell <?= $f['selected'] ? 'inv-selected' : ($f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '')) ?><?= $bookable ? ' inv-cell-bookable' : '' ?>">
+                            <?php foreach ($dates as $d): $f = $fmt($d); $av = (int) $room['avail'][$d]; $status = $room['status'][$d]; $booking_id = isset($room['booking_id'][$d]) ? (int) $room['booking_id'][$d] : 0; $bookable = ($av === 1 && $d >= $today); $occupied_clickable = ($av === 0 && $booking_id > 0); ?>
+                                <td class="inv-cell <?= $f['selected'] ? 'inv-selected' : ($f['today'] ? 'inv-today' : ($f['wknd'] ? 'inv-wknd' : '')) ?><?= $bookable ? ' inv-cell-bookable' : ($occupied_clickable ? ' inv-cell-occupied' : '') ?>">
                                     <?php if ($bookable): ?>
                                         <button type="button"
                                                 class="<?= $room_cell_class($status) ?> inv-room-slot"
@@ -387,6 +432,16 @@ $navigation_query = function ($date) use ($filters) {
                                                 aria-label="Room <?= html_escape($room['room_no']) ?>, <?= html_escape(date('d M Y', strtotime($d))) ?>, Available. Select booking night."
                                                 aria-pressed="false"
                                                 title="Select this available night">1</button>
+                                    <?php elseif ($occupied_clickable): ?>
+                                        <button type="button"
+                                                class="<?= $room_cell_class($status) ?> inv-room-slot"
+                                                data-room-id="<?= (int) $room['id'] ?>"
+                                                data-date="<?= html_escape($d) ?>"
+                                                data-bookable="0"
+                                                data-booking-id="<?= $booking_id ?>"
+                                                data-booking-status="<?= html_escape($status) ?>"
+                                                aria-label="Room <?= html_escape($room['room_no']) ?>, <?= html_escape(date('d M Y', strtotime($d))) ?>, <?= html_escape($booking_status_label($status)) ?>. View guest details."
+                                                title="View guest and booking details">0</button>
                                     <?php else: ?>
                                         <span class="<?= $room_cell_class($status) ?> inv-room-slot <?= ($av && $d < $today) ? 'inv-slot-past' : '' ?>"
                                               data-room-id="<?= (int) $room['id'] ?>"
@@ -417,6 +472,24 @@ $navigation_query = function ($date) use ($filters) {
             <span class="k">Select one or more available nights in the same room to create a booking</span>
         </div>
     </div>
+</div>
+
+<!-- Occupied-room guest details. Its action is selected from the freshly loaded booking status. -->
+<div class="erp-modal-backdrop inv-detail-backdrop" id="invGuestBackdrop" data-inv-booking-detail-modal hidden>
+    <section class="erp-modal inv-detail-modal" id="invGuestModal" role="dialog" aria-modal="true" aria-labelledby="invGuestModalTitle" aria-describedby="invGuestModalSubtitle">
+        <div class="erp-modal-head inv-detail-head">
+            <div class="inv-detail-heading">
+                <div class="inv-detail-kicker">Guest &amp; Booking</div>
+                <h3 id="invGuestModalTitle">Booking Details</h3>
+                <div class="inv-detail-subtitle" id="invGuestModalSubtitle">Loading current details&hellip;</div>
+            </div>
+            <div class="inv-detail-head-actions">
+                <a class="erp-btn erp-btn-primary inv-detail-action" id="invGuestAction" data-inv-booking-action href="#" hidden></a>
+                <button type="button" class="erp-modal-close" id="invGuestClose" data-inv-booking-detail-close aria-label="Close guest details">&times;</button>
+            </div>
+        </div>
+        <div class="erp-modal-body inv-detail-body" id="invGuestModalBody" data-inv-booking-detail-body></div>
+    </section>
 </div>
 
 <!-- The same shared New Booking form is loaded here without leaving Inventory. -->
