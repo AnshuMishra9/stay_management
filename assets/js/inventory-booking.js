@@ -7,7 +7,8 @@
 (function (global) {
     'use strict';
 
-    var SELECTION_STORAGE_KEY = 'stay.inventory.booking.selection.v1';
+    var SELECTION_STORAGE_KEY = 'stay.inventory.booking.selection.v2:'
+        + String(global.APP_CONTEXT_KEY || 'no-context');
     var SELECTION_MAX_AGE_MS = 4 * 60 * 60 * 1000;
 
     function pad(value) { return String(value).padStart(2, '0'); }
@@ -345,7 +346,10 @@
             global.fetch(rangeCheckUrl(roomId, start, end), {
                 credentials: 'same-origin',
                 cache: 'no-store',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-Property-Context-Token': global.APP_PROPERTY_CONTEXT_TOKEN || ''
+                }
             }).then(function (response) {
                 return response.json().then(function (payload) {
                     return { response: response, payload: payload };
@@ -637,7 +641,8 @@
                 cache: 'no-store',
                 headers: {
                     'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-Property-Context-Token': global.APP_PROPERTY_CONTEXT_TOKEN || ''
                 }
             }).then(function (response) {
                 var contentType = response.headers.get('content-type') || '';
@@ -708,7 +713,10 @@
 
             global.fetch(url, {
                 credentials: 'same-origin',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-Property-Context-Token': global.APP_PROPERTY_CONTEXT_TOKEN || ''
+                }
             }).then(function (response) {
                 return response.json().then(function (payload) {
                     return { response: response, payload: payload };
@@ -788,7 +796,10 @@
                 method: 'POST',
                 body: new FormData(form),
                 credentials: 'same-origin',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-Property-Context-Token': global.APP_PROPERTY_CONTEXT_TOKEN || ''
+                }
             }).then(function (response) {
                 return response.json();
             }).then(function (payload) {

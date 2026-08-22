@@ -33,6 +33,7 @@ class Auth extends CI_Controller
         parent::__construct();
         $this->load->model('User_model');
         $this->load->model('Otp_model');
+        $this->load->model('Property_model');
     }
 
     // ---------------------------------------------------------------------
@@ -45,8 +46,14 @@ class Auth extends CI_Controller
     public function index()
     {
         if ($this->session->userdata('logged_in')) {
-            redirect('');
-            return;
+            $user = $this->User_model->get_active_context_by_id(
+                (int) $this->session->userdata('user_id')
+            );
+            if ($user) {
+                redirect($this->_landing_path($user, TRUE));
+                return;
+            }
+            $this->session->sess_destroy();
         }
 
         $this->load->view('auth/login');
@@ -137,22 +144,34 @@ class Auth extends CI_Controller
         $valid = $this->Otp_model->get_latest_valid($user->id, $otp);
 
         if ($valid) {
-            // Single-use: consume this OTP row and record the login.
-            $this->Otp_model->mark_verified($valid->id);
+            // Single-use: the conditional update is the concurrency boundary;
+            // only one simultaneous verifier may consume this OTP row.
+            if ( ! $this->Otp_model->mark_verified($valid->id)) {
+                return $this->_verification_error($user->id, $otp);
+            }
             $this->User_model->update_last_login($user->id);
 
-            $this->session->set_userdata(array(
-                'logged_in' => TRUE,
-                'user_id'   => (int) $user->id,
-                'mobile_no' => $user->mobile_no,
+            // Authentication is a privilege boundary: replace the pre-login
+            // session id and discard any property state from a previous user.
+            $this->session->sess_regenerate(TRUE);
+            $this->session->unset_userdata(array(
+                'active_property_id', 'property_context_token',
+                'session_write_token', 'customer_write_token',
             ));
+            $this->session->set_userdata(array(
+                'logged_in'          => TRUE,
+                'user_id'            => (int) $user->id,
+                'mobile_no'          => $user->mobile_no,
+                'role'               => $user->role,
+                'session_write_token' => bin2hex(random_bytes(32)),
+            ));
+
+            $landing = $this->_landing_path($user, FALSE);
 
             return $this->_json(array(
                 'status'   => TRUE,
                 'message'  => 'Login successful. Redirecting...',
-                // Follow the configured landing page instead of coupling login
-                // to a particular module.
-                'redirect' => site_url(''),
+                'redirect' => site_url($landing),
             ));
         }
 
@@ -250,6 +269,79 @@ class Auth extends CI_Controller
     private function _valid_mobile($mobile_no)
     {
         return (bool) preg_match('/^[0-9]{10,15}$/', $mobile_no);
+    }
+
+    /**
+     * Choose a safe post-login destination and establish context only when
+     * exactly one active property is authorized.
+     */
+    private function _landing_path($user, $preserve_valid_context)
+    {
+        $properties = $this->Property_model->list_authorized_for_user($user, TRUE);
+        $active_id = (int) $this->session->userdata('active_property_id');
+
+        if ($preserve_valid_context && $active_id > 0) {
+            foreach ($properties as $property) {
+                if ((int) $property->id === $active_id) {
+                    if ( ! $this->session->userdata('property_context_token')) {
+                        $this->session->set_userdata(
+                            'property_context_token',
+                            bin2hex(random_bytes(32))
+                        );
+                    }
+                    return '';
+                }
+            }
+            $this->session->unset_userdata('active_property_id');
+            $this->session->set_userdata(
+                'property_context_token',
+                bin2hex(random_bytes(32))
+            );
+        }
+
+        // The remembered id is only a convenience hint. It is never trusted:
+        // every fresh login matches it against the role's current DB-derived
+        // property list before activating it.
+        $remembered_id = (int) $this->input->cookie('stay_last_property', TRUE);
+        if ($remembered_id > 0) {
+            foreach ($properties as $property) {
+                if ((int) $property->id === $remembered_id) {
+                    $this->session->set_userdata(array(
+                        'active_property_id'     => $remembered_id,
+                        'property_context_token' => bin2hex(random_bytes(32)),
+                    ));
+                    $this->_remember_property($remembered_id);
+                    return '';
+                }
+            }
+        }
+
+        if (count($properties) === 1) {
+            $this->session->set_userdata(array(
+                'active_property_id'     => (int) $properties[0]->id,
+                'property_context_token' => bin2hex(random_bytes(32)),
+            ));
+            $this->_remember_property((int) $properties[0]->id);
+            return '';
+        }
+        if (count($properties) > 1) {
+            return 'properties/select';
+        }
+        return $user->role === User_model::ROLE_USER
+            ? 'access/no-properties'
+            : 'properties';
+    }
+
+    private function _remember_property($property_id)
+    {
+        $this->input->set_cookie(array(
+            'name'     => 'stay_last_property',
+            'value'    => (string) (int) $property_id,
+            'expire'   => 90 * 24 * 60 * 60,
+            'secure'   => (bool) config_item('cookie_secure'),
+            'httponly' => TRUE,
+            'samesite' => 'Lax',
+        ));
     }
 
     /**

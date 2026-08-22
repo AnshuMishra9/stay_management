@@ -28,6 +28,8 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
         window.APP_FRESH = <?= ! empty($flash) ? 'true' : 'false' ?>;   // a save just happened -> bypass cache once
         window.APP_LIST_URL = "<?= site_url($ajax) ?>";                 // which list to fetch
         window.APP_LIST_NS  = "<?= html_escape($ns) ?>";               // cache namespace
+        window.APP_PROPERTY_CONTEXT_TOKEN = <?= json_encode($property_context_token ?? '') ?>;
+        window.APP_PROPERTY_CONTEXT_KEY = <?= json_encode((string) ($current_tenant_id ?? '').':'.(string) ($current_property_id ?? '')) ?>;
     </script>
 </head>
 
@@ -192,7 +194,9 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
 
             <hr class="erp-hr">
 
-            <div class="erp-section-title">Identity Proof</div>
+            <div class="erp-section-title">
+                Identity Proof<?= isset($current_property) && $current_property ? ' — '.html_escape($current_property->property_name) : '' ?>
+            </div>
             <div class="erp-detail-grid">
                 <div class="erp-detail-item" ng-repeat="idn in vm.detail.identities">
                     <div class="k">{{ idn.type_label }}</div>

@@ -15,6 +15,9 @@ $booking_defaults = isset($booking_defaults) && is_array($booking_defaults)
     ? $booking_defaults
     : array();
 $booking_form_error = isset($booking_form_error) ? $booking_form_error : '';
+$active_property_name = isset($current_property) && $current_property
+    ? (string) $current_property->property_name
+    : '';
 
 // Posted values win after validation, followed by stored/default values.
 $val = function ($field, $fallback = '') use ($customer) {
@@ -57,6 +60,7 @@ $dtlocal = function ($field) use ($bval) {
       method="post"
       novalidate>
     <input type="hidden" name="booking_id" value="<?= $is_edit ? (int) $booking->id : '' ?>">
+    <input type="hidden" name="property_context_token" value="<?= html_escape($property_context_token ?? '') ?>">
     <?php if ($inventory_mode): ?>
         <input type="hidden" name="booking_source" value="inventory">
     <?php endif; ?>
@@ -157,7 +161,7 @@ $dtlocal = function ($field) use ($bval) {
             </div>
             <div class="erp-form-field">
                 <label>Property Name</label>
-                <input class="erp-input" type="text" name="property_name" maxlength="150" value="<?= html_escape($bval('property_name')) ?>">
+                <input class="erp-input" type="text" value="<?= html_escape($active_property_name) ?>" readonly aria-readonly="true">
             </div>
         </div>
 
@@ -209,7 +213,7 @@ $dtlocal = function ($field) use ($bval) {
                     <option value="">&mdash; No room &mdash;</option>
                     <?php foreach ($room_opts as $room): ?>
                         <option value="<?= (int) $room->id ?>"
-                                data-category-id="<?= (int) $room->category_id ?>"
+                                data-category-id="<?= $room->category_id !== NULL ? (int) $room->category_id : '' ?>"
                                 data-selling-price="<?= html_escape($room->selling_price) ?>"
                                 <?= (string) $sel_room === (string) $room->id ? 'selected' : '' ?>><?= html_escape($room->room_no) ?></option>
                     <?php endforeach; ?>

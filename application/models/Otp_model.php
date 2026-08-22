@@ -91,9 +91,12 @@ class Otp_model extends CI_Model
      */
     public function mark_verified($otp_id)
     {
-        return $this->db
+        $updated = $this->db
             ->where('id', $otp_id)
+            ->where('is_verified', 0)
+            ->where('expires_at >', date('Y-m-d H:i:s'))
             ->update($this->table, array('is_verified' => 1));
+        return $updated && (int) $this->db->affected_rows() === 1;
     }
 
     /**

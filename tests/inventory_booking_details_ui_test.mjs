@@ -5,14 +5,14 @@ import { join } from 'node:path';
 import { createServer } from 'node:net';
 
 const appBase = process.env.STAY_TEST_BASE || 'http://localhost/stay_management';
-const mobile = process.env.STAY_TEST_MOBILE || '9876543210';
+const mobile = process.env.STAY_TEST_MOBILE || '9988776655';
 const chromePath = process.env.STAY_CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const profile = mkdtempSync(join(tmpdir(), 'stay-inventory-details-'));
 const screenshotPath = join(tmpdir(), 'stay-inventory-popup-390.png');
 
 const fixtures = [
     { id: 61, date: '2026-08-18', room: '102', status: 'room_booked', action: 'Check-in', path: '/stay_management/customers/bookings/checkin/61', page: 'Check-in' },
-    { id: 26, date: '2026-07-28', room: '401', status: 'checked_in', action: 'Check-out', path: '/stay_management/customers/checkins/checkout/26', page: 'Check-out' },
+    { id: 10, date: '2026-07-22', room: '101', status: 'checked_in', action: 'Check-out', path: '/stay_management/customers/checkins/checkout/10', page: 'Check-out' },
     { id: 27, date: '2026-07-27', room: '101', status: 'checked_out', action: 'View record', path: '/stay_management/customers/checkedouts/details/27', page: 'Check-out Record' }
 ];
 
@@ -24,8 +24,10 @@ function assert(condition, message) {
 
 function sessionCookie(response) {
     const raw = response.headers.get('set-cookie') || '';
-    const match = raw.match(/(?:^|[,;]\s*)ci_session=([^;]+)/);
-    return match ? match[1] : '';
+    const values = [...raw.matchAll(/ci_session=([^;,\s]+)/g)]
+        .map((match) => match[1])
+        .filter((value) => value && value !== 'deleted');
+    return values.length ? values[values.length - 1] : '';
 }
 
 async function login() {
@@ -46,7 +48,13 @@ async function login() {
     cookie = sessionCookie(verifyResponse) || cookie;
     const verifyPayload = await verifyResponse.json();
     assert(verifyPayload.status, 'OTP test login failed.');
-    return cookie;
+    const inventoryResponse = await fetch(appBase + '/inventory', {
+        headers: { Cookie: 'ci_session=' + cookie }
+    });
+    const inventoryHtml = await inventoryResponse.text();
+    const tokenMatch = inventoryHtml.match(/window\.APP_PROPERTY_CONTEXT_TOKEN\s*=\s*("(?:\\.|[^"\\])*")\s*;/);
+    assert(tokenMatch, 'Property context token was not rendered after login.');
+    return { cookie, contextToken: JSON.parse(tokenMatch[1]) };
 }
 
 async function freePort() {
@@ -147,14 +155,18 @@ async function navigate(cdp, url) {
     await delay(150);
 }
 
-async function endpointChecks(cookie) {
+async function endpointChecks(cookie, contextToken) {
     const unauthenticated = await fetch(appBase + '/inventory/booking_detail/61', { redirect: 'manual' });
     assert([301, 302, 303, 307, 308].includes(unauthenticated.status), 'Unauthenticated detail request was not redirected.');
 
     const details = new Map();
     for (const fixture of fixtures) {
         const response = await fetch(appBase + '/inventory/booking_detail/' + fixture.id, {
-            headers: { Cookie: 'ci_session=' + cookie, 'X-Requested-With': 'XMLHttpRequest' },
+            headers: {
+                Cookie: 'ci_session=' + cookie,
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-Property-Context-Token': contextToken
+            },
             redirect: 'manual'
         });
         assert(response.status === 200, `Detail endpoint failed for booking ${fixture.id}.`);
@@ -169,7 +181,11 @@ async function endpointChecks(cookie) {
     }
 
     const missing = await fetch(appBase + '/inventory/booking_detail/999999999', {
-        headers: { Cookie: 'ci_session=' + cookie, 'X-Requested-With': 'XMLHttpRequest' }
+        headers: {
+            Cookie: 'ci_session=' + cookie,
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-Property-Context-Token': contextToken
+        }
     });
     assert(missing.status === 404, 'Unknown booking ID did not return 404.');
     return details;
@@ -363,8 +379,9 @@ let chrome;
 let cdp;
 let testError;
 try {
-    const cookie = await login();
-    const details = await endpointChecks(cookie);
+    const loginContext = await login();
+    const cookie = loginContext.cookie;
+    const details = await endpointChecks(cookie, loginContext.contextToken);
     const port = await freePort();
     chrome = spawn(chromePath, [
         '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-crash-reporter', '--disable-breakpad',

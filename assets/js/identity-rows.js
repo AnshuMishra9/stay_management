@@ -753,7 +753,10 @@
             method: 'GET',
             credentials: 'same-origin',
             cache: 'no-store',
-            headers: { Accept: 'image/jpeg,image/png' }
+            headers: {
+                Accept: 'image/jpeg,image/png',
+                'X-Property-Context-Token': window.APP_PROPERTY_CONTEXT_TOKEN || ''
+            }
         }).then(function (response) {
             var type = String(response.headers.get('Content-Type') || '').split(';')[0].toLowerCase();
             if (!response.ok || ['image/jpeg', 'image/png'].indexOf(type) === -1) {

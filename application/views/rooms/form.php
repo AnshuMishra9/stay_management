@@ -3,7 +3,7 @@
  * Add / Edit Room form (simplified master).
  * $room       -> row object when editing, NULL when adding
  * $next_code  -> room code to display (existing or next generated)
- * $categories -> active room_categories (dropdown)
+ * $categories -> active room_categories (optional dropdown)
  * $hk_opts    -> housekeeping status options (Available / Not Available)
  */
 $is_edit = ($room !== NULL);
@@ -43,6 +43,7 @@ $active  = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($room ? (int) 
     <form class="erp-card" style="max-width:980px;margin:0 auto;" action="<?= site_url('rooms/save') ?>" method="post" novalidate
           onsubmit="var b=document.getElementById('roomSaveBtn'); if(b){b.disabled=true; b.classList.add('is-loading');}">
         <input type="hidden" name="id" value="<?= $is_edit ? (int) $room->id : '' ?>">
+        <input type="hidden" name="property_context_token" value="<?= html_escape($property_context_token) ?>">
 
         <!-- Header -->
         <div class="erp-page-head">
@@ -77,9 +78,9 @@ $active  = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($room ? (int) 
 
             <div class="erp-grid-2" style="margin-bottom:16px;">
                 <div class="erp-form-field">
-                    <label>Category <span class="req">*</span></label>
-                    <select class="erp-select" name="category_id" required>
-                        <option value="">Select</option>
+                    <label>Category <span class="erp-muted" style="font-weight:400;">(optional)</span></label>
+                    <select class="erp-select" name="category_id">
+                        <option value="">No category</option>
                         <?php foreach ($categories as $c): ?>
                             <option value="<?= (int) $c->category_id ?>" <?= (string) $sel_cat === (string) $c->category_id ? 'selected' : '' ?>><?= html_escape($c->category_name) ?></option>
                         <?php endforeach; ?>

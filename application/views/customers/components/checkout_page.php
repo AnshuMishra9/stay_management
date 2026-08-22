@@ -77,6 +77,7 @@ $show_scheduled_dates = $scheduled_check_in_day
     <?php if ($confirm): ?>
         <form class="erp-card checkout-readonly" style="max-width:920px;margin:0 auto;" action="<?= site_url('customers/checkout_save') ?>" method="post">
             <input type="hidden" name="booking_id" value="<?= (int) $booking->id ?>">
+            <input type="hidden" name="property_context_token" value="<?= html_escape($property_context_token ?? '') ?>">
     <?php else: ?>
         <div class="erp-card checkout-readonly" style="max-width:920px;margin:0 auto;">
     <?php endif; ?>
@@ -212,7 +213,9 @@ $show_scheduled_dates = $scheduled_check_in_day
         </fieldset>
 
         <div class="erp-form-section">
-            <div class="erp-section-title">Identity Proof</div>
+            <div class="erp-section-title">
+                Identity Proof<?= isset($current_property) && $current_property ? ' — '.html_escape($current_property->property_name) : '' ?>
+            </div>
             <div class="erp-detail-grid">
                 <?php foreach ($identities as $identity): ?>
                     <div class="erp-detail-item">

@@ -6,7 +6,7 @@ import { createServer } from 'node:net';
 
 const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const appBase = 'http://localhost/stay_management';
-const mobile = process.env.STAY_TEST_MOBILE || '9876543210';
+const mobile = process.env.STAY_TEST_MOBILE || '9988776655';
 const existingBookingId = Number.parseInt(process.env.STAY_EXISTING_BOOKING_ID || '', 10) || 0;
 const emptyBookingId = Number.parseInt(process.env.STAY_EMPTY_BOOKING_ID || '', 10) || 0;
 const mobileUserAgent = 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Mobile Safari/537.36';
@@ -28,8 +28,10 @@ async function freePort() {
 
 function sessionCookie(response) {
     const raw = response.headers.get('set-cookie') || '';
-    const match = raw.match(/(?:^|[,;]\s*)ci_session=([^;]+)/);
-    return match ? match[1] : '';
+    const values = [...raw.matchAll(/ci_session=([^;,\s]+)/g)]
+        .map((match) => match[1])
+        .filter((value) => value && value !== 'deleted');
+    return values.length ? values[values.length - 1] : '';
 }
 
 async function login() {

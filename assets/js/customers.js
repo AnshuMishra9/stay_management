@@ -6,6 +6,10 @@
     'use strict';
 
     angular.module('customersApp', ['erpQuery'])
+        .config(['$httpProvider', function ($httpProvider) {
+            $httpProvider.defaults.headers.common['X-Property-Context-Token'] =
+                window.APP_PROPERTY_CONTEXT_TOKEN || '';
+        }])
         .controller('CustomersController', ['$http', '$timeout', 'erpQuery', CustomersController]);
 
     function CustomersController($http, $timeout, erpQuery) {
@@ -32,7 +36,8 @@
 
         // ---- API (cached: instant from cache, revalidated in the background) ----
         vm.load = function () {
-            erpQuery.fetch('customers', base + 'customers/list_ajax', vm.filters, {}, {
+            var params = angular.extend({}, vm.filters);
+            erpQuery.fetch('customers', base + 'customers/list_ajax', params, {}, {
                 data:    function (rows) { vm.customers = rows; },
                 loading: function (b)    { vm.loading = b; }
             });
@@ -60,7 +65,13 @@
                         alert((res.data && res.data.message) || 'Unable to load customer.');
                     }
                 })
-                .catch(function () { alert('Unable to load customer.'); });
+                .catch(function (error) {
+                    if (error && error.status === 409) {
+                        window.location.assign(base + 'inventory');
+                        return;
+                    }
+                    alert('Unable to load customer.');
+                });
         };
 
         vm.closeModal = function () {
@@ -72,24 +83,37 @@
         vm.deleteCustomer = function (c) {
             var ok = window.confirm(
                 'Delete customer "' + c.customer_name + '" (' + c.customer_code + ')?\n\n' +
-                'This also removes their uploaded Aadhar/PAN files and cannot be undone.'
+                'Customers with stay or document history will be deactivated instead of deleted.'
             );
             if (!ok) { return; }
 
-            $http.post(base + 'customers/delete/' + c.id)
+            $http.post(base + 'customers/delete/' + c.id, {
+                property_context_token: window.APP_PROPERTY_CONTEXT_TOKEN || ''
+            })
                 .then(function (res) {
                     if (res.data && res.data.status) {
                         // Data changed → drop the cached lists (customers + bookings share rows).
                         erpQuery.invalidate('customers');
                         erpQuery.invalidate('bookings');
                         // Drop the row locally for instant feedback, then resync.
-                        var i = vm.customers.indexOf(c);
-                        if (i > -1) { vm.customers.splice(i, 1); }
+                        if (res.data.deactivated) {
+                            c.is_active = 0;
+                            alert(res.data.message || 'Customer deactivated.');
+                        } else {
+                            var i = vm.customers.indexOf(c);
+                            if (i > -1) { vm.customers.splice(i, 1); }
+                        }
                     } else {
                         alert((res.data && res.data.message) || 'Delete failed.');
                     }
                 })
-                .catch(function () { alert('Delete failed. Please try again.'); });
+                .catch(function (error) {
+                    if (error && error.status === 409) {
+                        window.location.assign(base + 'inventory');
+                        return;
+                    }
+                    alert('Delete failed. Please try again.');
+                });
         };
 
         // Initial load

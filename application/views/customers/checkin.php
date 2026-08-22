@@ -43,7 +43,11 @@ $scheduled_check_out = $booking->scheduled_check_out_date
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>">
-    <script>window.APP_BASE = "<?= base_url() ?>";</script>
+    <script>
+        window.APP_BASE = <?= json_encode(base_url()) ?>;
+        window.APP_PROPERTY_CONTEXT_TOKEN = <?= json_encode($property_context_token ?? '') ?>;
+        window.APP_PROPERTY_CONTEXT_KEY = <?= json_encode((string) ($current_tenant_id ?? '').':'.(string) ($current_property_id ?? '')) ?>;
+    </script>
 </head>
 <body class="erp-body">
 
@@ -54,6 +58,7 @@ $scheduled_check_out = $booking->scheduled_check_out_date
         <input type="hidden" name="booking_id" value="<?= (int) $booking->id ?>">
         <input type="hidden" name="page_context" value="<?= html_escape($page_context) ?>">
         <input type="hidden" name="customer_write_token" value="<?= html_escape($this->session->userdata('customer_write_token')) ?>">
+        <input type="hidden" name="property_context_token" value="<?= html_escape($property_context_token ?? '') ?>">
 
         <!-- Header -->
         <div class="erp-page-head">
@@ -145,7 +150,7 @@ $scheduled_check_out = $booking->scheduled_check_out_date
                     <select class="erp-select" id="bk_room" name="room_id" data-search="always" data-placeholder="Select a room">
                         <option value="">— No room —</option>
                         <?php foreach ($room_opts as $rm): ?>
-                            <option value="<?= (int) $rm->id ?>" data-category-id="<?= (int) $rm->category_id ?>" <?= (string) $sel_room === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
+                            <option value="<?= (int) $rm->id ?>" data-category-id="<?= $rm->category_id !== NULL ? (int) $rm->category_id : '' ?>" <?= (string) $sel_room === (string) $rm->id ? 'selected' : '' ?>><?= html_escape($rm->room_no) ?></option>
                         <?php endforeach; ?>
                     </select>
                     <?= form_error('room_id', '<div class="erp-error">', '</div>') ?>

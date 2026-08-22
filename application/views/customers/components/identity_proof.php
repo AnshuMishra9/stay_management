@@ -11,7 +11,12 @@
 ?>
 <div class="erp-form-section idn-section">
     <div class="erp-section-title idn-title">
-        <span>Identity Proof</span>
+        <span>
+            Identity Proof
+            <?php if (isset($current_property) && $current_property): ?>
+                &mdash; <?= html_escape($current_property->property_name) ?>
+            <?php endif; ?>
+        </span>
         <button type="button" id="idnAddMore" class="erp-btn erp-btn-soft erp-btn-sm">+ Add More</button>
     </div>
 

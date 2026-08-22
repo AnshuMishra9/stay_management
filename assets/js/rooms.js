@@ -59,7 +59,9 @@
 
         // ---- Detail modal ----
         vm.viewRoom = function (id) {
-            $http.get(base + 'rooms/view/' + id)
+            $http.get(base + 'rooms/view/' + id, {
+                headers: { 'X-Property-Context-Token': window.APP_PROPERTY_CONTEXT_TOKEN || '' }
+            })
                 .then(function (res) {
                     if (res.data && res.data.status) {
                         vm.detail = res.data.data;
@@ -68,7 +70,13 @@
                         alert((res.data && res.data.message) || 'Unable to load room.');
                     }
                 })
-                .catch(function () { alert('Unable to load room.'); });
+                .catch(function (error) {
+                    if (error && error.status === 409) {
+                        window.location.assign(base + 'inventory');
+                        return;
+                    }
+                    alert('Unable to load room.');
+                });
         };
 
         vm.closeModal = function () {
@@ -80,22 +88,35 @@
         vm.deleteRoom = function (r) {
             var ok = window.confirm(
                 'Delete room "' + r.room_no + '" (' + r.room_code + ')?\n\n' +
-                'This cannot be undone.'
+                'Rooms with booking history will be deactivated instead of deleted.'
             );
             if (!ok) { return; }
 
-            $http.post(base + 'rooms/delete/' + r.id)
+            $http.post(base + 'rooms/delete/' + r.id, {}, {
+                headers: { 'X-Property-Context-Token': window.APP_PROPERTY_CONTEXT_TOKEN || '' }
+            })
                 .then(function (res) {
                     if (res.data && res.data.status) {
                         erpQuery.invalidate('rooms');   // data changed → drop cached lists
-                        // Drop the row locally for instant feedback.
-                        var i = vm.rooms.indexOf(r);
-                        if (i > -1) { vm.rooms.splice(i, 1); }
+                        if (res.data.action === 'deactivated') {
+                            r.is_active = 0;
+                            alert(res.data.message || 'Room deactivated.');
+                        } else {
+                            // A genuinely unused room was hard-deleted.
+                            var i = vm.rooms.indexOf(r);
+                            if (i > -1) { vm.rooms.splice(i, 1); }
+                        }
                     } else {
                         alert((res.data && res.data.message) || 'Delete failed.');
                     }
                 })
-                .catch(function () { alert('Delete failed. Please try again.'); });
+                .catch(function (error) {
+                    if (error && error.status === 409) {
+                        window.location.assign(base + 'inventory');
+                        return;
+                    }
+                    alert('Delete failed. Please try again.');
+                });
         };
 
         // Initial load

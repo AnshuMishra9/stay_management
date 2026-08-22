@@ -9,7 +9,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * minus the rooms held by active bookings that night. Availability remains
  * derived data; available room nights can launch the in-page booking flow.
  */
-class Inventory extends Secure_Controller
+class Inventory extends Property_Controller
 {
     /** Selected date plus five dates before and five dates after it. */
     const DAYS = 11;
@@ -54,7 +54,12 @@ class Inventory extends Secure_Controller
             strtotime($selected.' -'.self::DAYS_EACH_SIDE.' day')
         );
 
-        $data = $this->Inventory_model->availability($window_start, self::DAYS, $filters);
+        $data = $this->Inventory_model->availability(
+            $this->current_property_id,
+            $window_start,
+            self::DAYS,
+            $filters
+        );
 
         // "start" remains the query/input name, but now represents the selected date.
         $data['start'] = $selected;
@@ -74,7 +79,7 @@ class Inventory extends Secure_Controller
 
         // Pass filters and categories for dropdown
         $data['filters'] = $filters;
-        $data['categories'] = $this->Inventory_model->get_all_categories();
+        $data['categories'] = $this->Inventory_model->get_all_categories($this->current_property_id);
 
         $this->load->view('inventory/calendar', $data);
     }
@@ -86,10 +91,18 @@ class Inventory extends Secure_Controller
      */
     public function booking_detail($booking_id = NULL)
     {
+        if ( ! $this->require_property_context_token()) {
+            return;
+        }
+
         $this->load->model('Customer_model');
         $booking_id = is_numeric($booking_id) ? (int) $booking_id : 0;
         $booking = $booking_id > 0
-            ? $this->Customer_model->get_booking_detail($booking_id)
+            ? $this->Customer_model->get_booking_detail(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $booking_id
+            )
             : NULL;
 
         if ( ! $booking) {
@@ -121,7 +134,7 @@ class Inventory extends Secure_Controller
             ), 409);
         }
 
-        if ( ! $this->Inventory_model->booking_is_inventory_visible($booking_id)) {
+        if ( ! $this->Inventory_model->booking_is_inventory_visible($this->current_property_id, $booking_id)) {
             return $this->_json(array(
                 'status' => FALSE,
                 'message' => 'This booking is no longer visible in Inventory. Refresh the page and try again.',

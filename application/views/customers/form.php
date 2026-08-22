@@ -28,6 +28,9 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>">
+    <script>
+        window.APP_PROPERTY_CONTEXT_TOKEN = <?= json_encode($property_context_token ?? '') ?>;
+    </script>
 </head>
 <body class="erp-body">
 
@@ -37,6 +40,7 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
     <form class="erp-card" style="max-width:920px;margin:0 auto;" action="<?= site_url('customers/save') ?>" method="post" enctype="multipart/form-data" novalidate>
         <input type="hidden" name="id" value="<?= $is_edit ? (int) $customer->id : '' ?>">
         <input type="hidden" name="customer_write_token" value="<?= html_escape($this->session->userdata('customer_write_token')) ?>">
+        <input type="hidden" name="property_context_token" value="<?= html_escape($property_context_token ?? '') ?>">
 
         <!-- Header -->
         <div class="erp-page-head">

@@ -457,7 +457,9 @@ $navigation_query = function ($date) use ($filters) {
                     <?php endforeach; ?>
 
                     <?php if (empty($rooms)): ?>
-                        <tr><td class="inv-roomcol">&mdash;</td><td colspan="<?= (int) count($dates) ?>" style="padding:20px;color:var(--muted);">No active rooms found. Add rooms in Room Master.</td></tr>
+                        <tr><td class="inv-roomcol">&mdash;</td><td colspan="<?= (int) count($dates) ?>" style="padding:20px;color:var(--muted);">
+                            No active rooms found. Add rooms directly in Room Master; a category is optional.
+                        </td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>

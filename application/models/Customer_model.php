@@ -33,9 +33,16 @@ class Customer_model extends CI_Model
      *                         district, state, status.
      * @return array           Array of row objects (list columns only).
      */
-    public function get_filtered(array $filters = array())
+    public function get_filtered($tenant_id, array $filters = array())
     {
-        $this->db->select(implode(',', $this->list_columns));
+        $tenant_id = (int) $tenant_id;
+        if ($tenant_id <= 0) {
+            return array();
+        }
+
+        $this->db
+            ->select(implode(',', $this->list_columns))
+            ->where('tenant_id', $tenant_id);
 
         // Partial (LIKE) text filters.
         $like_map = array(
@@ -66,10 +73,14 @@ class Customer_model extends CI_Model
      * @param  int $id
      * @return object|null
      */
-    public function get_by_id($id)
+    public function get_by_id($tenant_id, $id)
     {
+        if ((int) $id <= 0 || (int) $tenant_id <= 0) {
+            return NULL;
+        }
         return $this->db
             ->where('id', (int) $id)
+            ->where('tenant_id', (int) $tenant_id)
             ->limit(1)
             ->get($this->table)
             ->row();
@@ -82,14 +93,15 @@ class Customer_model extends CI_Model
      * @param  string $phone
      * @return object|null
      */
-    public function get_by_phone($phone)
+    public function get_by_phone($tenant_id, $phone)
     {
         $phone = trim((string) $phone);
-        if ($phone === '') {
+        if ($phone === '' || (int) $tenant_id <= 0) {
             return NULL;
         }
         return $this->db
             ->where('phone', $phone)
+            ->where('tenant_id', (int) $tenant_id)
             ->order_by('id', 'DESC')->limit(1)
             ->get($this->table)
             ->row();
@@ -101,17 +113,18 @@ class Customer_model extends CI_Model
      * @param  string $column  Whitelisted column name.
      * @return array
      */
-    public function distinct_values($column)
+    public function distinct_values($tenant_id, $column)
     {
         // Whitelist to keep the identifier safe.
         $allowed = array('country');
-        if ( ! in_array($column, $allowed, TRUE)) {
+        if ( ! in_array($column, $allowed, TRUE) || (int) $tenant_id <= 0) {
             return array();
         }
 
         $rows = $this->db
             ->distinct()
             ->select($column)
+            ->where('tenant_id', (int) $tenant_id)
             ->where($column.' !=', '')
             ->where($column.' IS NOT NULL')
             ->order_by($column, 'ASC')
@@ -165,16 +178,34 @@ class Customer_model extends CI_Model
      * Active room categories for the "Room Category" dropdown.
      * @return array of {category_id, category_name}
      */
-    public function room_categories()
+    public function room_categories($property_id)
     {
-        if ( ! $this->db->table_exists('room_categories')) {
+        if ( ! $this->db->table_exists('room_categories') || (int) $property_id <= 0) {
             return array();
         }
         return $this->db
             ->select('category_id, category_name')
+            ->where('property_id', (int) $property_id)
             ->where('status', 1)
             ->order_by('display_order', 'ASC')->order_by('category_name', 'ASC')
             ->get('room_categories')->result();
+    }
+
+    public function room_category_belongs_to_property($property_id, $category_id)
+    {
+        return $this->db
+            ->where('property_id', (int) $property_id)
+            ->where('category_id', (int) $category_id)
+            ->where('status', 1)
+            ->count_all_results('room_categories') === 1;
+    }
+
+    public function active_booking_channel_exists($channel_id)
+    {
+        return $this->db
+            ->where('channel_id', (int) $channel_id)
+            ->where('status', 1)
+            ->count_all_results('booking_channels') === 1;
     }
 
     /**
@@ -193,17 +224,22 @@ class Customer_model extends CI_Model
      * @param  string|null $check_out        Y-m-d (exclusive)
      * @return array of {id, room_no, category_id, selling_price}
      */
-    public function available_rooms($current_booking_id = NULL, $check_in = NULL, $check_out = NULL)
+    public function available_rooms($tenant_id, $property_id, $current_booking_id = NULL, $check_in = NULL, $check_out = NULL)
     {
-        if ( ! $this->db->table_exists('rooms')) {
+        $property_id = (int) $property_id;
+        $tenant_id = (int) $tenant_id;
+        if ( ! $this->db->table_exists('rooms') || $property_id <= 0 || $tenant_id <= 0) {
             return array();
         }
 
         $rooms = $this->db
-            ->select('id, room_no, category_id, selling_price')
-            ->from('rooms')
-            ->where('is_active', 1)
-            ->order_by('room_no', 'ASC')
+            ->select('r.id, r.room_no, r.category_id, r.selling_price')
+            ->from('rooms r')
+            ->join('properties p', 'p.id = r.property_id', 'inner')
+            ->where('r.property_id', $property_id)
+            ->where('p.tenant_id', $tenant_id)
+            ->where('r.is_active', 1)
+            ->order_by('r.room_no', 'ASC')
             ->get()->result();
 
         $start = is_string($check_in) ? DateTime::createFromFormat('!Y-m-d', $check_in) : FALSE;
@@ -226,6 +262,8 @@ class Customer_model extends CI_Model
                       bd.checked_in_at, bd.checked_out_at, sm.status_code')
             ->from('booking_details bd')
             ->join('status_master sm', 'sm.status_id = bd.status_id', 'inner')
+            ->where('bd.tenant_id', $tenant_id)
+            ->where('bd.property_id', $property_id)
             ->where('bd.room_id IS NOT NULL')
             ->where_in('sm.status_code', array('room_booked', 'checked_in'));
         if ($current_booking_id) {
@@ -265,12 +303,12 @@ class Customer_model extends CI_Model
     }
 
     /** Server-side guard against overlapping room allotments. */
-    public function is_room_available($room_id, $check_in, $check_out, $current_booking_id = NULL)
+    public function is_room_available($tenant_id, $property_id, $room_id, $check_in, $check_out, $current_booking_id = NULL)
     {
         if ( ! $room_id) {
             return TRUE;
         }
-        foreach ($this->available_rooms($current_booking_id, $check_in, $check_out) as $room) {
+        foreach ($this->available_rooms($tenant_id, $property_id, $current_booking_id, $check_in, $check_out) as $room) {
             if ((int) $room->id === (int) $room_id) {
                 return TRUE;
             }
@@ -285,18 +323,24 @@ class Customer_model extends CI_Model
      *
      * @return array locked active room ids
      */
-    public function lock_rooms_for_booking(array $room_ids)
+    public function lock_rooms_for_booking($tenant_id, $property_id, array $room_ids)
     {
+        $property_id = (int) $property_id;
+        $tenant_id = (int) $tenant_id;
         $room_ids = array_values(array_unique(array_filter(array_map('intval', $room_ids))));
         sort($room_ids, SORT_NUMERIC);
-        if (empty($room_ids)) {
+        if ($property_id <= 0 || $tenant_id <= 0 || empty($room_ids)) {
             return array();
         }
 
         $placeholders = implode(',', array_fill(0, count($room_ids), '?'));
+        $params = array_merge(array($property_id, $tenant_id), $room_ids);
         $rows = $this->db->query(
-            'SELECT id FROM rooms WHERE is_active = 1 AND id IN ('.$placeholders.') ORDER BY id FOR UPDATE',
-            $room_ids
+            'SELECT r.id FROM rooms r '
+            .'JOIN properties p ON p.id = r.property_id '
+            .'WHERE r.property_id = ? AND p.tenant_id = ? AND r.is_active = 1 '
+            .'AND r.id IN ('.$placeholders.') ORDER BY r.id FOR UPDATE',
+            $params
         )->result();
 
         return array_map(function ($room) { return (int) $room->id; }, $rows);
@@ -306,10 +350,12 @@ class Customer_model extends CI_Model
      * Locking/current-read version of the overlap guard. Call only after the
      * target room row has been locked inside the same transaction.
      */
-    public function is_room_available_for_update($room_id, $check_in, $check_out, $current_booking_id = NULL)
+    public function is_room_available_for_update($tenant_id, $property_id, $room_id, $check_in, $check_out, $current_booking_id = NULL)
     {
+        $property_id = (int) $property_id;
+        $tenant_id = (int) $tenant_id;
         $room_id = (int) $room_id;
-        if ( ! $room_id || ! $this->_valid_stay_range($check_in, $check_out)) {
+        if ($property_id <= 0 || $tenant_id <= 0 || ! $room_id || ! $this->_valid_stay_range($check_in, $check_out)) {
             return FALSE;
         }
 
@@ -319,8 +365,10 @@ class Customer_model extends CI_Model
                   FROM booking_details bd
                   JOIN status_master sm ON sm.status_id = bd.status_id
                  WHERE bd.room_id = ?
+                   AND bd.property_id = ?
+                   AND bd.tenant_id = ?
                    AND sm.status_code IN (\'room_booked\', \'checked_in\')';
-        $params = array($room_id);
+        $params = array($room_id, $property_id, $tenant_id);
         if ($current_booking_id) {
             $sql .= ' AND bd.id != ?';
             $params[] = (int) $current_booking_id;
@@ -353,11 +401,40 @@ class Customer_model extends CI_Model
         return TRUE;
     }
 
-    /** Serialize MAX+1 customer/booking code generation for booking creates. */
-    public function lock_booking_creation_sequence()
+    /** Serialize tenant-scoped customer code and phone creation checks. */
+    public function lock_customer_creation_sequence($tenant_id)
     {
+        $tenant_id = (int) $tenant_id;
+        if ($tenant_id <= 0) {
+            return FALSE;
+        }
+
         return (bool) $this->db->query(
-            'SELECT status_id FROM status_master WHERE status_code = \'room_booked\' LIMIT 1 FOR UPDATE'
+            'SELECT id FROM tenants WHERE id = ? AND is_active = 1 LIMIT 1 FOR UPDATE',
+            array($tenant_id)
+        )->row();
+    }
+
+    /** Serialize MAX+1 customer/booking code generation for booking creates. */
+    public function lock_booking_creation_sequence($tenant_id, $property_id)
+    {
+        $tenant_id = (int) $tenant_id;
+        $property_id = (int) $property_id;
+        if ($property_id <= 0 || $tenant_id <= 0) {
+            return FALSE;
+        }
+
+        // Customer codes are tenant-scoped while booking numbers are
+        // property-scoped. Lock in the same broad-to-narrow order for every
+        // create so two properties in one tenant cannot generate the same
+        // customer code concurrently.
+        if ( ! $this->lock_customer_creation_sequence($tenant_id)) {
+            return FALSE;
+        }
+
+        return (bool) $this->db->query(
+            'SELECT id FROM properties WHERE id = ? AND tenant_id = ? AND is_active = 1 LIMIT 1 FOR UPDATE',
+            array($property_id, $tenant_id)
         )->row();
     }
 
@@ -372,16 +449,19 @@ class Customer_model extends CI_Model
     }
 
     /** Return the category of an active room, or NULL for an invalid room. */
-    public function room_category_for_room($room_id)
+    public function room_category_for_room($property_id, $room_id)
     {
         $room = $this->db
             ->select('category_id')
             ->where('id', (int) $room_id)
+            ->where('property_id', (int) $property_id)
             ->where('is_active', 1)
             ->get('rooms')
             ->row();
 
-        return $room ? (int) $room->category_id : NULL;
+        return $room && $room->category_id !== NULL
+            ? (int) $room->category_id
+            : NULL;
     }
 
     /**
@@ -398,8 +478,13 @@ class Customer_model extends CI_Model
      *                customer_name, allotted_room_no, room_category, stay_date,
      *                status_name.
      */
-    public function get_bookings(array $filters = array())
+    public function get_bookings($tenant_id, $property_id, array $filters = array())
     {
+        $property_id = (int) $property_id;
+        $tenant_id = (int) $tenant_id;
+        if ($property_id <= 0 || $tenant_id <= 0) {
+            return array();
+        }
         $status = ! empty($filters['status']) ? $filters['status'] : 'room_booked';
         $date_column = NULL;
         if ($status === 'checked_in') {
@@ -418,11 +503,13 @@ class Customer_model extends CI_Model
             // otherwise the category the booking itself booked (room may be pending).
             ->select('COALESCE(r_cat.category_name, b_cat.category_name) AS room_category', FALSE)
             ->from('booking_details b')
-            ->join($this->table.' c', 'c.id = b.customer_id', 'inner')
+            ->join($this->table.' c', 'c.id = b.customer_id AND c.tenant_id = b.tenant_id', 'inner')
             ->join('status_master sm', 'sm.status_id = b.status_id', 'inner')
-            ->join('rooms r', 'r.id = b.room_id', 'left')
-            ->join('room_categories r_cat', 'r_cat.category_id = r.category_id', 'left')
-            ->join('room_categories b_cat', 'b_cat.category_id = b.room_category_id', 'left');
+            ->join('rooms r', 'r.id = b.room_id AND r.property_id = b.property_id', 'left')
+            ->join('room_categories r_cat', 'r_cat.category_id = r.category_id AND r_cat.property_id = b.property_id', 'left')
+            ->join('room_categories b_cat', 'b_cat.category_id = b.room_category_id AND b_cat.property_id = b.property_id', 'left')
+            ->where('b.property_id', $property_id)
+            ->where('b.tenant_id', $tenant_id);
 
         // Filter to a single status (defaults to "Room booked").
         $this->db->where('sm.status_code', $status);
@@ -500,20 +587,32 @@ class Customer_model extends CI_Model
      * The (latest) booking row for a customer, or NULL. Used to prefill the
      * booking section when editing an existing booking.
      */
-    public function get_booking($booking_id)
+    public function get_booking($tenant_id, $property_id, $booking_id)
     {
+        if ((int) $booking_id <= 0 || (int) $property_id <= 0 || (int) $tenant_id <= 0) {
+            return NULL;
+        }
         return $this->db
-            ->where('id', (int) $booking_id)
+            ->select('b.*')
+            ->from('booking_details b')
+            ->join($this->table.' c', 'c.id = b.customer_id AND c.tenant_id = b.tenant_id', 'inner')
+            ->where('b.id', (int) $booking_id)
+            ->where('b.property_id', (int) $property_id)
+            ->where('b.tenant_id', (int) $tenant_id)
             ->limit(1)
-            ->get('booking_details')->row();
+            ->get()->row();
     }
 
     /** Lock and return one booking row inside the caller's transaction. */
-    public function get_booking_for_update($booking_id)
+    public function get_booking_for_update($tenant_id, $property_id, $booking_id)
     {
+        if ((int) $booking_id <= 0 || (int) $property_id <= 0 || (int) $tenant_id <= 0) {
+            return NULL;
+        }
         return $this->db->query(
-            'SELECT * FROM booking_details WHERE id = ? LIMIT 1 FOR UPDATE',
-            array((int) $booking_id)
+            'SELECT b.* FROM booking_details b '
+            .'WHERE b.id = ? AND b.property_id = ? AND b.tenant_id = ? LIMIT 1 FOR UPDATE',
+            array((int) $booking_id, (int) $property_id, (int) $tenant_id)
         )->row();
     }
 
@@ -525,8 +624,11 @@ class Customer_model extends CI_Model
      * @param  int $booking_id
      * @return object|null
      */
-    public function get_booking_detail($booking_id)
+    public function get_booking_detail($tenant_id, $property_id, $booking_id)
     {
+        if ((int) $booking_id <= 0 || (int) $property_id <= 0 || (int) $tenant_id <= 0) {
+            return NULL;
+        }
         return $this->db
             ->select('b.*,
                       c.customer_code, c.customer_name, c.phone, c.pincode, c.country,
@@ -534,21 +636,27 @@ class Customer_model extends CI_Model
                       sm.status_name, sm.status_code, bc.channel_name')
             ->select('COALESCE(r_cat.category_name, b_cat.category_name) AS room_category', FALSE)
             ->from('booking_details b')
-            ->join($this->table.' c', 'c.id = b.customer_id', 'inner')
+            ->join($this->table.' c', 'c.id = b.customer_id AND c.tenant_id = b.tenant_id', 'inner')
             ->join('status_master sm', 'sm.status_id = b.status_id', 'inner')
-            ->join('rooms r', 'r.id = b.room_id', 'left')
-            ->join('room_categories r_cat', 'r_cat.category_id = r.category_id', 'left')
-            ->join('room_categories b_cat', 'b_cat.category_id = b.room_category_id', 'left')
+            ->join('rooms r', 'r.id = b.room_id AND r.property_id = b.property_id', 'left')
+            ->join('room_categories r_cat', 'r_cat.category_id = r.category_id AND r_cat.property_id = b.property_id', 'left')
+            ->join('room_categories b_cat', 'b_cat.category_id = b.room_category_id AND b_cat.property_id = b.property_id', 'left')
             ->join('booking_channels bc', 'bc.channel_id = b.booking_channel_id', 'left')
             ->where('b.id', (int) $booking_id)
+            ->where('b.property_id', (int) $property_id)
+            ->where('b.tenant_id', (int) $tenant_id)
             ->limit(1)
             ->get()->row();
     }
 
     /** Next human-facing booking number, e.g. BKG00007 (max suffix + 1). */
-    public function next_booking_number()
+    public function next_booking_number($tenant_id, $property_id)
     {
-        $row  = $this->db->query('SELECT COALESCE(MAX(CAST(SUBSTRING(booking_number, 4) AS UNSIGNED)), 0) AS maxn FROM booking_details')->row();
+        $row  = $this->db->query(
+            'SELECT COALESCE(MAX(CAST(SUBSTRING(booking_number, 4) AS UNSIGNED)), 0) AS maxn '
+            .'FROM booking_details WHERE property_id = ? AND tenant_id = ?',
+            array((int) $property_id, (int) $tenant_id)
+        )->row();
         $next = ((int) ($row ? $row->maxn : 0)) + 1;
         return 'BKG'.str_pad((string) $next, 5, '0', STR_PAD_LEFT);
     }
@@ -560,21 +668,32 @@ class Customer_model extends CI_Model
      * @param  array $data  booking columns
      * @return int   new booking id
      */
-    public function create_booking($customer_id, array $data)
+    public function create_booking($tenant_id, $property_id, $customer_id, array $data)
     {
+        $customer = $this->get_by_id($tenant_id, $customer_id);
+        if ( ! $customer || (int) $property_id <= 0) {
+            return 0;
+        }
+        unset($data['tenant_id'], $data['property_id'], $data['customer_id'], $data['booking_number'], $data['id']);
         $data['customer_id']    = (int) $customer_id;
-        $data['booking_number'] = $this->next_booking_number();
+        $data['tenant_id']      = (int) $tenant_id;
+        $data['property_id']    = (int) $property_id;
+        $data['booking_number'] = $this->next_booking_number($tenant_id, $property_id);
         $data['created_at']     = date('Y-m-d H:i:s');
         $this->db->insert('booking_details', $data);
         return (int) $this->db->insert_id();
     }
 
     /** Update an existing booking (booking_number / customer stay put). */
-    public function update_booking($booking_id, array $data)
+    public function update_booking($tenant_id, $property_id, $booking_id, array $data)
     {
-        unset($data['booking_number'], $data['customer_id'], $data['id']);
+        unset($data['booking_number'], $data['customer_id'], $data['tenant_id'], $data['property_id'], $data['id']);
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->where('id', (int) $booking_id)->update('booking_details', $data);
+        return $this->db
+            ->where('id', (int) $booking_id)
+            ->where('property_id', (int) $property_id)
+            ->where('tenant_id', (int) $tenant_id)
+            ->update('booking_details', $data);
     }
 
     // ---------------------------------------------------------------------
@@ -587,13 +706,17 @@ class Customer_model extends CI_Model
      *
      * @return string
      */
-    public function next_code()
+    public function next_code($tenant_id)
     {
+        if ((int) $tenant_id <= 0) {
+            return self::CODE_PREFIX.'00001';
+        }
         // Highest numeric suffix + 1 (gap-tolerant AND independent of insert
         // order — codes like CUST00018 may belong to a lower-id row).
         $row  = $this->db->query(
             'SELECT COALESCE(MAX(CAST(SUBSTRING(customer_code, '.(strlen(self::CODE_PREFIX) + 1).') AS UNSIGNED)), 0) AS maxn '
-            .'FROM '.$this->table.' WHERE customer_code LIKE '.$this->db->escape(self::CODE_PREFIX.'%')
+            .'FROM '.$this->table.' WHERE tenant_id = ? AND customer_code LIKE '.$this->db->escape(self::CODE_PREFIX.'%'),
+            array((int) $tenant_id)
         )->row();
         $next = ((int) ($row ? $row->maxn : 0)) + 1;
 
@@ -610,8 +733,13 @@ class Customer_model extends CI_Model
      * @param  array $data
      * @return int   New row id.
      */
-    public function insert(array $data)
+    public function insert($tenant_id, array $data)
     {
+        if ((int) $tenant_id <= 0) {
+            return 0;
+        }
+        unset($data['tenant_id'], $data['id']);
+        $data['tenant_id'] = (int) $tenant_id;
         $data['created_at'] = date('Y-m-d H:i:s');
         $this->db->insert($this->table, $data);
         return (int) $this->db->insert_id();
@@ -624,11 +752,13 @@ class Customer_model extends CI_Model
      * @param  array $data
      * @return bool
      */
-    public function update($id, array $data)
+    public function update($tenant_id, $id, array $data)
     {
+        unset($data['tenant_id'], $data['id']);
         $data['updated_at'] = date('Y-m-d H:i:s');
         return $this->db
             ->where('id', (int) $id)
+            ->where('tenant_id', (int) $tenant_id)
             ->update($this->table, $data);
     }
 
@@ -638,9 +768,41 @@ class Customer_model extends CI_Model
      * @param  int $id
      * @return bool
      */
-    public function delete($id)
+    public function delete($tenant_id, $id)
     {
-        return $this->db->delete($this->table, array('id' => (int) $id));
+        return $this->db->delete($this->table, array(
+            'id' => (int) $id,
+            'tenant_id' => (int) $tenant_id,
+        ));
+    }
+
+    /** A shared customer with any booking or identity record is history-bearing. */
+    public function has_history($tenant_id, $id)
+    {
+        $id = (int) $id;
+        $tenant_id = (int) $tenant_id;
+        if ($id <= 0 || $tenant_id <= 0) {
+            return FALSE;
+        }
+
+        $booking = $this->db
+            ->select('id')
+            ->where('customer_id', $id)
+            ->where('tenant_id', $tenant_id)
+            ->limit(1)
+            ->get('booking_details')
+            ->row();
+        if ($booking) {
+            return TRUE;
+        }
+
+        return (bool) $this->db
+            ->select('id')
+            ->where('customer_id', $id)
+            ->where('tenant_id', $tenant_id)
+            ->limit(1)
+            ->get('customer_identities')
+            ->row();
     }
 
     // ---------------------------------------------------------------------
@@ -654,47 +816,67 @@ class Customer_model extends CI_Model
      * @param  int|null $booking_id NULL means customer-level documents only
      * @return array of identity rows including front/back document paths
      */
-    public function get_identities($customer_id, $booking_id = NULL)
+    public function get_identities($tenant_id, $property_id, $customer_id, $booking_id = NULL)
     {
         $this->db
-            ->select('id, customer_id, booking_id, identity_type, identity_number, document_path, document_path_2')
-            ->where('customer_id', (int) $customer_id);
+            ->select('ci.id, ci.customer_id, ci.booking_id, ci.tenant_id, ci.property_id,
+                      ci.identity_type, ci.identity_number, ci.document_path, ci.document_path_2')
+            ->from('customer_identities ci')
+            ->join($this->table.' c', 'c.id = ci.customer_id AND c.tenant_id = ci.tenant_id', 'inner')
+            ->where('ci.customer_id', (int) $customer_id)
+            ->where('ci.tenant_id', (int) $tenant_id)
+            ->where('ci.property_id', (int) $property_id);
         if ($booking_id === NULL) {
-            $this->db->where('booking_id IS NULL', NULL, FALSE);
+            $this->db->where('ci.booking_id IS NULL', NULL, FALSE);
         } else {
-            $this->db->where('booking_id', (int) $booking_id);
+            $this->db->where('ci.booking_id', (int) $booking_id);
         }
         return $this->db
-            ->order_by('id', 'ASC')
-            ->get('customer_identities')
+            ->order_by('ci.id', 'ASC')
+            ->get()
             ->result();
     }
 
     /** A single identity row (used by the secure document stream). */
-    public function get_identity($id)
+    public function get_identity($tenant_id, $property_id, $id)
     {
         return $this->db
-            ->where('id', (int) $id)
+            ->select('ci.*')
+            ->from('customer_identities ci')
+            ->join($this->table.' c', 'c.id = ci.customer_id AND c.tenant_id = ci.tenant_id', 'inner')
+            ->where('ci.id', (int) $id)
+            ->where('ci.tenant_id', (int) $tenant_id)
+            ->where('ci.property_id', (int) $property_id)
             ->limit(1)
-            ->get('customer_identities')
+            ->get()
             ->row();
     }
 
     /** Insert one identity row; returns its new id. */
-    public function insert_identity(array $data)
+    public function insert_identity($tenant_id, $property_id, array $data)
     {
+        $customer_id = isset($data['customer_id']) ? (int) $data['customer_id'] : 0;
+        if ( ! $this->get_by_id($tenant_id, $customer_id) || (int) $property_id <= 0) {
+            return 0;
+        }
+        unset($data['tenant_id'], $data['property_id'], $data['id']);
+        $data['tenant_id'] = (int) $tenant_id;
+        $data['property_id'] = (int) $property_id;
         $data['created_at'] = date('Y-m-d H:i:s');
         $this->db->insert('customer_identities', $data);
         return (int) $this->db->insert_id();
     }
 
     /** Update one identity row (scoped to its customer for safety). */
-    public function update_identity($id, $customer_id, array $data)
+    public function update_identity($tenant_id, $property_id, $id, $customer_id, array $data)
     {
+        unset($data['id'], $data['customer_id'], $data['tenant_id'], $data['property_id'], $data['booking_id']);
         $data['updated_at'] = date('Y-m-d H:i:s');
         return $this->db
             ->where('id', (int) $id)
             ->where('customer_id', (int) $customer_id)
+            ->where('tenant_id', (int) $tenant_id)
+            ->where('property_id', (int) $property_id)
             ->update('customer_identities', $data);
     }
 
@@ -708,9 +890,12 @@ class Customer_model extends CI_Model
      * @param  int|null $booking_id NULL scopes removal to customer-level rows
      * @return array
      */
-    public function identities_to_remove($customer_id, array $keep_ids, $booking_id = NULL)
+    public function identities_to_remove($tenant_id, $property_id, $customer_id, array $keep_ids, $booking_id = NULL)
     {
-        $this->db->where('customer_id', (int) $customer_id);
+        $this->db
+            ->where('customer_id', (int) $customer_id)
+            ->where('tenant_id', (int) $tenant_id)
+            ->where('property_id', (int) $property_id);
         if ($booking_id === NULL) {
             $this->db->where('booking_id IS NULL', NULL, FALSE);
         } else {
@@ -724,11 +909,13 @@ class Customer_model extends CI_Model
     }
 
     /** Delete an identity row by id (scoped to its customer). */
-    public function delete_identity($id, $customer_id)
+    public function delete_identity($tenant_id, $property_id, $id, $customer_id)
     {
         return $this->db->delete('customer_identities', array(
             'id'          => (int) $id,
             'customer_id' => (int) $customer_id,
+            'tenant_id'   => (int) $tenant_id,
+            'property_id' => (int) $property_id,
         ));
     }
 }

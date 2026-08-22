@@ -28,12 +28,13 @@ class Inventory_model extends CI_Model
      *
      * @return array of {category_id, category_name, total_rooms}
      */
-    public function categories_with_totals()
+    public function categories_with_totals($property_id)
     {
         return $this->db
             ->select('rc.category_id, rc.category_name, COUNT(r.id) AS total_rooms', FALSE)
             ->from('room_categories rc')
-            ->join('rooms r', 'r.category_id = rc.category_id AND r.is_active = 1', 'left')
+            ->join('rooms r', 'r.category_id = rc.category_id AND r.property_id = rc.property_id AND r.is_active = 1', 'left')
+            ->where('rc.property_id', (int) $property_id)
             ->where('rc.status', 1)
             ->group_by('rc.category_id')
             ->having('COUNT(r.id) > 0')
@@ -49,12 +50,13 @@ class Inventory_model extends CI_Model
      * @param array $filters - optional filters: room_no, category_id
      * @return array of {id, room_no, category_id, category_name}
      */
-    public function all_rooms_with_category($filters = array())
+    public function all_rooms_with_category($property_id, $filters = array())
     {
         $this->db
             ->select('r.id, r.room_no, r.category_id, rc.category_name')
             ->from('rooms r')
-            ->join('room_categories rc', 'rc.category_id = r.category_id', 'left')
+            ->join('room_categories rc', 'rc.category_id = r.category_id AND rc.property_id = r.property_id', 'left')
+            ->where('r.property_id', (int) $property_id)
             ->where('r.is_active', 1);
 
         // Filter by room number/name
@@ -77,11 +79,12 @@ class Inventory_model extends CI_Model
      *
      * @return array of {category_id, category_name}
      */
-    public function get_all_categories()
+    public function get_all_categories($property_id)
     {
         return $this->db
             ->select('category_id, category_name')
             ->from('room_categories')
+            ->where('property_id', (int) $property_id)
             ->where('status', 1)
             ->order_by('display_order', 'ASC')
             ->order_by('category_name', 'ASC')
@@ -99,7 +102,7 @@ class Inventory_model extends CI_Model
      * @return array of {booking_id, room_id, room_category_id, room_quantity, total_unit,
      *                   cin, cout, checked_in_at, checked_out_at, status_code, room_cat}
      */
-    public function occupying_bookings()
+    public function occupying_bookings($property_id)
     {
         return $this->db
             ->select('b.id AS booking_id, b.room_id, b.room_category_id, b.room_quantity, b.total_unit,
@@ -108,18 +111,20 @@ class Inventory_model extends CI_Model
                       r.category_id AS room_cat')
             ->from('booking_details b')
             ->join('status_master sm', 'sm.status_id = b.status_id', 'inner')
-            ->join('rooms r', 'r.id = b.room_id AND r.is_active = 1', 'left')
+            ->join('rooms r', 'r.id = b.room_id AND r.property_id = b.property_id AND r.is_active = 1', 'left')
+            ->where('b.property_id', (int) $property_id)
             ->where_in('sm.status_code', $this->occupying)
             ->get()->result();
     }
 
     /** True only for a workflow booking assigned to an active inventory room. */
-    public function booking_is_inventory_visible($booking_id)
+    public function booking_is_inventory_visible($property_id, $booking_id)
     {
         return $this->db
             ->from('booking_details b')
             ->join('status_master sm', 'sm.status_id = b.status_id', 'inner')
-            ->join('rooms r', 'r.id = b.room_id AND r.is_active = 1', 'inner')
+            ->join('rooms r', 'r.id = b.room_id AND r.property_id = b.property_id AND r.is_active = 1', 'inner')
+            ->where('b.property_id', (int) $property_id)
             ->where('b.id', (int) $booking_id)
             ->where_in('sm.status_code', $this->occupying)
             ->count_all_results() > 0;
@@ -139,7 +144,7 @@ class Inventory_model extends CI_Model
      *     total_rooms:  int
      * }
      */
-    public function availability($start, $days, $filters = array())
+    public function availability($property_id, $start, $days, $filters = array())
     {
         $t0 = strtotime($start);
         $dates = array();
@@ -147,7 +152,7 @@ class Inventory_model extends CI_Model
             $dates[] = date('Y-m-d', strtotime('+'.$i.' day', $t0));
         }
 
-        $rooms = $this->all_rooms_with_category($filters);
+        $rooms = $this->all_rooms_with_category($property_id, $filters);
 
         // state[room_id][date] distinguishes a reservation from an in-house guest.
         // booking_state mirrors the winning status so occupied calendar cells can
@@ -166,7 +171,7 @@ class Inventory_model extends CI_Model
             'checked_in'  => 3,
         );
 
-        foreach ($this->occupying_bookings() as $b) {
+        foreach ($this->occupying_bookings($property_id) as $b) {
             $room_id = $b->room_id;
             if (!$room_id || !isset($state[$room_id])) {
                 continue;   // no room assigned or room not active

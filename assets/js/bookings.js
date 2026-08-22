@@ -8,6 +8,10 @@
     'use strict';
 
     angular.module('bookingsApp', ['erpQuery'])
+        .config(['$httpProvider', function ($httpProvider) {
+            $httpProvider.defaults.headers.common['X-Property-Context-Token'] =
+                window.APP_PROPERTY_CONTEXT_TOKEN || '';
+        }])
         .controller('BookingsController', ['$http', '$timeout', 'erpQuery', BookingsController]);
 
     function BookingsController($http, $timeout, erpQuery) {
@@ -69,7 +73,8 @@
 
         // ---- API (cached: instant from cache, revalidated in the background) ----
         vm.load = function () {
-            erpQuery.fetch(listNs, listUrl, vm.filters, {}, {
+            var params = angular.extend({}, vm.filters);
+            erpQuery.fetch(listNs, listUrl, params, {}, {
                 data:    function (rows) { vm.bookings = rows; },
                 loading: function (b)    { vm.loading = b; }
             });
@@ -104,7 +109,13 @@
                         alert((res.data && res.data.message) || 'Unable to load booking.');
                     }
                 })
-                .catch(function () { alert('Unable to load booking.'); });
+                .catch(function (error) {
+                    if (error && error.status === 409) {
+                        window.location.assign(base + 'inventory');
+                        return;
+                    }
+                    alert('Unable to load booking.');
+                });
         };
 
         vm.closeModal = function () {

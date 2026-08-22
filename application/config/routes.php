@@ -59,6 +59,33 @@ $route['logout']          = 'auth/logout';
 $route['auth/send_otp']   = 'auth/send_otp';
 $route['auth/verify_otp'] = 'auth/verify_otp';
 
+// Role and ownership management
+$route['admins']                  = 'admins/index';
+$route['admins/add']              = 'admins/form';
+$route['admins/edit/(:num)']      = 'admins/form/$1';
+$route['admins/save']             = 'admins/save';
+$route['admins/status/(:num)']    = 'admins/status/$1';
+$route['admins/delete/(:num)']    = 'admins/delete/$1';
+
+$route['properties']               = 'properties/index';
+$route['properties/add']           = 'properties/form';
+$route['properties/edit/(:num)']   = 'properties/form/$1';
+$route['properties/save']          = 'properties/save';
+$route['properties/status/(:num)'] = 'properties/status/$1';
+$route['properties/delete/(:num)'] = 'properties/delete/$1';
+$route['properties/select']        = 'properties/select_property';
+$route['properties/switch']        = 'properties/switch_property';
+
+$route['users']                  = 'users/index';
+$route['users/add']              = 'users/form';
+$route['users/edit/(:num)']      = 'users/form/$1';
+$route['users/save']             = 'users/save';
+$route['users/status/(:num)']    = 'users/status/$1';
+$route['users/delete/(:num)']    = 'users/delete/$1';
+
+$route['access/no-properties'] = 'access/no_properties';
+$route['access/forbidden']     = 'access/forbidden';
+
 // Protected pages
 $route['dashboard']       = 'rooms/index';   // legacy alias -> Room Master
 $route['inventory']       = 'inventory/index';   // room availability calendar
@@ -99,3 +126,10 @@ $route['rooms']              = 'rooms/index';
 $route['rooms/list']         = 'rooms/list_ajax';
 $route['rooms/add']          = 'rooms/form';
 $route['rooms/edit/(:num)']  = 'rooms/form/$1';
+
+// Property-scoped Room Category Master
+$route['room-categories']                = 'roomcategories/index';
+$route['room-categories/add']            = 'roomcategories/form';
+$route['room-categories/edit/(:num)']    = 'roomcategories/form/$1';
+$route['room-categories/save']           = 'roomcategories/save';
+$route['room-categories/delete/(:num)']  = 'roomcategories/delete/$1';

@@ -38,7 +38,7 @@
 angular.module('erpQuery', []).factory('erpQuery', ['$http', function ($http) {
     'use strict';
 
-    var PREFIX   = 'erpq:';        // sessionStorage key prefix
+    var PREFIX   = 'erpq:v2:';     // cache format includes authenticated property context
     var STALE_MS = 10 * 60 * 1000; // default freshness window (10 min)
 
     function serialize(params) {
@@ -48,8 +48,11 @@ angular.module('erpQuery', []).factory('erpQuery', ['$http', function ($http) {
             return k + '=' + (v === null || v === undefined ? '' : v);
         }).join('&');
     }
+    function contextKey() {
+        return String(window.APP_CONTEXT_KEY || 'no-context');
+    }
     function keyFor(ns, url, params) {
-        return PREFIX + ns + ':' + url + '?' + serialize(params);
+        return PREFIX + contextKey() + ':' + ns + ':' + url + '?' + serialize(params);
     }
     function readCache(key) {
         try { var raw = sessionStorage.getItem(key); return raw ? JSON.parse(raw) : null; }
@@ -104,13 +107,21 @@ angular.module('erpQuery', []).factory('erpQuery', ['$http', function ($http) {
             }
 
             // 3) Revalidate against the server.
-            $http.get(url, { params: params }).then(function (res) {
+            $http.get(url, {
+                params: params,
+                headers: { 'X-Property-Context-Token': window.APP_PROPERTY_CONTEXT_TOKEN || '' }
+            }).then(function (res) {
                 var data = pick(res);
                 var prev = readCache(key);
                 var changed = !prev || JSON.stringify(prev.data) !== JSON.stringify(data);
                 writeCache(key, data);
                 if (changed && cb.data) { cb.data(data, false); }   // only re-render on real change
-            }).catch(function () {
+            }).catch(function (error) {
+                if (error && error.status === 409) {
+                    removeByPrefix('erpq:');
+                    window.location.assign((window.APP_BASE || '/').replace(/\/?$/, '/') + 'inventory');
+                    return;
+                }
                 if (!hadCache) {                 // no cache to fall back on
                     if (cb.data)  { cb.data([], false); }
                     if (cb.error) { cb.error(); }
@@ -121,9 +132,9 @@ angular.module('erpQuery', []).factory('erpQuery', ['$http', function ($http) {
         },
 
         /** Clear all cached lists for a namespace (call after add/edit/delete). */
-        invalidate: function (ns) { removeByPrefix(PREFIX + ns + ':'); },
+        invalidate: function (ns) { removeByPrefix(PREFIX + contextKey() + ':' + ns + ':'); },
 
         /** Clear the entire query cache (e.g. on logout). */
-        clearAll: function () { removeByPrefix(PREFIX); }
+        clearAll: function () { removeByPrefix('erpq:'); }
     };
 }]);

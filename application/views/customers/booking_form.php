@@ -12,7 +12,11 @@ $is_edit = ($booking !== NULL);
     <title><?= $is_edit ? 'Edit' : 'New' ?> Booking &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
-    <script>window.APP_BASE = <?= json_encode(base_url()) ?>;</script>
+    <script>
+        window.APP_BASE = <?= json_encode(base_url()) ?>;
+        window.APP_PROPERTY_CONTEXT_TOKEN = <?= json_encode($property_context_token ?? '') ?>;
+        window.APP_PROPERTY_CONTEXT_KEY = <?= json_encode((string) ($current_tenant_id ?? '').':'.(string) ($current_property_id ?? '')) ?>;
+    </script>
 </head>
 <body class="erp-body">
 

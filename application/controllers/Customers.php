@@ -15,7 +15,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *   delete($id)    -> [AJAX/POST] delete row + remove the customer's files
  *   file($id,$t)   -> streams an Aadhar/PAN document from outside the web root
  */
-class Customers extends Secure_Controller
+class Customers extends Property_Controller
 {
     /** Allowed upload extensions / size (KB). */
     const UPLOAD_TYPES   = 'jpg|jpeg|png|pdf';
@@ -57,7 +57,7 @@ class Customers extends Secure_Controller
         $customer = NULL;
 
         if ($id !== NULL) {
-            $customer = $this->Customer_model->get_by_id($id);
+            $customer = $this->Customer_model->get_by_id($this->current_tenant_id, $id);
             if ( ! $customer) {
                 show_404();
                 return;
@@ -66,10 +66,14 @@ class Customers extends Secure_Controller
 
         $data = array(
             'customer'       => $customer,
-            'next_code'      => $customer ? $customer->customer_code : $this->Customer_model->next_code(),
+            'next_code'      => $customer ? $customer->customer_code : $this->Customer_model->next_code($this->current_tenant_id),
             'country_opts'   => $this->_country_options(),
             'identity_types' => $this->_identity_types(),
-            'identities'     => $customer ? $this->Customer_model->get_identities($customer->id) : array(),
+            'identities'     => $customer ? $this->Customer_model->get_identities(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $customer->id
+            ) : array(),
         );
         $this->load->view('customers/form', $data);
     }
@@ -136,7 +140,7 @@ class Customers extends Secure_Controller
     private function _render_booking_list(array $cfg)
     {
         $cfg['flash']      = $this->session->flashdata('booking_msg');
-        $cfg['categories'] = $this->Customer_model->room_categories();   // for the Room Category filter dropdown
+        $cfg['categories'] = $this->Customer_model->room_categories($this->current_property_id);
         $this->load->view('customers/bookings', $cfg);
     }
 
@@ -152,7 +156,11 @@ class Customers extends Secure_Controller
         $customer = NULL;
 
         if ($booking_id !== NULL) {
-            $booking = $this->Customer_model->get_booking($booking_id);
+            $booking = $this->Customer_model->get_booking(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $booking_id
+            );
             if ( ! $booking) {
                 show_404();
                 return;
@@ -169,7 +177,7 @@ class Customers extends Secure_Controller
                 redirect('customers/checkedouts/edit/'.$booking->id);
                 return;
             }
-            $customer = $this->Customer_model->get_by_id($booking->customer_id);
+            $customer = $this->Customer_model->get_by_id($this->current_tenant_id, $booking->customer_id);
         }
 
         $room_range = $this->_room_availability_range($booking);
@@ -178,8 +186,10 @@ class Customers extends Secure_Controller
             'customer'      => $customer,
             'country_opts'  => $this->_country_options(),
             'channel_opts'  => $this->Customer_model->booking_channels(),
-            'room_cat_opts' => $this->Customer_model->room_categories(),
+            'room_cat_opts' => $this->Customer_model->room_categories($this->current_property_id),
             'room_opts'     => $this->Customer_model->available_rooms(
+                $this->current_tenant_id,
+                $this->current_property_id,
                 $booking_id,
                 $room_range[0],
                 $room_range[1]
@@ -200,6 +210,7 @@ class Customers extends Secure_Controller
      */
     public function inventory_booking_form()
     {
+        if ( ! $this->_require_property_context(TRUE)) { return; }
         $check_in = $this->_date($this->input->get('check_in'));
         $check_out = $this->_date($this->input->get('check_out'));
         $room_id = (int) $this->input->get('room_id');
@@ -214,7 +225,13 @@ class Customers extends Secure_Controller
             ), 422);
         }
 
-        $room_opts = $this->Customer_model->available_rooms(NULL, $check_in, $check_out);
+        $room_opts = $this->Customer_model->available_rooms(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            NULL,
+            $check_in,
+            $check_out
+        );
         $selected_room = NULL;
         foreach ($room_opts as $room) {
             if ((int) $room->id === $room_id) {
@@ -248,7 +265,7 @@ class Customers extends Secure_Controller
             'customer'      => NULL,
             'country_opts'  => $this->_country_options(),
             'channel_opts'  => $this->Customer_model->booking_channels(),
-            'room_cat_opts' => $this->Customer_model->room_categories(),
+            'room_cat_opts' => $this->Customer_model->room_categories($this->current_property_id),
             'room_opts'     => $room_opts,
             'status_opts'   => $this->Customer_model->all_statuses(),
             'form_context'  => 'inventory',
@@ -256,7 +273,9 @@ class Customers extends Secure_Controller
             'booking_defaults' => array(
                 'status_id' => $room_booked_id,
                 'room_id' => $room_id,
-                'room_category_id' => (int) $selected_room->category_id,
+                'room_category_id' => $selected_room->category_id !== NULL
+                    ? (int) $selected_room->category_id
+                    : NULL,
                 'scheduled_check_in_date' => $check_in,
                 'scheduled_check_out_date' => $check_out,
                 'length_of_stay' => $nights,
@@ -282,6 +301,7 @@ class Customers extends Secure_Controller
      */
     public function list_ajax()
     {
+        if ( ! $this->_require_property_context(TRUE)) { return; }
         $filters = array(
             'customer_code' => $this->input->get('customer_code'),
             'name'          => $this->input->get('name'),
@@ -289,7 +309,7 @@ class Customers extends Secure_Controller
             'status'        => $this->input->get('status'),
         );
 
-        $rows = $this->Customer_model->get_filtered($filters);
+        $rows = $this->Customer_model->get_filtered($this->current_tenant_id, $filters);
 
         return $this->_json(array('status' => TRUE, 'data' => $rows));
     }
@@ -300,7 +320,11 @@ class Customers extends Secure_Controller
      */
     public function lookup()
     {
-        $customer = $this->Customer_model->get_by_phone($this->input->get('phone'));
+        if ( ! $this->_require_property_context(TRUE)) { return; }
+        $customer = $this->Customer_model->get_by_phone(
+            $this->current_tenant_id,
+            $this->input->get('phone')
+        );
 
         if ( ! $customer) {
             return $this->_json(array('status' => TRUE, 'found' => FALSE));
@@ -312,6 +336,7 @@ class Customers extends Secure_Controller
     /** [AJAX] Rooms available for the Booking Form Check In / Check Out range. */
     public function available_rooms_ajax()
     {
+        if ( ! $this->_require_property_context(TRUE)) { return; }
         $range = $this->_datetime_availability_range(
             $this->input->get('check_in'),
             $this->input->get('check_out')
@@ -328,6 +353,8 @@ class Customers extends Secure_Controller
         return $this->_json(array(
             'status' => TRUE,
             'data'   => $this->Customer_model->available_rooms(
+                $this->current_tenant_id,
+                $this->current_property_id,
                 $booking_id ?: NULL,
                 $range[0],
                 $range[1]
@@ -338,22 +365,37 @@ class Customers extends Secure_Controller
     /** [AJAX] "Room booked" bookings (Booking Details list). */
     public function bookings_ajax()
     {
+        if ( ! $this->_require_property_context(TRUE)) { return; }
         return $this->_json(array('status' => TRUE, 'data' =>
-            $this->Customer_model->get_bookings($this->_booking_filters('room_booked'))));
+            $this->Customer_model->get_bookings(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $this->_booking_filters('room_booked')
+            )));
     }
 
     /** [AJAX] "Checked in" bookings (Check-in Details list). */
     public function checkins_ajax()
     {
+        if ( ! $this->_require_property_context(TRUE)) { return; }
         return $this->_json(array('status' => TRUE, 'data' =>
-            $this->Customer_model->get_bookings($this->_booking_filters('checked_in'))));
+            $this->Customer_model->get_bookings(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $this->_booking_filters('checked_in')
+            )));
     }
 
     /** [AJAX] "Checked out" bookings (Check-out Details list). */
     public function checkedouts_ajax()
     {
+        if ( ! $this->_require_property_context(TRUE)) { return; }
         return $this->_json(array('status' => TRUE, 'data' =>
-            $this->Customer_model->get_bookings($this->_booking_filters('checked_out'))));
+            $this->Customer_model->get_bookings(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $this->_booking_filters('checked_out')
+            )));
     }
 
     /** Per-column filters shared by both booking lists. */
@@ -374,9 +416,10 @@ class Customers extends Secure_Controller
      */
     public function view($id = NULL)
     {
-        $customer = $id ? $this->Customer_model->get_by_id($id) : NULL;
+        if ( ! $this->_require_property_context(TRUE)) { return; }
+        $customer = $id ? $this->Customer_model->get_by_id($this->current_tenant_id, $id) : NULL;
         if ( ! $customer) {
-            return $this->_json(array('status' => FALSE, 'message' => 'Customer not found.'));
+            return $this->_json(array('status' => FALSE, 'message' => 'Customer not found.'), 404);
         }
 
         // Attach identity proofs (with a label + streamed-document URL each).
@@ -389,7 +432,11 @@ class Customers extends Secure_Controller
                 'document_url'    => $idn->document_path ? site_url('customers/identity_file/'.$idn->id) : NULL,
                 'document_url_2'  => $idn->document_path_2 ? site_url('customers/identity_file/'.$idn->id.'/2') : NULL,
             );
-        }, $this->Customer_model->get_identities($customer->id));
+        }, $this->Customer_model->get_identities(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $customer->id
+        ));
 
         return $this->_json(array('status' => TRUE, 'data' => $customer));
     }
@@ -403,13 +450,16 @@ class Customers extends Secure_Controller
      */
     public function save()
     {
+        if ( ! $this->require_post() || ! $this->_require_property_context(FALSE)) { return; }
         if ( ! $this->_valid_customer_write_token()) {
             show_error('This form expired or came from another site. Refresh the page and try again.', 403);
             return;
         }
         $id       = (int) $this->input->post('id');
         $is_edit  = $id > 0;
-        $existing = $is_edit ? $this->Customer_model->get_by_id($id) : NULL;
+        $existing = $is_edit
+            ? $this->Customer_model->get_by_id($this->current_tenant_id, $id)
+            : NULL;
 
         if ($is_edit && ! $existing) {
             show_404();
@@ -421,14 +471,23 @@ class Customers extends Secure_Controller
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
         $identity_upload_error = $this->_identity_upload_error($id);
+        $submitted_phone = trim((string) $this->input->post('phone', TRUE));
+        $phone_owner = $this->Customer_model->get_by_phone($this->current_tenant_id, $submitted_phone);
+        if ($phone_owner && ( ! $existing || (int) $phone_owner->id !== (int) $existing->id)) {
+            $identity_upload_error = 'A customer with this mobile number already exists in this account.';
+        }
         if ($this->form_validation->run() === FALSE || $identity_upload_error !== NULL) {
             // Re-render the form with errors + submitted values.
             $data = array(
                 'customer'       => $existing,
-                'next_code'      => $is_edit ? $existing->customer_code : $this->Customer_model->next_code(),
+                'next_code'      => $is_edit ? $existing->customer_code : $this->Customer_model->next_code($this->current_tenant_id),
                 'country_opts'   => $this->_country_options(),
                 'identity_types' => $this->_identity_types(),
-                'identities'     => $existing ? $this->Customer_model->get_identities($existing->id) : array(),
+                'identities'     => $existing ? $this->Customer_model->get_identities(
+                    $this->current_tenant_id,
+                    $this->current_property_id,
+                    $existing->id
+                ) : array(),
                 'identity_upload_error' => $identity_upload_error,
             );
             $this->load->view('customers/form', $data);
@@ -436,12 +495,12 @@ class Customers extends Secure_Controller
         }
 
         // Immutable code: keep on edit, generate fresh on add (never trust POST).
-        $code = $is_edit ? $existing->customer_code : $this->Customer_model->next_code();
+        $code = $is_edit ? $existing->customer_code : NULL;
 
         // --- Scalar fields (CUSTOMER only — bookings are a separate form) --
         $data = array(
             'customer_name' => $this->input->post('customer_name', TRUE),
-            'phone'         => $this->input->post('phone', TRUE),        // Mobile No
+            'phone'         => $submitted_phone,                         // Mobile No
             'pincode'       => $this->input->post('pincode', TRUE),
             'country'       => $this->input->post('country', TRUE),
             'is_active'     => $this->input->post('is_active') !== NULL ? 1 : 0,
@@ -450,19 +509,62 @@ class Customers extends Secure_Controller
             $data['is_active'] = (int) $this->input->post('is_active');
         }
 
-        // --- Persist customer ------------------------------------------------
+        // Customer code and phone are tenant-wide. Serialize the final
+        // duplicate check for both creates and edits so two properties cannot
+        // race a phone change or generate the same code.
+        $this->db->trans_begin();
+        if ( ! $this->Customer_model->lock_customer_creation_sequence($this->current_tenant_id)) {
+            $this->db->trans_rollback();
+            show_error('The customer could not be saved right now. Please try again.', 503);
+            return;
+        }
+
+        $locked_phone_owner = $this->Customer_model->get_by_phone(
+            $this->current_tenant_id,
+            $submitted_phone
+        );
+        if ($locked_phone_owner && ( ! $existing || (int) $locked_phone_owner->id !== (int) $existing->id)) {
+            $this->db->trans_rollback();
+            $this->load->view('customers/form', array(
+                'customer'       => $existing,
+                'next_code'      => $is_edit
+                    ? $existing->customer_code
+                    : $this->Customer_model->next_code($this->current_tenant_id),
+                'country_opts'   => $this->_country_options(),
+                'identity_types' => $this->_identity_types(),
+                'identities'     => $existing ? $this->Customer_model->get_identities(
+                    $this->current_tenant_id,
+                    $this->current_property_id,
+                    $existing->id
+                ) : array(),
+                'identity_upload_error' => 'A customer with this mobile number already exists in this account.',
+            ));
+            return;
+        }
+
         if ($is_edit) {
-            $this->Customer_model->update($id, $data);
-            $cust_id = $id;
+            $saved = $this->Customer_model->update($this->current_tenant_id, $id, $data);
+            $cust_id = $saved ? $id : 0;
             $msg = 'Customer "'.$data['customer_name'].'" updated successfully.';
         } else {
+            $code = $this->Customer_model->next_code($this->current_tenant_id);
             $data['customer_code'] = $code;
-            $cust_id = $this->Customer_model->insert($data);
+            $cust_id = $this->Customer_model->insert($this->current_tenant_id, $data);
             $msg = 'Customer "'.$data['customer_name'].'" ('.$code.') added successfully.';
         }
 
+        if ($this->db->trans_status() === FALSE || ! $cust_id) {
+            $this->db->trans_rollback();
+            show_error('The customer could not be saved. Please try again.', 500);
+            return;
+        }
+        if ( ! $this->db->trans_commit()) {
+            show_error('The customer could not be saved. Please try again.', 500);
+            return;
+        }
+
         // --- Identity proofs (dynamic rows + their uploaded documents) -------
-        $identity_save_errors = $this->_save_identities($cust_id, $code);
+        $identity_save_errors = $this->_save_identities($cust_id);
 
         if ($identity_save_errors) {
             $msg .= ' Customer details were saved, but a document could not be stored: '.reset($identity_save_errors);
@@ -487,11 +589,18 @@ class Customers extends Secure_Controller
      */
     public function booking_save()
     {
+        if ( ! $this->require_post()) { return; }
+        $inventory_source = ! (int) $this->input->post('booking_id')
+            && $this->input->post('booking_source') === 'inventory';
+        if ( ! $this->_require_property_context($inventory_source)) { return; }
+
         $booking_id = (int) $this->input->post('booking_id');
         $booking_id = $booking_id > 0 ? $booking_id : NULL;
-        $inventory_source = ! $booking_id
-            && $this->input->post('booking_source') === 'inventory';
-        $existing_booking = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+        $existing_booking = $booking_id ? $this->Customer_model->get_booking(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking_id
+        ) : NULL;
         if ($booking_id && ! $existing_booking) {
             show_404();
             return;
@@ -518,6 +627,16 @@ class Customers extends Secure_Controller
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
         $this->form_validation->set_rules('status_id', 'Booking Status', 'required|callback_can_check_in_on_scheduled_date');
+        $this->form_validation->set_rules(
+            'booking_channel_id',
+            'Booking Channel',
+            'callback_valid_booking_channel'
+        );
+        $this->form_validation->set_rules(
+            'room_category_id',
+            'Room Category',
+            'callback_valid_booking_room_category'
+        );
         if ($inventory_source) {
             $this->form_validation->set_rules(
                 'scheduled_check_in_date',
@@ -560,23 +679,76 @@ class Customers extends Secure_Controller
         }
 
         $booking = $this->_booking_from_post();
+        if ($existing_booking) {
+            // This nullable text column is a historical legacy snapshot, not
+            // an authorization field. Editing a legacy row must not rewrite it.
+            unset($booking['property_name']);
+        }
         $room_id = isset($booking['room_id']) ? (int) $booking['room_id'] : 0;
         $room_range = $this->_posted_booking_range($existing_booking);
+
+        $existing_customer = $existing_booking
+            ? $this->Customer_model->get_by_id($this->current_tenant_id, $existing_booking->customer_id)
+            : NULL;
+        if ($existing_booking && ! $existing_customer) {
+            show_404();
+            return;
+        }
+        $phone_customer = $this->Customer_model->get_by_phone($this->current_tenant_id, $phone);
+        if (
+            $existing_customer
+            && $phone_customer
+            && (int) $phone_customer->id !== (int) $existing_customer->id
+        ) {
+            return $this->_booking_form_failure(
+                $existing_booking,
+                $booking_id,
+                $inventory_source,
+                'This mobile number belongs to another customer in this account. The booking customer cannot be changed.',
+                409
+            );
+        }
 
         // Customer + booking write is atomic. Lock the room first, then repeat
         // the availability test as a locking/current read to close stale-page
         // and simultaneous-submit races.
         $this->db->trans_begin();
 
+        // Every booking writer uses one broad-to-narrow mutex order:
+        // tenant -> property -> room(s) -> overlapping/target booking(s).
+        // This also serializes tenant customer codes/phones and property
+        // booking-number generation without booking/room lock inversion.
+        if ( ! $this->Customer_model->lock_booking_creation_sequence(
+            $this->current_tenant_id,
+            $this->current_property_id
+        )) {
+            $this->db->trans_rollback();
+            return $this->_booking_form_failure(
+                $existing_booking,
+                $booking_id,
+                $inventory_source,
+                $booking_id
+                    ? 'The booking could not be updated right now. Please try again.'
+                    : 'The booking could not be created right now. Please try again.',
+                503
+            );
+        }
+
         if ($room_id) {
             $rooms_to_lock = array($room_id);
             if ($existing_booking && $existing_booking->room_id) {
                 $rooms_to_lock[] = (int) $existing_booking->room_id;
             }
-            $locked_rooms = $this->Customer_model->lock_rooms_for_booking($rooms_to_lock);
+            $locked_rooms = $this->Customer_model->lock_rooms_for_booking(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $rooms_to_lock
+            );
             if (
                 ! in_array($room_id, $locked_rooms, TRUE)
                 || ! $this->Customer_model->is_room_available_for_update(
+                    $this->current_tenant_id,
+                    $this->current_property_id,
                     $room_id,
                     $room_range[0],
                     $room_range[1],
@@ -594,35 +766,83 @@ class Customers extends Secure_Controller
             }
         }
 
-        // MAX+1 codes are protected by one stable row lock for new bookings.
-        if ( ! $booking_id && ! $this->Customer_model->lock_booking_creation_sequence()) {
-            $this->db->trans_rollback();
-            return $this->_booking_form_failure(
-                $existing_booking,
-                $booking_id,
-                $inventory_source,
-                'The booking could not be created right now. Please try again.',
-                503
+        if ($booking_id) {
+            // The property/room/overlap locks above are now held. Re-read the
+            // target booking last and reject a page that became stale before
+            // this transaction acquired the tenant/property mutex.
+            $locked_booking = $this->Customer_model->get_booking_for_update(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $booking_id
             );
+            $locked_status = $locked_booking
+                ? $this->Customer_model->status_code($locked_booking->status_id)
+                : NULL;
+            if (
+                ! $locked_booking
+                || (int) $locked_booking->status_id !== (int) $existing_booking->status_id
+                || (int) $locked_booking->room_id !== (int) $existing_booking->room_id
+                || (string) $locked_booking->updated_at !== (string) $existing_booking->updated_at
+                || in_array($locked_status, array('checked_in', 'checked_out'), TRUE)
+            ) {
+                $this->db->trans_rollback();
+                return $this->_booking_form_failure(
+                    $existing_booking,
+                    $booking_id,
+                    $inventory_source,
+                    'This booking changed while the form was open. Reload it before saving.',
+                    409
+                );
+            }
+            $existing_booking = $locked_booking;
         }
 
-        $customer = $this->Customer_model->get_by_phone($phone);
+        // Re-read under the tenant sequence lock. Another property may have
+        // created this phone after the pre-transaction lookup above.
+        if ( ! $booking_id) {
+            $phone_customer = $this->Customer_model->get_by_phone($this->current_tenant_id, $phone);
+        }
+
+        $customer = $existing_customer ?: $phone_customer;
         if ($customer) {
-            $this->Customer_model->update($customer->id, $cdata);
+            if ( ! $booking_id && (int) $customer->is_active !== 1) {
+                // Starting a deliberate new stay revives the shared profile;
+                // prior bookings/documents remain untouched.
+                $cdata['is_active'] = 1;
+            }
+            $this->Customer_model->update($this->current_tenant_id, $customer->id, $cdata);
             $cust_id = (int) $customer->id;
         } else {
-            $cdata['customer_code'] = $this->Customer_model->next_code();
+            $cdata['customer_code'] = $this->Customer_model->next_code($this->current_tenant_id);
             $cdata['is_active'] = 1;
-            $cust_id = $this->Customer_model->insert($cdata);
+            $cust_id = $this->Customer_model->insert($this->current_tenant_id, $cdata);
         }
 
         if ($booking_id) {
-            $this->Customer_model->update_booking($booking_id, $booking);
-            $bkg = $this->Customer_model->get_booking($booking_id);
+            $this->Customer_model->update_booking(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $booking_id,
+                $booking
+            );
+            $bkg = $this->Customer_model->get_booking(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $booking_id
+            );
             $msg = 'Booking '.($bkg ? $bkg->booking_number : '').' updated successfully.';
         } else {
-            $new_id = $this->Customer_model->create_booking($cust_id, $booking);
-            $bkg    = $this->Customer_model->get_booking($new_id);
+            $new_id = $this->Customer_model->create_booking(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $cust_id,
+                $booking
+            );
+            $bkg = $this->Customer_model->get_booking(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $new_id
+            );
             $name   = isset($cdata['customer_name']) ? $cdata['customer_name'] : $phone;
             $msg    = 'Booking '.($bkg ? $bkg->booking_number : '').' created for "'.$name.'".';
         }
@@ -666,9 +886,14 @@ class Customers extends Secure_Controller
      */
     public function booking_view($booking_id = NULL)
     {
-        $booking = $booking_id ? $this->Customer_model->get_booking_detail($booking_id) : NULL;
+        if ( ! $this->_require_property_context(TRUE)) { return; }
+        $booking = $booking_id ? $this->Customer_model->get_booking_detail(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking_id
+        ) : NULL;
         if ( ! $booking) {
-            return $this->_json(array('status' => FALSE, 'message' => 'Booking not found.'));
+            return $this->_json(array('status' => FALSE, 'message' => 'Booking not found.'), 404);
         }
 
         $labels = $this->_identity_types();
@@ -679,7 +904,12 @@ class Customers extends Secure_Controller
                 'document_url'    => $idn->document_path ? site_url('customers/identity_file/'.$idn->id) : NULL,
                 'document_url_2'  => $idn->document_path_2 ? site_url('customers/identity_file/'.$idn->id.'/2') : NULL,
             );
-        }, $this->Customer_model->get_identities($booking->customer_id, $booking->id));
+        }, $this->Customer_model->get_identities(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking->customer_id,
+            $booking->id
+        ));
 
         return $this->_json(array('status' => TRUE, 'data' => $booking));
     }
@@ -691,25 +921,36 @@ class Customers extends Secure_Controller
      */
     public function checkin($booking_id = NULL)
     {
-        $booking = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+        $booking = $booking_id ? $this->Customer_model->get_booking(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking_id
+        ) : NULL;
         if ( ! $booking || $this->Customer_model->status_code($booking->status_id) !== 'room_booked') {
             show_404();
             return;
         }
-        $customer = $this->Customer_model->get_by_id($booking->customer_id);
+        $customer = $this->Customer_model->get_by_id($this->current_tenant_id, $booking->customer_id);
 
         $data = array(
             'booking'        => $booking,
             'customer'       => $customer,
             'status_opts'    => $this->Customer_model->all_statuses(),
-            'room_cat_opts'  => $this->Customer_model->room_categories(),
+            'room_cat_opts'  => $this->Customer_model->room_categories($this->current_property_id),
             'room_opts'      => $this->Customer_model->available_rooms(
+                $this->current_tenant_id,
+                $this->current_property_id,
                 $booking_id,
                 $this->_date($booking->scheduled_check_in_date),
                 $this->_date($booking->scheduled_check_out_date)
             ),
             'identity_types' => $this->_identity_types(),
-            'identities'     => $customer ? $this->Customer_model->get_identities($customer->id, $booking->id) : array(),
+            'identities'     => $customer ? $this->Customer_model->get_identities(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $customer->id,
+                $booking->id
+            ) : array(),
         );
         $this->load->view('customers/checkin', $data);
     }
@@ -721,13 +962,17 @@ class Customers extends Secure_Controller
      */
     public function checkin_edit($booking_id = NULL)
     {
-        $booking = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+        $booking = $booking_id ? $this->Customer_model->get_booking(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking_id
+        ) : NULL;
         if ( ! $booking || $this->Customer_model->status_code($booking->status_id) !== 'checked_in') {
             show_404();
             return;
         }
 
-        $customer = $this->Customer_model->get_by_id($booking->customer_id);
+        $customer = $this->Customer_model->get_by_id($this->current_tenant_id, $booking->customer_id);
         if ( ! $customer) {
             show_404();
             return;
@@ -737,14 +982,21 @@ class Customers extends Secure_Controller
             'booking'        => $booking,
             'customer'       => $customer,
             'status_opts'    => $this->Customer_model->all_statuses(),
-            'room_cat_opts'  => $this->Customer_model->room_categories(),
+            'room_cat_opts'  => $this->Customer_model->room_categories($this->current_property_id),
             'room_opts'      => $this->Customer_model->available_rooms(
+                $this->current_tenant_id,
+                $this->current_property_id,
                 $booking_id,
                 $this->_date($booking->scheduled_check_in_date),
                 $this->_date($booking->scheduled_check_out_date)
             ),
             'identity_types' => $this->_identity_types(),
-            'identities'     => $this->Customer_model->get_identities($customer->id, $booking->id),
+            'identities'     => $this->Customer_model->get_identities(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $customer->id,
+                $booking->id
+            ),
             'page_title'     => 'Edit Check-in',
             'page_subtitle'  => 'Update the checked-in customer and stay details',
             'active_nav'     => 'checkins',
@@ -780,7 +1032,11 @@ class Customers extends Secure_Controller
     /** Render one of the status-specific check-out pages. */
     private function _render_checkout_page($booking_id, $mode)
     {
-        $booking = $booking_id ? $this->Customer_model->get_booking_detail($booking_id) : NULL;
+        $booking = $booking_id ? $this->Customer_model->get_booking_detail(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking_id
+        ) : NULL;
         $required_status = ($mode === 'confirm') ? 'checked_in' : 'checked_out';
         if ( ! $booking || $booking->status_code !== $required_status) {
             show_404();
@@ -799,7 +1055,12 @@ class Customers extends Secure_Controller
                 ? site_url('customers/identity_file/'.$identity->id.'/2')
                 : NULL;
             return $identity;
-        }, $this->Customer_model->get_identities($booking->customer_id, $booking->id));
+        }, $this->Customer_model->get_identities(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking->customer_id,
+            $booking->id
+        ));
 
         $is_confirm = ($mode === 'confirm');
         $is_edit = ($mode === 'edit');
@@ -828,8 +1089,13 @@ class Customers extends Secure_Controller
     /** Complete check-out after the user changes Status to Checked Out. */
     public function checkout_save()
     {
+        if ( ! $this->require_post() || ! $this->_require_property_context(FALSE)) { return; }
         $booking_id = (int) $this->input->post('booking_id');
-        $booking = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+        $booking = $booking_id ? $this->Customer_model->get_booking(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking_id
+        ) : NULL;
         if ( ! $booking) {
             show_404();
             return;
@@ -862,12 +1128,43 @@ class Customers extends Secure_Controller
             return;
         }
 
+        $this->db->trans_begin();
+        $locked_booking = $this->Customer_model->get_booking_for_update(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking_id
+        );
+        if (
+            ! $locked_booking
+            || $this->Customer_model->status_code($locked_booking->status_id) !== 'checked_in'
+        ) {
+            $this->db->trans_rollback();
+            show_error(
+                'This booking status changed while the form was open. Reload it before checking out.',
+                409,
+                'Booking changed'
+            );
+            return;
+        }
+        $booking = $locked_booking;
+
         $now = date('Y-m-d H:i:s');
-        $this->Customer_model->update_booking($booking_id, array(
+        $updated = $this->Customer_model->update_booking(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking_id,
+            array(
             'status_id'      => $checked_out_status,
             'checked_in_at'  => $booking->checked_in_at ?: $now,
             'checked_out_at' => $now,
         ));
+
+        if ($this->db->trans_status() === FALSE || ! $updated) {
+            $this->db->trans_rollback();
+            show_error('The booking could not be checked out. Please try again.', 500);
+            return;
+        }
+        $this->db->trans_commit();
 
         $this->session->set_flashdata('booking_msg', array(
             'type' => 'success',
@@ -883,17 +1180,22 @@ class Customers extends Secure_Controller
      */
     public function checkin_save()
     {
+        if ( ! $this->require_post() || ! $this->_require_property_context(FALSE)) { return; }
         if ( ! $this->_valid_customer_write_token()) {
             show_error('This form expired or came from another site. Refresh the page and try again.', 403);
             return;
         }
         $booking_id = (int) $this->input->post('booking_id');
-        $booking    = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+        $booking = $booking_id ? $this->Customer_model->get_booking(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking_id
+        ) : NULL;
         if ( ! $booking) {
             show_404();
             return;
         }
-        $customer = $this->Customer_model->get_by_id($booking->customer_id);
+        $customer = $this->Customer_model->get_by_id($this->current_tenant_id, $booking->customer_id);
         if ( ! $customer) {
             show_404();
             return;
@@ -916,8 +1218,20 @@ class Customers extends Secure_Controller
         $this->form_validation->set_rules('scheduled_check_in_date', 'Scheduled Check-In', 'required');
         $this->form_validation->set_rules('scheduled_check_out_date', 'Scheduled Check-Out', 'required|callback_valid_stay_dates');
         $this->form_validation->set_rules('room_id', 'Allot Room', 'callback_room_available_for_stay');
+        $this->form_validation->set_rules(
+            'room_category_id',
+            'Room Category',
+            'callback_valid_booking_room_category'
+        );
 
         $identity_upload_error = $this->_identity_upload_error($customer->id, $booking_id);
+        $phone_owner = $this->Customer_model->get_by_phone(
+            $this->current_tenant_id,
+            trim((string) $this->input->post('phone', TRUE))
+        );
+        if ($phone_owner && (int) $phone_owner->id !== (int) $customer->id) {
+            $identity_upload_error = 'This mobile number belongs to another customer in this account.';
+        }
         if ($this->form_validation->run() === FALSE || $identity_upload_error !== NULL) {
             return $this->_checkin_form_failure(
                 $booking,
@@ -940,7 +1254,10 @@ class Customers extends Secure_Controller
         $room_id = $this->input->post('room_id') ?: NULL;
         $room_category_id = $this->input->post('room_category_id') ?: NULL;
         if ($room_id) {
-            $room_category_id = $this->Customer_model->room_category_for_room($room_id);
+            $room_category_id = $this->Customer_model->room_category_for_room(
+                $this->current_property_id,
+                $room_id
+            );
         }
 
         $upd = array(
@@ -958,23 +1275,33 @@ class Customers extends Secure_Controller
             (strtotime($upd['scheduled_check_out_date']) - strtotime($upd['scheduled_check_in_date'])) / 86400
         );
 
-        // Use the same room-lock protocol as Inventory booking creation.
-        // Validation above gives quick feedback; this second, locking read is
-        // what prevents a stale check-in form racing a simultaneous booking.
+        // Acquire the common tenant/property mutex before any booking or room.
+        // It also serializes shared customer phone changes with customer and
+        // booking creation across all properties in this account.
         $this->db->trans_begin();
-        $rooms_to_lock = array();
-        if ($room_id) {
-            $rooms_to_lock[] = (int) $room_id;
+
+        if ( ! $this->Customer_model->lock_booking_creation_sequence(
+            $this->current_tenant_id,
+            $this->current_property_id
+        )) {
+            $this->db->trans_rollback();
+            return $this->_checkin_form_failure(
+                $booking,
+                $customer,
+                $booking_id,
+                $page_context,
+                'The property is unavailable or busy. Please try again.'
+            );
         }
-        if ($booking->room_id) {
-            $rooms_to_lock[] = (int) $booking->room_id;
-        }
-        $locked_rooms = $this->Customer_model->lock_rooms_for_booking($rooms_to_lock);
 
         // A checkout or another status workflow may have completed after the
         // page was opened. Lock/re-read the booking so stale Check-in data can
         // never overwrite a newer terminal status.
-        $locked_booking = $this->Customer_model->get_booking_for_update($booking_id);
+        $locked_booking = $this->Customer_model->get_booking_for_update(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking_id
+        );
         if (
             ! $locked_booking
             || $this->Customer_model->status_code($locked_booking->status_id) !== $required_status
@@ -998,11 +1325,28 @@ class Customers extends Secure_Controller
             ? ($booking->checked_out_at ?: $now)
             : NULL;
 
+        // Validation above gives quick feedback; this second, locking read is
+        // what prevents a stale check-in form racing a simultaneous booking.
+        $rooms_to_lock = array();
+        if ($room_id) {
+            $rooms_to_lock[] = (int) $room_id;
+        }
+        if ($booking->room_id) {
+            $rooms_to_lock[] = (int) $booking->room_id;
+        }
+        $locked_rooms = $this->Customer_model->lock_rooms_for_booking(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $rooms_to_lock
+        );
+
         if (
             $room_id
             && (
                 ! in_array((int) $room_id, $locked_rooms, TRUE)
                 || ! $this->Customer_model->is_room_available_for_update(
+                    $this->current_tenant_id,
+                    $this->current_property_id,
                     $room_id,
                     $upd['scheduled_check_in_date'],
                     $upd['scheduled_check_out_date'],
@@ -1022,11 +1366,16 @@ class Customers extends Secure_Controller
 
         // Customer and stay updates commit together while the room lock is
         // held, so another writer cannot slip between recheck and update.
-        $customer_updated = $this->Customer_model->update($customer->id, array(
+        $customer_updated = $this->Customer_model->update($this->current_tenant_id, $customer->id, array(
             'customer_name' => $this->input->post('customer_name', TRUE),
             'phone'         => $this->input->post('phone', TRUE),
         ));
-        $booking_updated = $this->Customer_model->update_booking($booking_id, $upd);
+        $booking_updated = $this->Customer_model->update_booking(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $booking_id,
+            $upd
+        );
 
         if (
             $this->db->trans_status() === FALSE
@@ -1054,7 +1403,7 @@ class Customers extends Secure_Controller
 
         // Filesystem changes cannot participate in a database rollback. Run
         // identity document syncing only after the room/customer/stay commit.
-        $identity_save_errors = $this->_save_identities($customer->id, $customer->customer_code, $booking_id);
+        $identity_save_errors = $this->_save_identities($customer->id, $booking_id);
 
         $this->session->set_flashdata('booking_msg', array(
             'type' => $identity_save_errors ? 'danger' : 'success',
@@ -1069,22 +1418,58 @@ class Customers extends Secure_Controller
      */
     public function delete($id = NULL)
     {
-        $customer = $id ? $this->Customer_model->get_by_id($id) : NULL;
+        if ( ! $this->require_post() || ! $this->_require_property_context(TRUE)) { return; }
+        $this->db->trans_begin();
+        if ( ! $this->Customer_model->lock_customer_creation_sequence($this->current_tenant_id)) {
+            $this->db->trans_rollback();
+            return $this->_json(array(
+                'status' => FALSE,
+                'message' => 'The customer could not be changed right now. Please try again.',
+            ), 503);
+        }
+
+        $customer = $id ? $this->Customer_model->get_by_id($this->current_tenant_id, $id) : NULL;
         if ( ! $customer) {
-            return $this->_json(array('status' => FALSE, 'message' => 'Customer not found.'));
+            $this->db->trans_rollback();
+            return $this->_json(array('status' => FALSE, 'message' => 'Customer not found.'), 404);
         }
 
-        // Remove the whole per-customer upload folder (files + directory).
-        $dir = SECURE_UPLOAD_PATH.'customers'.DIRECTORY_SEPARATOR.$customer->customer_code;
-        if (is_dir($dir)) {
-            delete_files($dir, TRUE);   // recursive contents
-            @rmdir($dir);
+        // A customer is shared by every property in the tenant. Never cascade
+        // another property's booking/document history from this endpoint.
+        if ($this->Customer_model->has_history($this->current_tenant_id, $id)) {
+            $changed = $this->Customer_model->update(
+                $this->current_tenant_id,
+                $id,
+                array('is_active' => 0)
+            );
+            if ( ! $changed || $this->db->trans_status() === FALSE || ! $this->db->trans_commit()) {
+                $this->db->trans_rollback();
+                return $this->_json(array(
+                    'status' => FALSE,
+                    'message' => 'The customer could not be deactivated.',
+                ), 500);
+            }
+            return $this->_json(array(
+                'status'  => TRUE,
+                'deleted' => FALSE,
+                'deactivated' => TRUE,
+                'message' => 'Customer "'.$customer->customer_name.'" has stay or document history and was deactivated instead of deleted.',
+            ));
         }
 
-        $this->Customer_model->delete($id);
+        $deleted = $this->Customer_model->delete($this->current_tenant_id, $id);
+        if ( ! $deleted || $this->db->trans_status() === FALSE || ! $this->db->trans_commit()) {
+            $this->db->trans_rollback();
+            return $this->_json(array(
+                'status' => FALSE,
+                'message' => 'The customer could not be deleted.',
+            ), 409);
+        }
 
         return $this->_json(array(
             'status'  => TRUE,
+            'deleted' => TRUE,
+            'deactivated' => FALSE,
             'message' => 'Customer "'.$customer->customer_name.'" deleted.',
         ));
     }
@@ -1102,7 +1487,11 @@ class Customers extends Secure_Controller
      */
     public function identity_file($identity_id = NULL, $slot = 1)
     {
-        $identity = $identity_id ? $this->Customer_model->get_identity($identity_id) : NULL;
+        $identity = $identity_id ? $this->Customer_model->get_identity(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $identity_id
+        ) : NULL;
         $slot = (int) $slot;
         if ( ! $identity || ! in_array($slot, array(1, 2), TRUE)) { show_404(); return; }
         $field = $slot === 2 ? 'document_path_2' : 'document_path';
@@ -1165,29 +1554,33 @@ class Customers extends Secure_Controller
     }
 
     /**
-     * Upload a single document into the customer's secure folder, replacing
+     * Upload a single document into the tenant/property/customer secure folder, replacing
      * any previous file for that slot. Returns the DB-relative path, or NULL
      * when no new file was submitted. Sets $error on failure.
      *
      * @param  string      $field      $_FILES field name
-     * @param  string      $code       customer_code (folder name)
+     * @param  int         $customer_id tenant-scoped customer id
      * @param  string      $base_name  logical file name (e.g. identity_12)
      * @param  string|null $old_path   existing stored path (to be replaced)
      * @param  string|null $error      out-param, populated on failure
      * @return string|null
      */
-    private function _handle_upload($field, $code, $base_name, $old_path, &$error)
+    private function _handle_upload($field, $customer_id, $base_name, $old_path, &$error)
     {
         if (empty($_FILES[$field]['name'])) {
             return NULL; // nothing uploaded for this slot
         }
 
-        if ( ! preg_match('/^[A-Za-z0-9_-]{1,40}$/', (string) $code)) {
+        $tenant_id = (int) $this->current_tenant_id;
+        $property_id = (int) $this->current_property_id;
+        $customer_id = (int) $customer_id;
+        if ($tenant_id <= 0 || $property_id <= 0 || $customer_id <= 0) {
             $error = 'The customer upload folder is invalid.';
             return NULL;
         }
 
-        $dir = SECURE_UPLOAD_PATH.'customers'.DIRECTORY_SEPARATOR.$code.DIRECTORY_SEPARATOR;
+        $relative_dir = 'customers/'.$tenant_id.'/'.$property_id.'/'.$customer_id.'/';
+        $dir = SECURE_UPLOAD_PATH.str_replace('/', DIRECTORY_SEPARATOR, $relative_dir);
         if ( ! is_dir($dir) && ! @mkdir($dir, 0755, TRUE)) {
             $error = 'Could not create the upload folder. Check permissions.';
             return NULL;
@@ -1242,7 +1635,7 @@ class Customers extends Secure_Controller
         }
 
         // Store path relative to SECURE_UPLOAD_PATH, with forward slashes.
-        return 'customers/'.$code.'/'.$info['file_name'];
+        return $relative_dir.$info['file_name'];
     }
 
     /** Normalize one identity_document_N[] entry without trusting its shape. */
@@ -1323,7 +1716,11 @@ class Customers extends Secure_Controller
             }
             $existing_identity = NULL;
             if (isset($row_ids[$index]) && (string) $row_ids[$index] !== '') {
-                $existing_identity = $this->Customer_model->get_identity((int) $row_ids[$index]);
+                $existing_identity = $this->Customer_model->get_identity(
+                    $this->current_tenant_id,
+                    $this->current_property_id,
+                    (int) $row_ids[$index]
+                );
                 if ( ! $this->_identity_belongs_to_scope($existing_identity, $customer_id, $booking_id)) {
                     return 'The identity proof does not belong to this booking.';
                 }
@@ -1368,7 +1765,12 @@ class Customers extends Secure_Controller
     /** Prove an identity row belongs to both the customer and document scope. */
     private function _identity_belongs_to_scope($identity, $customer_id, $booking_id)
     {
-        if ( ! $identity || (int) $identity->customer_id !== (int) $customer_id) {
+        if (
+            ! $identity
+            || (int) $identity->customer_id !== (int) $customer_id
+            || (int) $identity->tenant_id !== (int) $this->current_tenant_id
+            || (int) $identity->property_id !== (int) $this->current_property_id
+        ) {
             return FALSE;
         }
         $row_booking_id = isset($identity->booking_id) && $identity->booking_id !== NULL
@@ -1387,6 +1789,37 @@ class Customers extends Secure_Controller
         return $expected !== '' && $received !== '' && hash_equals($expected, $received);
     }
 
+    /** Reject stale/cross-property AJAX reads and writes before scoped work. */
+    private function _require_property_context($json_response)
+    {
+        if (method_exists($this, 'require_property_context_token')) {
+            return (bool) $this->require_property_context_token();
+        }
+
+        // Compatibility fallback for deployments that have not yet loaded the
+        // new Property_Controller helper. The field/session names are shared.
+        $expected = (string) $this->session->userdata('property_context_token');
+        $received = (string) $this->input->post('property_context_token');
+        if ($received === '') {
+            $received = (string) $this->input->server('HTTP_X_PROPERTY_CONTEXT_TOKEN');
+        }
+        if ($expected !== '' && $received !== '' && hash_equals($expected, $received)) {
+            return TRUE;
+        }
+
+        $message = 'The active property changed while this page was open. Reload the page and try again.';
+        if ($json_response) {
+            $this->_json(array(
+                'status' => FALSE,
+                'context_stale' => TRUE,
+                'message' => $message,
+            ), 409);
+        } else {
+            show_error($message, 409, 'Property changed');
+        }
+        return FALSE;
+    }
+
     /**
      * Persist the dynamic identity-proof rows for a customer:
      *   - existing rows are updated, new rows inserted
@@ -1395,9 +1828,9 @@ class Customers extends Secure_Controller
      *   - rows removed on the form are deleted (with their files)
      *
      * @param int    $customer_id
-     * @param string $code  customer_code (upload folder)
+     * @param int|null $booking_id booking scope, NULL for current-property customer documents
      */
-    private function _save_identities($customer_id, $code, $booking_id = NULL)
+    private function _save_identities($customer_id, $booking_id = NULL)
     {
         $types   = (array) $this->input->post('identity_type');
         $numbers = (array) $this->input->post('identity_number');
@@ -1424,7 +1857,11 @@ class Customers extends Secure_Controller
                 continue;
             }
 
-            $existing_row = $rid ? $this->Customer_model->get_identity($rid) : NULL;
+            $existing_row = $rid ? $this->Customer_model->get_identity(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $rid
+            ) : NULL;
             $belongs = $this->_identity_belongs_to_scope($existing_row, $customer_id, $booking_id);
 
             $fields = array(
@@ -1435,12 +1872,22 @@ class Customers extends Secure_Controller
             );
 
             if ($belongs) {
-                $this->Customer_model->update_identity($rid, $customer_id, $fields);
+                $this->Customer_model->update_identity(
+                    $this->current_tenant_id,
+                    $this->current_property_id,
+                    $rid,
+                    $customer_id,
+                    $fields
+                );
                 $iid = $rid;
             } else {
                 $fields['customer_id'] = $customer_id;
                 $fields['booking_id'] = $booking_id === NULL ? NULL : (int) $booking_id;
-                $iid = $this->Customer_model->insert_identity($fields);
+                $iid = $this->Customer_model->insert_identity(
+                    $this->current_tenant_id,
+                    $this->current_property_id,
+                    $fields
+                );
             }
             $keep[] = $iid;
 
@@ -1453,7 +1900,13 @@ class Customers extends Secure_Controller
                         continue;
                     }
                     $old_path = $existing_row->$path_field;
-                    if ($this->Customer_model->update_identity($iid, $customer_id, array($path_field => NULL))) {
+                    if ($this->Customer_model->update_identity(
+                        $this->current_tenant_id,
+                        $this->current_property_id,
+                        $iid,
+                        $customer_id,
+                        array($path_field => NULL)
+                    )) {
                         $this->_delete_identity_path($old_path);
                         $existing_row->$path_field = NULL;
                     } else {
@@ -1475,13 +1928,19 @@ class Customers extends Secure_Controller
                 $path = $this->_upload_identity_file(
                     $upload[0],
                     $i,
-                    $code,
+                    $customer_id,
                     'identity_'.$iid.'_side'.$slot,
                     $old,
                     $err
                 );
                 if ($path !== NULL) {
-                    $this->Customer_model->update_identity($iid, $customer_id, array($path_field => $path));
+                    $this->Customer_model->update_identity(
+                        $this->current_tenant_id,
+                        $this->current_property_id,
+                        $iid,
+                        $customer_id,
+                        array($path_field => $path)
+                    );
                     if ($slot === 1) { $front_replacement_saved = TRUE; }
                 } elseif ($err) {
                     $errors[] = $err;
@@ -1498,15 +1957,32 @@ class Customers extends Secure_Controller
                 && ! empty($existing_row->document_path_2)
             ) {
                 $this->_delete_identity_path($existing_row->document_path_2);
-                $this->Customer_model->update_identity($iid, $customer_id, array('document_path_2' => NULL));
+                $this->Customer_model->update_identity(
+                    $this->current_tenant_id,
+                    $this->current_property_id,
+                    $iid,
+                    $customer_id,
+                    array('document_path_2' => NULL)
+                );
             }
         }
 
         // Remove identity rows the user deleted on the form (and their files).
-        foreach ($this->Customer_model->identities_to_remove($customer_id, $keep, $booking_id) as $gone) {
+        foreach ($this->Customer_model->identities_to_remove(
+            $this->current_tenant_id,
+            $this->current_property_id,
+            $customer_id,
+            $keep,
+            $booking_id
+        ) as $gone) {
             $this->_delete_identity_path($gone->document_path);
             $this->_delete_identity_path(isset($gone->document_path_2) ? $gone->document_path_2 : NULL);
-            $this->Customer_model->delete_identity($gone->id, $customer_id);
+            $this->Customer_model->delete_identity(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $gone->id,
+                $customer_id
+            );
         }
         return $errors;
     }
@@ -1523,14 +1999,14 @@ class Customers extends Secure_Controller
      *
      * @return string|null DB-relative path, or NULL when nothing uploaded.
      */
-    private function _upload_identity_file($source_field, $index, $code, $base_name, $old_path, &$error)
+    private function _upload_identity_file($source_field, $index, $customer_id, $base_name, $old_path, &$error)
     {
         $entry = $this->_identity_upload_entry($source_field, $index);
         if ( ! $this->identity_upload_guard->is_present($entry)) {
             return NULL;
         }
         $_FILES['identity_upload'] = $entry;
-        return $this->_handle_upload('identity_upload', $code, $base_name, $old_path, $error);
+        return $this->_handle_upload('identity_upload', $customer_id, $base_name, $old_path, $error);
     }
 
     /**
@@ -1548,11 +2024,15 @@ class Customers extends Secure_Controller
         $room_range = $this->_posted_booking_range($existing);
         $data = array(
             'booking'       => $existing,
-            'customer'      => $existing ? $this->Customer_model->get_by_id($existing->customer_id) : NULL,
+            'customer'      => $existing
+                ? $this->Customer_model->get_by_id($this->current_tenant_id, $existing->customer_id)
+                : NULL,
             'country_opts'  => $this->_country_options(),
             'channel_opts'  => $this->Customer_model->booking_channels(),
-            'room_cat_opts' => $this->Customer_model->room_categories(),
+            'room_cat_opts' => $this->Customer_model->room_categories($this->current_property_id),
             'room_opts'     => $this->Customer_model->available_rooms(
+                $this->current_tenant_id,
+                $this->current_property_id,
                 $booking_id,
                 $room_range[0],
                 $room_range[1]
@@ -1591,14 +2071,21 @@ class Customers extends Secure_Controller
             'booking'        => $booking,
             'customer'       => $customer,
             'status_opts'    => $this->Customer_model->all_statuses(),
-            'room_cat_opts'  => $this->Customer_model->room_categories(),
+            'room_cat_opts'  => $this->Customer_model->room_categories($this->current_property_id),
             'room_opts'      => $this->Customer_model->available_rooms(
+                $this->current_tenant_id,
+                $this->current_property_id,
                 $booking_id,
                 $this->_date($this->input->post('scheduled_check_in_date')),
                 $this->_date($this->input->post('scheduled_check_out_date'))
             ),
             'identity_types' => $this->_identity_types(),
-            'identities'     => $this->Customer_model->get_identities($customer->id, $booking_id),
+            'identities'     => $this->Customer_model->get_identities(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $customer->id,
+                $booking_id
+            ),
             'page_error'     => $message,
         );
 
@@ -1768,13 +2255,19 @@ class Customers extends Secure_Controller
         $check_in = $this->_date($this->input->post('scheduled_check_in_date'));
         $check_out = $this->_date($this->input->post('scheduled_check_out_date'));
         if ( ! $check_in || ! $check_out || $check_out <= $check_in) {
-            $existing = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+            $existing = $booking_id ? $this->Customer_model->get_booking(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $booking_id
+            ) : NULL;
             $range = $this->_room_availability_range($existing, TRUE);
             $check_in = $range[0];
             $check_out = $range[1];
         }
 
         if ($this->Customer_model->is_room_available(
+            $this->current_tenant_id,
+            $this->current_property_id,
             (int) $room_id,
             $check_in,
             $check_out,
@@ -1786,6 +2279,41 @@ class Customers extends Secure_Controller
         $this->form_validation->set_message(
             'room_available_for_stay',
             'The selected room is already booked for the applicable stay dates.'
+        );
+        return FALSE;
+    }
+
+    /** A posted category must belong to the active property. */
+    public function valid_booking_room_category($category_id)
+    {
+        if ($category_id === NULL || $category_id === '') {
+            return TRUE;
+        }
+        if ($this->Customer_model->room_category_belongs_to_property(
+            $this->current_property_id,
+            (int) $category_id
+        )) {
+            return TRUE;
+        }
+        $this->form_validation->set_message(
+            'valid_booking_room_category',
+            'Select an active room category from the current property.'
+        );
+        return FALSE;
+    }
+
+    /** Booking channels are shared references, but forged/inactive ids fail. */
+    public function valid_booking_channel($channel_id)
+    {
+        if ($channel_id === NULL || $channel_id === '') {
+            return TRUE;
+        }
+        if ($this->Customer_model->active_booking_channel_exists((int) $channel_id)) {
+            return TRUE;
+        }
+        $this->form_validation->set_message(
+            'valid_booking_channel',
+            'Select an active booking channel.'
         );
         return FALSE;
     }
@@ -1816,7 +2344,11 @@ class Customers extends Secure_Controller
         $scheduled_check_in = $this->_date($this->input->post('scheduled_check_in_date'));
         if ( ! $scheduled_check_in) {
             $booking_id = (int) $this->input->post('booking_id');
-            $existing = $booking_id ? $this->Customer_model->get_booking($booking_id) : NULL;
+            $existing = $booking_id ? $this->Customer_model->get_booking(
+                $this->current_tenant_id,
+                $this->current_property_id,
+                $booking_id
+            ) : NULL;
             $scheduled_check_in = $existing
                 ? $this->_date($existing->scheduled_check_in_date)
                 : NULL;
@@ -1866,12 +2398,20 @@ class Customers extends Secure_Controller
         $room_id = $this->input->post('room_id') ?: NULL;
         $room_category_id = $this->input->post('room_category_id') ?: NULL;
         if ($room_id) {
-            $room_category_id = $this->Customer_model->room_category_for_room($room_id);
+            $room_category_id = $this->Customer_model->room_category_for_room(
+                $this->current_property_id,
+                $room_id
+            );
         }
         $booking = array(
             'booking_channel_id' => $this->input->post('booking_channel_id') ?: NULL,
             'status_id'          => $status_id,
-            'property_name'      => $this->input->post('property_name', TRUE),
+            // Property context is never accepted from POST. Keep the legacy
+            // display column only as a server-derived name snapshot.
+            'property_id'        => (int) $this->current_property_id,
+            'property_name'      => $this->current_property
+                ? (string) $this->current_property->property_name
+                : '',
             'room_id'            => $room_id,   // allotted room
             'checked_in_at'      => $inventory_source
                 ? NULL

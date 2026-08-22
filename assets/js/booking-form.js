@@ -9,6 +9,20 @@
 
     var base = (global.APP_BASE || '/').replace(/\/?$/, '/');
 
+    function addPropertyContextHeader(xhr) {
+        xhr.setRequestHeader(
+            'X-Property-Context-Token',
+            global.APP_PROPERTY_CONTEXT_TOKEN || ''
+        );
+    }
+
+    function handleStaleContext(xhr) {
+        if (xhr.status !== 409) { return false; }
+        global.alert('The active property changed. This form can no longer be submitted.');
+        global.location.assign(base + 'inventory');
+        return true;
+    }
+
     function initForm(form) {
         if (!form || form.dataset.bookingFormReady) { return; }
         form.dataset.bookingFormReady = '1';
@@ -37,7 +51,9 @@
 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', base + 'customers/lookup?phone=' + encodeURIComponent(phone), true);
+            addPropertyContextHeader(xhr);
             xhr.onload = function () {
+                if (handleStaleContext(xhr)) { return; }
                 var response;
                 try { response = JSON.parse(xhr.responseText); } catch (error) { return; }
 
@@ -137,10 +153,10 @@
             if (!roomCategory || !room) { return; }
             var selected = room.options[room.selectedIndex];
             var categoryId = selected ? selected.getAttribute('data-category-id') : '';
-            if (categoryId) {
-                roomCategory.value = categoryId;
-                refreshSelect(roomCategory);
-            }
+            // Selecting an uncategorized room must also clear a previously
+            // selected category; otherwise the filter immediately deselects it.
+            roomCategory.value = categoryId || '';
+            refreshSelect(roomCategory);
             filterRoomsByCategory();
             if (updatePrice) { applyStayPrice(); }
         }
@@ -217,8 +233,10 @@
 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', base + 'customers/available_rooms?' + query, true);
+            addPropertyContextHeader(xhr);
             xhr.onload = function () {
                 if (requestId !== availabilityRequest) { return; }
+                if (handleStaleContext(xhr)) { return; }
 
                 var response;
                 try { response = JSON.parse(xhr.responseText); } catch (error) { return; }

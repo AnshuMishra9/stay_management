@@ -14,6 +14,9 @@
         // Endpoint base (set on window by the view).
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
 
+        // Never retain operational data from a previous authenticated account.
+        clearOperationalState();
+
         // ---- View state ----
         vm.step        = 1;      // 1 = mobile entry, 2 = OTP entry
         vm.mobile      = '';
@@ -88,6 +91,7 @@
                     if (d.status) {
                         vm.success = d.message || 'Login successful.';
                         stopCountdown();
+                        clearOperationalState();
                         // Follow the application's configured landing page.
                         window.location.href = d.redirect || base;
                     } else {
@@ -155,6 +159,18 @@
             vm.error      = '';
             vm.success    = '';
             vm.fieldError = false;
+        }
+
+        function clearOperationalState() {
+            try {
+                for (var cacheIndex = sessionStorage.length - 1; cacheIndex >= 0; cacheIndex--) {
+                    var cacheKey = sessionStorage.key(cacheIndex);
+                    if (cacheKey && (cacheKey.indexOf('erpq:') === 0
+                        || cacheKey.indexOf('stay.inventory.booking.selection.') === 0)) {
+                        sessionStorage.removeItem(cacheKey);
+                    }
+                }
+            } catch (storageError) { /* Storage can be unavailable. */ }
         }
 
         function networkError() {
