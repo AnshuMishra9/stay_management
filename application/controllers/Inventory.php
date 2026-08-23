@@ -14,6 +14,7 @@ class Inventory extends Property_Controller
     /** Selected date plus five dates before and five dates after it. */
     const DAYS = 11;
     const DAYS_EACH_SIDE = 5;
+    const ROOMS_PER_PAGE = 15;
 
     /**
      * The first date not already visible is six days away from the centre.
@@ -60,6 +61,24 @@ class Inventory extends Property_Controller
             self::DAYS,
             $filters
         );
+
+        $requested_page = $this->input->get('page');
+        $page = is_string($requested_page) && preg_match('/^[1-9][0-9]*$/D', $requested_page)
+            ? (int) $requested_page
+            : 1;
+        $room_count = isset($data['rooms']) && is_array($data['rooms'])
+            ? count($data['rooms'])
+            : 0;
+        $page_count = max(1, (int) ceil($room_count / self::ROOMS_PER_PAGE));
+        $page = min($page, $page_count);
+        $page_offset = ($page - 1) * self::ROOMS_PER_PAGE;
+
+        $data['rooms'] = array_slice($data['rooms'], $page_offset, self::ROOMS_PER_PAGE);
+        $data['room_page'] = $page;
+        $data['room_page_count'] = $page_count;
+        $data['room_page_start'] = $room_count > 0 ? $page_offset + 1 : 0;
+        $data['room_page_end'] = min($room_count, $page_offset + self::ROOMS_PER_PAGE);
+        $data['filtered_room_count'] = $room_count;
 
         // "start" remains the query/input name, but now represents the selected date.
         $data['start'] = $selected;

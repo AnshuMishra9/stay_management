@@ -52,7 +52,7 @@ class Room_model extends CI_Model
     public function get_by_id($property_id, $id)
     {
         return $this->db
-            ->select('r.*, c.category_name')
+            ->select('r.*, r.status AS is_active, r.added_by AS created_by, c.category_name')
             ->from($this->table.' r')
             ->join('room_categories c', 'c.category_id = r.category_id AND c.property_id = r.property_id', 'left')
             ->where('r.property_id', (int) $property_id)
@@ -160,3 +160,5 @@ class Room_model extends CI_Model
         return $ok ? 'deactivated' : FALSE;
     }
 }
+
+

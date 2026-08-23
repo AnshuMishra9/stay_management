@@ -334,3 +334,8 @@ class Property_Controller extends Secure_Controller
         exit;
     }
 }
+
+// Split-controller base (Bookings/Checkins/Checkouts/Customers extend this).
+require_once(APPPATH.'core/Ops_Controller.php');
+
+

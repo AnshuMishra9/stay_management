@@ -146,3 +146,5 @@ class Tenant_model extends CI_Model
         return (bool) $this->db->trans_commit();
     }
 }
+
+

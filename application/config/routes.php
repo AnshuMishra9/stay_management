@@ -89,7 +89,7 @@ $route['access/forbidden']     = 'access/forbidden';
 // Protected pages
 $route['dashboard']       = 'rooms/index';   // legacy alias -> Room Master
 $route['inventory']       = 'inventory/index';   // room availability calendar
-$route['inventory/booking_form'] = 'customers/inventory_booking_form'; // modal form fragment
+$route['inventory/booking_form'] = 'bookings/inventory_booking_form'; // modal form fragment
 $route['inventory/booking_detail/(:num)'] = 'inventory/booking_detail/$1'; // occupied-room guest popup
 
 // Customers Master
@@ -98,27 +98,34 @@ $route['customers/list']         = 'customers/list_ajax';
 $route['customers/add']          = 'customers/form';
 $route['customers/edit/(:num)']  = 'customers/form/$1';
 
-// Booking Details (booking-centric view over customers)
-$route['customers/bookings']            = 'customers/bookings';
-$route['customers/bookings_list']       = 'customers/bookings_ajax';
-$route['customers/checkins']            = 'customers/checkins';           // checked-in list
-$route['customers/checkins_list']       = 'customers/checkins_ajax';
-$route['customers/checkedouts']         = 'customers/checkedouts';        // checked-out list
-$route['customers/checkedouts_list']    = 'customers/checkedouts_ajax';
-$route['customers/booking_form']        = 'customers/booking_form';        // new booking
-$route['customers/booking_form/(:num)'] = 'customers/booking_form/$1';     // edit booking
-$route['customers/booking_save']        = 'customers/booking_save';
-$route['customers/booking_view/(:num)'] = 'customers/booking_view/$1';     // [AJAX] booking detail (eye)
-$route['customers/available_rooms']      = 'customers/available_rooms_ajax';
-$route['customers/checkin/(:num)']      = 'customers/checkin/$1';          // check-in page
-$route['customers/checkin_save']        = 'customers/checkin_save';
-$route['customers/bookings/checkin/(:num)']     = 'customers/checkin/$1';
-$route['customers/bookings/edit/(:num)']        = 'customers/booking_form/$1';
-$route['customers/checkins/checkout/(:num)']    = 'customers/checkout/$1';
-$route['customers/checkins/edit/(:num)']        = 'customers/checkin_edit/$1';
-$route['customers/checkedouts/details/(:num)']  = 'customers/checkedout_details/$1';
-$route['customers/checkedouts/edit/(:num)']     = 'customers/checkedout_edit/$1';
-$route['customers/checkout_save']               = 'customers/checkout_save';
+// ---- Bookings / Checkins / Checkouts (split from the Customers god controller) ----
+// Every legacy URL is preserved 1:1 — only the routing targets changed.
+$route['customers/bookings']                 = 'bookings/index';
+$route['customers/bookings_list']            = 'bookings/bookings_ajax';
+$route['customers/bookings_ajax']            = 'bookings/bookings_ajax';
+$route['customers/booking_form']             = 'bookings/booking_form';
+$route['customers/booking_form/(:num)']      = 'bookings/booking_form/$1';
+$route['customers/bookings/edit/(:num)']     = 'bookings/booking_form/$1';
+$route['customers/booking_save']             = 'bookings/booking_save';
+$route['customers/booking_view/(:num)']      = 'bookings/booking_view/$1';
+$route['customers/available_rooms']          = 'bookings/available_rooms_ajax';
+
+$route['customers/checkins']                 = 'checkins/index';
+$route['customers/checkins_list']            = 'checkins/checkins_ajax';
+$route['customers/checkins_ajax']            = 'checkins/checkins_ajax';
+$route['customers/checkin/(:num)']           = 'checkins/checkin/$1';
+$route['customers/checkin_save']             = 'checkins/checkin_save';
+$route['customers/bookings/checkin/(:num)']  = 'checkins/checkin/$1';
+$route['customers/checkins/checkout/(:num)'] = 'checkouts/checkout/$1';
+$route['customers/checkins/edit/(:num)']     = 'checkins/checkin_edit/$1';
+
+$route['customers/checkedouts']              = 'checkouts/index';
+$route['customers/checkedouts_list']         = 'checkouts/checkedouts_ajax';
+$route['customers/checkedouts_ajax']         = 'checkouts/checkedouts_ajax';
+$route['customers/checkedouts/details/(:num)'] = 'checkouts/checkedout_details/$1';
+$route['customers/checkedouts/edit/(:num)']  = 'checkouts/checkedout_edit/$1';
+$route['customers/checkout_save']            = 'checkouts/checkout_save';
+
 $route['customers/lookup']              = 'customers/lookup';              // [AJAX] customer by mobile
 
 // Rooms Master (Room Manager)

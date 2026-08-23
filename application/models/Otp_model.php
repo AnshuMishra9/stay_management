@@ -4,12 +4,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 /**
  * Otp_model
  *
- * Handles the `mobile_otp` table (ex-`otp_requests`) — the full history/audit
+ * Handles the `mobile_otp` table (ex-`otp_requests`) â€” the full history/audit
  * trail of every OTP generated. A NEW row is inserted for each request;
  * previous rows are never overwritten. The only in-place updates are on a
  * single target row: marking it verified or incrementing its attempt counter.
  *
- * All queries use CodeIgniter Query Builder (escaped/prepared) — no raw SQL.
+ * All queries use CodeIgniter Query Builder (escaped/prepared) â€” no raw SQL.
  */
 class Otp_model extends CI_Model
 {
@@ -113,3 +113,5 @@ class Otp_model extends CI_Model
             ->update($this->table);
     }
 }
+
+

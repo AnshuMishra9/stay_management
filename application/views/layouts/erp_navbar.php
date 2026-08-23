@@ -59,7 +59,7 @@ window.APP_CONTEXT_KEY = <?= json_encode(
                     <?php if ( ! $has_property): ?><option value="">Select property</option><?php endif; ?>
                     <?php foreach ($nav_properties as $property):
                         $owner = isset($property->admin_name) ? $property->admin_name : (isset($property->owner_name) ? $property->owner_name : '');
-                        $label = ($nav_role === 'super_admin' && $owner !== '' ? $owner.' â€” ' : '').$property->property_name;
+                        $label = ($nav_role === 'super_admin' && $owner !== '' ? $owner.' - ' : '').$property->property_name;
                     ?>
                         <option value="<?= (int) $property->id ?>" <?= (int) $property->id === $nav_property_id ? 'selected' : '' ?>><?= html_escape($label) ?></option>
                     <?php endforeach; ?>

@@ -259,16 +259,35 @@ async function popupChecks(cdp, details) {
 
 async function existingFlowGuard(cdp) {
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1100, height: 760, deviceScaleFactor: 1, mobile: false });
-    await navigate(cdp, appBase + '/inventory?start=2026-08-18');
-    await waitFor(cdp, 'document.querySelector("td.inv-cell-bookable .inv-bk")', 'No available room cell found for regression check.');
+    const nextNight = new Date();
+    nextNight.setDate(nextNight.getDate() + 1);
+    const selectedDate = [
+        nextNight.getFullYear(),
+        String(nextNight.getMonth() + 1).padStart(2, '0'),
+        String(nextNight.getDate()).padStart(2, '0')
+    ].join('-');
+    await navigate(cdp, appBase + '/inventory?start=' + selectedDate);
+
+    while (!await evaluate(cdp, 'Boolean(document.querySelector("td.inv-cell-bookable .inv-bk"))')) {
+        const nextPage = await evaluate(cdp, 'document.querySelector("a.inv-page-link[aria-label=\\"Next room page\\"]")?.href || ""');
+        assert(nextPage, 'No available room cell found for regression check.');
+        await navigate(cdp, nextPage);
+    }
     const result = await evaluate(cdp, `(() => {
         document.querySelector('td.inv-cell-bookable .inv-bk').click();
         return {
             selectionOpen: !document.getElementById('invSelectionPopup').hidden,
-            detailClosed: document.getElementById('invGuestBackdrop').hidden
+            detailClosed: document.getElementById('invGuestBackdrop').hidden,
+            selectedSlots: document.querySelectorAll('.inv-room-slot.is-range-selected').length,
+            selectedCells: document.querySelectorAll('.inv-cell.is-range-selected').length,
+            pressedSlots: document.querySelectorAll('.inv-room-slot[aria-pressed="true"]').length
         };
     })()`);
-    assert(result.selectionOpen && result.detailClosed, 'Existing available-room selection flow changed.');
+    assert(
+        result.selectionOpen && result.detailClosed
+            && result.selectedSlots === 1 && result.selectedCells === 1 && result.pressedSlots === 1,
+        'Existing available-room selection flow changed.'
+    );
 
     await evaluate(cdp, 'document.getElementById("invCreateBooking").click()');
     await waitFor(
@@ -282,6 +301,20 @@ async function existingFlowGuard(cdp) {
     })`);
     assert(bookingModalState.formLoaded && bookingModalState.detailClosed, 'Occupied-room popup interfered with New Booking.');
     await evaluate(cdp, 'document.getElementById("invBookingClose").click()');
+    const clearedSelection = await evaluate(cdp, `(() => {
+        document.getElementById('invSelectionClear').click();
+        return {
+            popupClosed: document.getElementById('invSelectionPopup').hidden,
+            selectedSlots: document.querySelectorAll('.inv-room-slot.is-range-selected').length,
+            selectedCells: document.querySelectorAll('.inv-cell.is-range-selected').length,
+            pressedSlots: document.querySelectorAll('.inv-room-slot[aria-pressed="true"]').length
+        };
+    })()`);
+    assert(
+        clearedSelection.popupClosed && clearedSelection.selectedSlots === 0
+            && clearedSelection.selectedCells === 0 && clearedSelection.pressedSlots === 0,
+        'Clearing an Inventory range left painted selection state behind.'
+    );
 }
 
 async function xssEscapingGuard(cdp, fixture) {

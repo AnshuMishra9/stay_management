@@ -5,7 +5,8 @@
  * $rows[]         -> per category { name, total, avail{date=>n}, booked{date=>n} }
  * $avail_totals{} -> all-rooms available per date
  * Backend booking states are presented here as a single "Booked" status.
- * $total_rooms    -> total active rooms
+ * $total_rooms    -> total active rooms matching the filters
+ * $room_page*     -> bounded room-page metadata; totals still cover all matches
  * $start/$selected,$window_start,$prev,$next,$end,$today -> Y-m-d
  */
 $fmt = function ($d) use ($today, $selected) {
@@ -33,17 +34,28 @@ $booking_status_label = function ($status) {
     );
     return isset($labels[$status]) ? $labels[$status] : 'Booked';
 };
-$navigation_query = function ($date) use ($filters) {
+$inventory_query = function (array $overrides = array()) use ($filters, $start, $room_page) {
     $query = array(
-        'start'       => $date,
+        'start'       => $start,
         'room_no'     => $filters['room_no'],
         'category_id' => $filters['category_id'],
+        'page'        => $room_page,
     );
+    $query = array_merge($query, $overrides);
 
     return http_build_query(array_filter($query, function ($value) {
         return $value !== NULL && $value !== '';
     }));
 };
+$navigation_query = function ($date) use ($inventory_query) {
+    return $inventory_query(array('start' => $date));
+};
+$visible_pages = array(1, $room_page_count);
+for ($page_number = max(1, $room_page - 2); $page_number <= min($room_page_count, $room_page + 2); $page_number++) {
+    $visible_pages[] = $page_number;
+}
+$visible_pages = array_values(array_unique($visible_pages));
+sort($visible_pages);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -155,6 +167,17 @@ $navigation_query = function ($date) use ($filters) {
         .inv-total-row td { background:#fbfaff; }
         .inv-total-row .inv-roomcol { background:#fbfaff; }
         .inv-total-row .inv-a { background:var(--brand-soft); color:var(--brand-dark); }
+        .inv-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px;
+            padding:12px 16px; border-top:1px solid var(--line); background:#fff; }
+        .inv-pagination-summary { color:var(--muted); font-size:.78rem; }
+        .inv-page-links { display:flex; align-items:center; gap:5px; }
+        .inv-page-link { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px;
+            border:1px solid var(--input-brd); border-radius:7px; background:#fff; color:var(--brand-dark);
+            font-size:.78rem; font-weight:700; text-decoration:none; }
+        a.inv-page-link:hover { background:var(--brand-soft); border-color:#c9cff0; }
+        .inv-page-link.is-current { border-color:var(--brand); background:var(--brand); color:#fff; }
+        .inv-page-link.is-disabled { color:#a6adbd; cursor:not-allowed; }
+        .inv-page-gap { min-width:18px; color:var(--muted); text-align:center; }
         .inv-legend { display:flex; gap:16px; align-items:center; justify-content:center; color:var(--muted); font-size:.78rem; margin-top:14px; flex-wrap:wrap; }
         .inv-legend .k { display:inline-flex; align-items:center; gap:6px; }
         .inv-swatch { width:14px; height:14px; border-radius:4px; display:inline-block; }
@@ -244,6 +267,8 @@ $navigation_query = function ($date) use ($filters) {
             .inv-nav .erp-input { width:100%; height:34px; padding:5px 8px; font-size:.76rem; }
             .inv-navbtn { width:34px; height:34px; border-radius:8px; }
             .inv-range { text-align:center; font-size:.67rem; }
+            .inv-pagination { align-items:flex-start; flex-direction:column; padding:10px 12px; }
+            .inv-page-links { align-self:stretch; justify-content:center; }
 
             .inv-filterbar { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
                 align-items:end; gap:7px 8px; padding:9px 12px; }
@@ -464,6 +489,47 @@ $navigation_query = function ($date) use ($filters) {
                 </tbody>
             </table>
         </div>
+
+        <?php if ($room_page_count > 1): ?>
+            <nav class="inv-pagination" aria-label="Inventory room pages">
+                <div class="inv-pagination-summary">
+                    Rooms <?= (int) $room_page_start ?>&ndash;<?= (int) $room_page_end ?> of <?= (int) $filtered_room_count ?>
+                </div>
+                <div class="inv-page-links">
+                    <?php if ($room_page > 1): ?>
+                        <a class="inv-page-link" href="<?= site_url('inventory?'.$inventory_query(array('page' => $room_page - 1))) ?>" aria-label="Previous room page" title="Previous room page">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                        </a>
+                    <?php else: ?>
+                        <span class="inv-page-link is-disabled" aria-disabled="true" aria-label="Previous room page">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                        </span>
+                    <?php endif; ?>
+
+                    <?php $previous_page_number = 0; foreach ($visible_pages as $page_number): ?>
+                        <?php if ($previous_page_number && $page_number > $previous_page_number + 1): ?>
+                            <span class="inv-page-gap" aria-hidden="true">&hellip;</span>
+                        <?php endif; ?>
+                        <?php if ($page_number === $room_page): ?>
+                            <span class="inv-page-link is-current" aria-current="page"><?= (int) $page_number ?></span>
+                        <?php else: ?>
+                            <a class="inv-page-link" href="<?= site_url('inventory?'.$inventory_query(array('page' => $page_number))) ?>" aria-label="Room page <?= (int) $page_number ?>"><?= (int) $page_number ?></a>
+                        <?php endif; ?>
+                        <?php $previous_page_number = $page_number; ?>
+                    <?php endforeach; ?>
+
+                    <?php if ($room_page < $room_page_count): ?>
+                        <a class="inv-page-link" href="<?= site_url('inventory?'.$inventory_query(array('page' => $room_page + 1))) ?>" aria-label="Next room page" title="Next room page">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+                        </a>
+                    <?php else: ?>
+                        <span class="inv-page-link is-disabled" aria-disabled="true" aria-label="Next room page">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+                        </span>
+                    <?php endif; ?>
+                </div>
+            </nav>
+        <?php endif; ?>
 
         <div class="inv-legend">
             <span class="k"><span class="inv-swatch" style="background:var(--green-soft);"></span> Available</span>

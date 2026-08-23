@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Booking &middot; Stay Management</title>
+    <link rel="stylesheet" href="http://localhost/stay_management/assets/css/erp.css?v=1787409162">
+    <link rel="stylesheet" href="http://localhost/stay_management/assets/css/searchable-select.css?v=1787409323">
+    <script>
+        window.APP_BASE = "http:\/\/localhost\/stay_management\/";
+        window.APP_PROPERTY_CONTEXT_TOKEN = "8bc33ace0ed975063dc5b5435a88aad4260378139b1ebd1be7bc7e4a3e38fcf8";
+        window.APP_PROPERTY_CONTEXT_KEY = "1:1";
+    </script>
+</head>
+<body class="erp-body">
+
+<script>
+window.APP_BASE = "http:\/\/localhost\/stay_management\/";
+window.APP_USER_ID = 1;
+window.APP_PROPERTY_ID = 1;
+window.APP_PROPERTY_CONTEXT_TOKEN = "8bc33ace0ed975063dc5b5435a88aad4260378139b1ebd1be7bc7e4a3e38fcf8";
+window.APP_PROPERTY_CONTEXT_SWITCHED = false;
+window.APP_CONTEXT_KEY = "1:1:1:be1350c0ac717346eb93";
+</script>
+
+<nav class="erp-nav">
+    <div class="erp-nav-primary">
+                    <a class="erp-nav-brand" href="http://localhost/stay_management/inventory" title="Go to home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6d5df6" stroke-width="1.8" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M7 21v-6h10v6"/></svg><span>Stay Management</span></a>
+        
+                    <form class="erp-property-switch" action="http://localhost/stay_management/properties/switch" method="post" data-property-switch-form>
+                <input type="hidden" name="session_write_token" value="af2c78e522f469bd8304d4f908f85d91c44ae7146845c095476e36cd334633fd">
+                <label for="erpPropertySelector">Active property</label>
+                <select id="erpPropertySelector" name="property_id" class="erp-select" aria-label="Active property">
+                                                                <option value="1" selected>Legacy Admin &amp;mdash; Legacy Property</option>
+                                            <option value="5" >Plant1 &amp;mdash; E2E Dup</option>
+                                            <option value="51" >Plant1 &amp;mdash; E2E Prop 235409</option>
+                                            <option value="6" >Plant1 &amp;mdash; E2E Property</option>
+                                            <option value="2" >Plant1 &amp;mdash; Hotel1</option>
+                                    </select>
+            </form>
+            </div>
+
+    <div class="erp-nav-right">
+                    <a class="erp-nav-link " href="http://localhost/stay_management/inventory">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v4H3zM4 7v14h16V7M9 12h6"/></svg>
+                Inventory
+            </a>
+            <a class="erp-nav-link " href="http://localhost/stay_management/customers">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Customer Master
+            </a>
+            <a class="erp-nav-link " href="http://localhost/stay_management/rooms">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/><path d="M9 7h1M9 11h1M14 7h1M14 11h1M10 21v-4h4v4"/></svg>
+                Room Master
+            </a>
+        
+                <details class="erp-manage-menu">
+            <summary class="erp-btn erp-btn-ghost erp-btn-sm">Manage</summary>
+            <div class="erp-manage-panel">
+                <div class="erp-manage-user">
+                    <strong>Super Admin</strong>
+                    <span>Super Admin</span>
+                </div>
+                                    <a href="http://localhost/stay_management/admins">Plants</a>
+                                                    <a href="http://localhost/stay_management/properties">Properties</a>
+                    <a href="http://localhost/stay_management/users">Hotel Users</a>
+                            </div>
+        </details>
+        
+        <a href="http://localhost/stay_management/logout" class="erp-btn erp-btn-ghost erp-btn-sm" data-app-logout>Logout</a>
+                    <a class="erp-nav-back" href="http://localhost/stay_management/customers/bookings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                Back
+            </a>
+            </div>
+</nav>
+
+<div class="erp-subnav">
+    <div class="erp-subnav-inner">
+        <a class="erp-tab active" href="http://localhost/stay_management/customers/bookings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+            Booking Details
+        </a>
+        <a class="erp-tab " href="http://localhost/stay_management/customers/checkins">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+            Check-in Details
+        </a>
+        <a class="erp-tab " href="http://localhost/stay_management/customers/checkedouts">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M14 17l5-5-5-5"/><path d="M19 12H8"/></svg>
+            Check-out Details
+        </a>
+    </div>
+</div>
+
+<link rel="stylesheet" href="http://localhost/stay_management/assets/css/searchable-select.css?v=1787409323">
+<script src="http://localhost/stay_management/assets/js/property-context.js?v=1787199482"></script>
+<script src="http://localhost/stay_management/assets/js/searchable-select.js?v=1787500086"></script>
+<script src="http://localhost/stay_management/assets/js/erp-ui.js?v=1787409134"></script>
+
+<div class="erp-wrap">
+    <form class="erp-card booking-form-card"
+      data-booking-form
+      data-booking-context="page"
+      style="max-width:920px;margin:0 auto;"
+      action="http://localhost/stay_management/customers/booking_save"
+      method="post"
+      novalidate>
+    <input type="hidden" name="booking_id" value="">
+    <input type="hidden" name="property_context_token" value="8bc33ace0ed975063dc5b5435a88aad4260378139b1ebd1be7bc7e4a3e38fcf8">
+    
+    <div class="erp-page-head">
+        <div>
+            <h1>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e8eef6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01"/>
+                </svg>
+                New Booking            </h1>
+            <p class="erp-sub">
+                                    Start with the mobile number &mdash; an existing customer is loaded automatically
+                            </p>
+        </div>
+            </div>
+
+                <div class="erp-alert erp-alert-danger" role="alert"><p>Select an active room category from the current property.</p>
+</div>
+    
+    <div class="erp-form-section">
+        <div class="erp-section-title">Customer</div>
+
+        <div class="erp-grid-2" style="margin-bottom:16px;">
+            <div class="erp-form-field">
+                <label>Mobile No <span class="req">*</span></label>
+                <input class="erp-input" type="text" id="bf_phone" name="phone" required maxlength="20"
+                       autocomplete="off" value="99999213244">
+                            </div>
+            <div class="erp-form-field">
+                <label>Customer Name <span class="req">*</span></label>
+                <input class="erp-input" type="text" name="customer_name" required maxlength="150" value="DBG T Guest">
+                            </div>
+        </div>
+
+        <div class="erp-grid-2">
+            <div class="erp-form-field">
+                <label>Pincode</label>
+                <input class="erp-input" type="text" name="pincode" maxlength="15" value="1">
+            </div>
+            <div class="erp-form-field">
+                <label>Country</label>
+                <select class="erp-select" name="country">
+                    <option value="">Select</option>
+                                            <option value="India" selected>India</option>
+                                            <option value="United Arab Emirates" >United Arab Emirates</option>
+                                            <option value="United Kingdom" >United Kingdom</option>
+                                            <option value="United States" >United States</option>
+                                    </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="erp-form-section">
+        <div class="erp-section-title">Booking Details</div>
+
+        <div class="erp-grid-1" style="margin-bottom:16px;">
+            <div class="erp-form-field">
+                <label>Booking Status</label>
+                                    <select class="erp-select" id="bk_status" name="status_id">
+                                                    <option value="1" selected>Room booked</option>
+                                                    <option value="2" >Checked in</option>
+                                                    <option value="3" >Checked out</option>
+                                                    <option value="4" >Cancelled</option>
+                                                    <option value="5" >No show</option>
+                                            </select>
+                                            </div>
+        </div>
+
+        <div class="erp-grid-2" style="margin-bottom:16px;">
+            <div class="erp-form-field">
+                <label>Booking Channel</label>
+                <select class="erp-select" name="booking_channel_id">
+                    <option value="">Select</option>
+                                            <option value="5" >Agoda</option>
+                                            <option value="11" >Airbnb</option>
+                                            <option value="4" >Booking.com</option>
+                                            <option value="9" >Cleartrip</option>
+                                            <option value="13" >Company</option>
+                                            <option value="6" >Expedia</option>
+                                            <option value="3" >Goibibo</option>
+                                            <option value="14" >Government</option>
+                                            <option value="7" >Hotels.com</option>
+                                            <option value="8" >Ixigo</option>
+                                            <option value="2" >MakeMyTrip</option>
+                                            <option value="15" >Travel Agent</option>
+                                            <option value="12" >Trip.com</option>
+                                            <option value="1" selected>Walk-in</option>
+                                            <option value="10" >Yatra</option>
+                                    </select>
+            </div>
+            <div class="erp-form-field">
+                <label>Property Name</label>
+                <input class="erp-input" type="text" value="Legacy Property" readonly aria-readonly="true">
+            </div>
+        </div>
+
+                    <div class="erp-grid-2" style="margin-bottom:16px;">
+                <div class="erp-form-field">
+                    <label>Check In</label>
+                    <input class="erp-input" type="datetime-local" id="bk_checkin" name="checked_in_at" value="">
+                </div>
+                <div class="erp-form-field">
+                    <label>Check Out</label>
+                    <input class="erp-input" type="datetime-local" id="bk_checkout" name="checked_out_at" value="">
+                </div>
+            </div>
+        
+        <div class="erp-grid-2" style="margin-bottom:16px;">
+            <div class="erp-form-field">
+                <label>Room Category</label>
+                <select class="erp-select" id="bk_room_category" name="room_category_id">
+                    <option value="">Select</option>
+                                            <option value="1" >Standard</option>
+                                            <option value="2" >Deluxe</option>
+                                            <option value="3" >Super Deluxe</option>
+                                            <option value="4" >Suite</option>
+                                            <option value="5" >Executive Suite</option>
+                                            <option value="32" >DBG Cat</option>
+                                            <option value="8" >E2E Booking Cat</option>
+                                    </select>
+            </div>
+            <div class="erp-form-field">
+                <label>Allot Room  <span class="erp-muted" style="font-weight:400;">(available for selected dates)</span></label>
+                <select class="erp-select" id="bk_room" name="room_id" data-search="always" data-placeholder="Select a room" >
+                    <option value="">&mdash; No room &mdash;</option>
+                                            <option value="1"
+                                data-category-id="1"
+                                data-selling-price="2200.00"
+                                >101</option>
+                                            <option value="2"
+                                data-category-id="1"
+                                data-selling-price="2200.00"
+                                >102</option>
+                                            <option value="3"
+                                data-category-id="2"
+                                data-selling-price="3500.00"
+                                >201</option>
+                                            <option value="6"
+                                data-category-id="4"
+                                data-selling-price="7800.00"
+                                >401</option>
+                                            <option value="9"
+                                data-category-id="3"
+                                data-selling-price="20000.00"
+                                >501</option>
+                                            <option value="10"
+                                data-category-id="8"
+                                data-selling-price="1500.00"
+                                >9235</option>
+                                            <option value="11"
+                                data-category-id=""
+                                data-selling-price="1500.00"
+                                >9291</option>
+                                            <option value="13"
+                                data-category-id="8"
+                                data-selling-price="1500.00"
+                                >9420</option>
+                                            <option value="15"
+                                data-category-id="8"
+                                data-selling-price="1500.00"
+                                >9493</option>
+                                    </select>
+                            </div>
+        </div>
+
+        <div class="erp-grid-2" style="margin-bottom:16px;">
+            <div class="erp-form-field">
+                <label>Room Quantity</label>
+                <input class="erp-input" type="number" min="0" name="room_quantity" value="1">
+            </div>
+            <div class="erp-form-field"></div>
+        </div>
+
+        <div class="erp-grid-2" style="margin-bottom:16px;">
+            <div class="erp-form-field">
+                <label>Length of Stay <span class="erp-muted" style="font-weight:400;">(nights, auto)</span></label>
+                <input class="erp-input" type="number" id="bk_los" name="length_of_stay" value="1" readonly>
+            </div>
+            <div class="erp-form-field">
+                <label>Total Guests</label>
+                <input class="erp-input" type="number" min="0" name="total_guest" value="2">
+            </div>
+        </div>
+
+        <div class="erp-grid-2" style="margin-bottom:16px;">
+            <div class="erp-form-field">
+                <label>Total Units <span class="erp-muted" style="font-weight:400;">(total rooms booked)</span></label>
+                <input class="erp-input" type="number" min="0" name="total_unit" value="1">
+            </div>
+            <div class="erp-form-field">
+                <label>Total Amount</label>
+                <input class="erp-input" type="number" step="0.01" min="0" id="bk_total" name="total_amount" value="1000">
+            </div>
+        </div>
+
+        <div class="erp-grid-2">
+            <div class="erp-form-field">
+                <label>Amount Paid</label>
+                <input class="erp-input" type="number" step="0.01" min="0" id="bk_paid" name="amount_paid" value="0">
+            </div>
+            <div class="erp-form-field">
+                <label>Remaining Amount <span class="erp-muted" style="font-weight:400;">(auto)</span></label>
+                <input class="erp-input" type="number" step="0.01" id="bk_remaining" value="" readonly>
+            </div>
+        </div>
+    </div>
+
+    <div class="erp-form-foot">
+                    <a href="http://localhost/stay_management/customers/bookings" class="erp-btn erp-btn-ghost">Cancel</a>
+                <button type="submit" class="erp-btn erp-btn-primary" data-booking-submit>
+            Save Booking        </button>
+    </div>
+</form>
+</div>
+
+<script src="http://localhost/stay_management/assets/js/searchable-select.js?v=1787500086"></script>
+<script src="http://localhost/stay_management/assets/js/booking-form.js?v=1787202844"></script>
+</body>
+</html>

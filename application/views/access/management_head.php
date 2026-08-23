@@ -8,7 +8,7 @@
     <style>
         /* ============================================================
            Management screens (Plants / Properties / Users / Access)
-           Same design language as the ERP master pages Ã¢â‚¬â€ built purely
+           Same design language as the ERP ${1}&mdash;${2} purely
            on the erp.css design tokens.
            ============================================================ */
         .mgmt-shell { padding: 26px 24px 56px; max-width: 1500px; margin: 0 auto; }

@@ -287,7 +287,7 @@ async function verifyRoleNavbar(cdp, role) {
     }
     assert(!state.allProperties, `${role.roleLabel} selector exposed a forbidden All Properties option.`);
     if (role.key === 'super') {
-        assert(state.options.every((option) => option.text.includes('â€”')), 'Super selector labels did not include owning admins.');
+        assert(state.options.every((option) => option.text.includes(' - ')), 'Super selector labels did not include owning admins.');
     } else if (role.key === 'admin') {
         assert(state.options.length === 1, 'Legacy Admin should only see its own Legacy Property.');
         assert(!selectedOption.text.includes('Legacy Admin'), 'Admin selector unexpectedly included an owner prefix.');

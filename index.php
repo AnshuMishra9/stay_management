@@ -53,7 +53,41 @@
  *
  * NOTE: If you change these, also change the error_reporting() code below
  */
-	define('ENVIRONMENT', isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development');
+
+/*
+ * ---------------------------------------------------------------
+ * .ENV LOADER — parse the project .env file into getenv()/$_ENV
+ * before anything else boots. Values already set in the real
+ * environment always win (12-factor semantics).
+ * ---------------------------------------------------------------
+ */
+	$app_env_loader = function ($path) {
+		if ( ! function_exists('erp_parse_env')) {
+			function erp_parse_env($file) {
+				if ( ! is_file($file)) { return; }
+				foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+					$line = trim($line);
+					if ($line === '' || $line[0] === '#' || strpos($line, '=') === FALSE) { continue; }
+					list($name, $value) = explode('=', $line, 2);
+					$name  = trim($name);
+					$value = trim($value);
+					if ($name === '') { continue; }
+					$len = strlen($value);
+					if ($len >= 2 && (($value[0] === '"' && $value[$len-1] === '"') || ($value[0] === "'" && $value[$len-1] === "'"))) {
+						$value = substr($value, 1, -1);
+					}
+					if (getenv($name) === FALSE) {
+						putenv("$name=$value");
+						$_ENV[$name] = $value;
+					}
+				}
+			}
+		}
+		erp_parse_env(dirname(__FILE__).DIRECTORY_SEPARATOR.'.env');
+	};
+	$app_env_loader(dirname(__FILE__));
+
+	define('ENVIRONMENT', getenv('CI_ENVIRONMENT') ?: (isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development'));
 
 /*
  *---------------------------------------------------------------

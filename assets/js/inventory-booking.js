@@ -117,6 +117,7 @@
         });
 
         var selection = null;
+        var paintedSlots = [];
         var modalInvoker = null;
         var loadRequest = 0;
         var rangeCheckRequest = 0;
@@ -209,12 +210,13 @@
         }
 
         function paintSelection() {
-            slots.forEach(function (slot) {
+            paintedSlots.forEach(function (slot) {
                 slot.classList.remove('is-range-selected', 'is-range-start', 'is-range-end');
                 var cell = slot.closest('.inv-cell');
                 if (cell) { cell.classList.remove('is-range-selected'); }
                 if (slot.tagName === 'BUTTON') { slot.setAttribute('aria-pressed', 'false'); }
             });
+            paintedSlots = [];
 
             if (!selection) { return; }
             var roomSlots = slotIndex[selection.roomId] || {};
@@ -227,6 +229,7 @@
                 if (date === selection.start) { slot.classList.add('is-range-start'); }
                 if (date === selection.end) { slot.classList.add('is-range-end'); }
                 if (slot.tagName === 'BUTTON') { slot.setAttribute('aria-pressed', 'true'); }
+                paintedSlots.push(slot);
             });
         }
 
@@ -901,6 +904,10 @@
         // Restores the range after Inventory Previous/Next reloads. The stored
         // selection is per-tab, short-lived, and cleared after save or Clear.
         selection = restoreStoredSelection();
+        if (selection && !slotIndex[selection.roomId]) {
+            selection = null;
+            forgetStoredSelection();
+        }
         renderSelection();
     }
 

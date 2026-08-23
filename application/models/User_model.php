@@ -276,3 +276,5 @@ class User_model extends CI_Model
             ->count_all_results($this->table) > 0;
     }
 }
+
+

@@ -30,8 +30,8 @@ $this->load->view('access/management_head', array('page_title' => $page_title, '
             <div class="erp-section-title">Account</div>
             <div class="erp-form-field">
                 <label>Plant <span class="req">*</span></label>
-                <?php if ($editing): ?><input type="hidden" name="tenant_id" value="<?= (int) $tenant_id ?>"><input class="erp-input" disabled value="<?= html_escape($user->tenant_name.' â€” '.$user->admin_name) ?>">
-                <?php else: ?><select class="erp-select" id="tenant_id" name="tenant_id" required onchange="if(this.value){window.location='<?= site_url('users/add') ?>?tenant_id='+encodeURIComponent(this.value)}"><option value="">Choose plant</option><?php foreach ($admin_tenants as $tenant): ?><option value="<?= (int) $tenant->id ?>" <?= (int) $tenant_id === (int) $tenant->id ? 'selected' : '' ?>><?= html_escape($tenant->name.' â€” '.$tenant->admin_name.' ('.$tenant->admin_mobile.')') ?></option><?php endforeach; ?></select><div class="mgmt-help">Selecting a plant reloads its active-property choices.</div><?php endif; ?>
+                <?php if ($editing): ?><input type="hidden" name="tenant_id" value="<?= (int) $tenant_id ?>"><input class="erp-input" disabled value="<?= html_escape($user->tenant_name.' &mdash; '.$user->admin_name) ?>">
+                <?php else: ?><select class="erp-select" id="tenant_id" name="tenant_id" required onchange="if(this.value){window.location='<?= site_url('users/add') ?>?tenant_id='+encodeURIComponent(this.value)}"><option value="">Choose plant</option><?php foreach ($admin_tenants as $tenant): ?><option value="<?= (int) $tenant->id ?>" <?= (int) $tenant_id === (int) $tenant->id ? 'selected' : '' ?>><?= html_escape($tenant->name.' &mdash; '.$tenant->admin_name.' ('.$tenant->admin_mobile.')') ?></option><?php endforeach; ?></select><div class="mgmt-help">Selecting a plant reloads its active-property choices.</div><?php endif; ?>
             </div>
         </div>
     <?php endif; ?>

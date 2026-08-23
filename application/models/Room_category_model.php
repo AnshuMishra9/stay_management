@@ -103,3 +103,5 @@ class Room_category_model extends CI_Model
             : FALSE;
     }
 }
+
+

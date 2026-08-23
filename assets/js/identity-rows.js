@@ -1143,7 +1143,7 @@
         if (sizeOutput) {
             var sourceWidth = Math.max(1, Math.round(c.w * cropSession.image.naturalWidth / d.w));
             var sourceHeight = Math.max(1, Math.round(c.h * cropSession.image.naturalHeight / d.h));
-            sizeOutput.textContent = sourceWidth + ' × ' + sourceHeight + ' px · ' + cropSession.aspectLabel;
+            sizeOutput.textContent = sourceWidth + ' × ' + sourceHeight + ' px &middot; ' + cropSession.aspectLabel;
         }
     }
 

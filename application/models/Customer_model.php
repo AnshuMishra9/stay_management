@@ -5,7 +5,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * Customer_model
  *
  * All database access for the Customers Master. Uses CodeIgniter Query
- * Builder throughout (escaped/prepared) — no raw SQL.
+ * Builder throughout (escaped/prepared) â€” no raw SQL.
  */
 class Customer_model extends CI_Model
 {
@@ -15,7 +15,7 @@ class Customer_model extends CI_Model
     /** Prefix used when auto-generating the human-facing customer code. */
     const CODE_PREFIX = 'CUST';
 
-    /** Columns shown in the list grid (customer info only — bookings live in
+    /** Columns shown in the list grid (customer info only â€” bookings live in
      *  `booking_details`, so no booking columns here). Aliased from the
      *  dream-style columns (pin_code/status) to app-facing names. */
     protected $list_columns = array(
@@ -116,7 +116,7 @@ class Customer_model extends CI_Model
     }
 
     /**
-     * Find a customer by their mobile number — used by the Booking form so
+     * Find a customer by their mobile number â€” used by the Booking form so
      * typing a known mobile pulls up that customer's saved details.
      *
      * @param  string $phone
@@ -192,7 +192,7 @@ class Customer_model extends CI_Model
     }
 
     /**
-     * Active booking channels (Walk-in, MMT, Booking.com…) for the dropdown.
+     * Active booking channels (Walk-in, MMT, Booking.comâ€¦) for the dropdown.
      * @return array of {channel_id, channel_name, channel_category}
      */
     public function booking_channels()
@@ -552,7 +552,7 @@ class Customer_model extends CI_Model
         if ( ! empty($filters['customer_name'])) { $this->db->like('c.customer_name', $filters['customer_name']); }
         if ( ! empty($filters['room_no']))       { $this->db->like('r.room_no', $filters['room_no']); }
         // Room Category matches the displayed value (allotted room's category,
-        // else the booked category) — filter on the same COALESCE expression.
+        // else the booked category) â€” filter on the same COALESCE expression.
         if ( ! empty($filters['room_category'])) {
             $needle = $this->db->escape('%'.$filters['room_category'].'%');
             $this->db->where("COALESCE(r_cat.category_name, b_cat.category_name) LIKE $needle", NULL, FALSE);
@@ -749,7 +749,7 @@ class Customer_model extends CI_Model
             return self::CODE_PREFIX.'00001';
         }
         // Highest numeric suffix + 1 (gap-tolerant AND independent of insert
-        // order — codes like CUST00018 may belong to a lower-id row).
+        // order â€” codes like CUST00018 may belong to a lower-id row).
         $row  = $this->db->query(
             'SELECT COALESCE(MAX(CAST(SUBSTRING(customer_code, '.(strlen(self::CODE_PREFIX) + 1).') AS UNSIGNED)), 0) AS maxn '
             .'FROM '.$this->table.' WHERE fk_plant = ? AND customer_code LIKE '.$this->db->escape(self::CODE_PREFIX.'%'),
@@ -846,11 +846,11 @@ class Customer_model extends CI_Model
     }
 
     // ---------------------------------------------------------------------
-    //  Identity proofs  (customer_identities — one customer -> many)
+    //  Identity proofs  (customer_identities â€” one customer -> many)
     // ---------------------------------------------------------------------
 
     /**
-     * All identity-proof rows for a customer (Aadhar / PAN / Passport / …).
+     * All identity-proof rows for a customer (Aadhar / PAN / Passport / â€¦).
      *
      * @param  int      $customer_id
      * @param  int|null $booking_id NULL means customer-level documents only
@@ -925,7 +925,7 @@ class Customer_model extends CI_Model
     }
 
     /**
-     * Identity rows for a customer that are NOT in the kept-id list — i.e. the
+     * Identity rows for a customer that are NOT in the kept-id list â€” i.e. the
      * ones removed on the form. Returned so the caller can delete their files
      * before the rows go.
      *
@@ -935,7 +935,7 @@ class Customer_model extends CI_Model
      * @return array
      */
     /**
-     * Identity rows for a customer that are NOT in the kept-id list — i.e. the
+     * Identity rows for a customer that are NOT in the kept-id list â€” i.e. the
      * ones removed on the form (active rows only). Returned so the caller can
      * soft-delete them; files are never removed from disk.
      */
@@ -975,3 +975,5 @@ class Customer_model extends CI_Model
         ));
     }
 }
+
+

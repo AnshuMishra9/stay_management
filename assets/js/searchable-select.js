@@ -146,10 +146,10 @@
                 });
             }
 
-            // "Showing 9 of N · type to search" hint (only when the list is capped).
+            // "Showing 9 of N &middot; type to search" hint (only when the list is capped).
             if (capped) {
                 hint.textContent = 'Showing ' + visibleLimit + ' of ' + realCount
-                    + (searchVisible ? ' · type to search' : '');
+                    + (searchVisible ? ' &middot; type to search' : '');
                 hint.style.display = '';
             } else {
                 hint.style.display = 'none';

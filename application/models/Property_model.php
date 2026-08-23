@@ -213,3 +213,5 @@ class Property_model extends CI_Model
         $this->db->where('1 = 0', NULL, FALSE);
     }
 }
+
+

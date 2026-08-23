@@ -5,10 +5,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * Inventory_model
  *
  * Derives room AVAILABILITY per date from the physical rooms and the active
- * bookings. There is no manually-set inventory — availability is computed:
+ * bookings. There is no manually-set inventory â€” availability is computed:
  *
  *     available(category, date) = active rooms in category
- *                               − rooms occupied by active bookings that night
+ *                               âˆ’ rooms occupied by active bookings that night
  *
  * A booking occupies a room on night D when D is within [check-in, check-out)
  * and its status is "occupying" (Room booked / Checked in). Completed stays
@@ -138,8 +138,8 @@ class Inventory_model extends CI_Model
      * @param  int    $days
      * @param  array  $filters - optional filters: room_no, category_id
      * @return array {
-     *     dates:        [Y-m-d, …],
-     *     rooms:        [ {id, room_no, category_id, category_name, avail:{date=>n}, booked:{date=>n}}, … ],
+     *     dates:        [Y-m-d, â€¦],
+     *     rooms:        [ {id, room_no, category_id, category_name, avail:{date=>n}, booked:{date=>n}}, â€¦ ],
      *     avail_totals: {date=>n},   booked_totals:{date=>n},
      *     total_rooms:  int
      * }
@@ -293,3 +293,5 @@ class Inventory_model extends CI_Model
         );
     }
 }
+
+
