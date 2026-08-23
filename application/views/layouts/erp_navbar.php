@@ -59,7 +59,7 @@ window.APP_CONTEXT_KEY = <?= json_encode(
                     <?php if ( ! $has_property): ?><option value="">Select property</option><?php endif; ?>
                     <?php foreach ($nav_properties as $property):
                         $owner = isset($property->admin_name) ? $property->admin_name : (isset($property->owner_name) ? $property->owner_name : '');
-                        $label = ($nav_role === 'super_admin' && $owner !== '' ? $owner.' — ' : '').$property->property_name;
+                        $label = ($nav_role === 'super_admin' && $owner !== '' ? $owner.' â€” ' : '').$property->property_name;
                     ?>
                         <option value="<?= (int) $property->id ?>" <?= (int) $property->id === $nav_property_id ? 'selected' : '' ?>><?= html_escape($label) ?></option>
                     <?php endforeach; ?>
@@ -93,7 +93,7 @@ window.APP_CONTEXT_KEY = <?= json_encode(
                     <span><?= html_escape(isset($role_label[$nav_role]) ? $role_label[$nav_role] : $nav_role) ?></span>
                 </div>
                 <?php if ($nav_role === 'super_admin'): ?>
-                    <a href="<?= site_url('admins') ?>">Admin Accounts</a>
+                    <a href="<?= site_url('admins') ?>">Plants</a>
                 <?php endif; ?>
                 <?php if ($nav_role === 'super_admin' || $nav_role === 'admin'): ?>
                     <a href="<?= site_url('properties') ?>">Properties</a>
@@ -132,4 +132,7 @@ window.APP_CONTEXT_KEY = <?= json_encode(
 </div>
 <?php endif; ?>
 
+<link rel="stylesheet" href="<?= base_url('assets/css/searchable-select.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/searchable-select.css') ?>">
 <script src="<?= base_url('assets/js/property-context.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/property-context.js') ?>"></script>
+<script src="<?= base_url('assets/js/searchable-select.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/searchable-select.js') ?>"></script>
+<script src="<?= base_url('assets/js/erp-ui.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/erp-ui.js') ?>"></script>

@@ -147,9 +147,7 @@ class Rooms extends Property_Controller
         if ( ! $result) {
             return $this->_json(array('status' => FALSE, 'message' => 'Room could not be removed.'), 409);
         }
-        $message = $result === 'deleted'
-            ? 'Room "'.$room->room_no.'" deleted.'
-            : 'Room "'.$room->room_no.'" has booking history and was deactivated.';
+        $message = 'Room "'.$room->room_no.'" was deactivated. No data was deleted.';
         return $this->_json(array('status' => TRUE, 'message' => $message, 'action' => $result));
     }
 

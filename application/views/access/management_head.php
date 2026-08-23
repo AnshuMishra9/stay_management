@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <style>
         /* ============================================================
-           Management screens (Admins / Properties / Users / Access)
-           Same design language as the ERP master pages — built purely
+           Management screens (Plants / Properties / Users / Access)
+           Same design language as the ERP master pages Ã¢â‚¬â€ built purely
            on the erp.css design tokens.
            ============================================================ */
         .mgmt-shell { padding: 26px 24px 56px; max-width: 1500px; margin: 0 auto; }
@@ -16,7 +16,7 @@
         .mgmt-required::after { content: ' *'; color: var(--red); }
         .mgmt-table { min-width: 760px; }
 
-        /* Super-admin account filter bar (users list) */
+        /* Plant filter bar (users list) */
         .mgmt-filter-bar {
             display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
             padding: 14px 20px; border-bottom: 1px solid var(--line);

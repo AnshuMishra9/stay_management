@@ -18,8 +18,8 @@ const roles = [
         roleLabel: 'Super Admin',
         managePaths: ['/stay_management/admins', '/stay_management/properties', '/stay_management/users'],
         pages: [
-            { path: '/admins', heading: 'Admin accounts', form: false },
-            { path: '/admins/add', heading: 'Create admin', form: true },
+            { path: '/admins', heading: 'Plants', form: false },
+            { path: '/admins/add', heading: 'Create plant', form: true },
             { path: '/properties', heading: 'Properties', form: false },
             { path: '/properties/add', heading: 'Create property', form: true, tenantChooser: true },
             { path: '/users?tenant_id=1', heading: 'Property users', form: false },
@@ -287,7 +287,7 @@ async function verifyRoleNavbar(cdp, role) {
     }
     assert(!state.allProperties, `${role.roleLabel} selector exposed a forbidden All Properties option.`);
     if (role.key === 'super') {
-        assert(state.options.every((option) => option.text.includes('—')), 'Super selector labels did not include owning admins.');
+        assert(state.options.every((option) => option.text.includes('â€”')), 'Super selector labels did not include owning admins.');
     } else if (role.key === 'admin') {
         assert(state.options.length === 1, 'Legacy Admin should only see its own Legacy Property.');
         assert(!selectedOption.text.includes('Legacy Admin'), 'Admin selector unexpectedly included an owner prefix.');
@@ -358,7 +358,7 @@ async function verifyManagementPage(cdp, role, page, viewport, screenshots) {
 
     const label = `${role.roleLabel} ${page.path} at ${viewport.width}px`;
     assert(!layout.errorPage, `${label} rendered an error page.`);
-    assert(layout.heading.includes(page.heading), `${label} heading was “${layout.heading}”.`);
+    assert(layout.heading.includes(page.heading), `${label} heading was â€œ${layout.heading}â€.`);
     assert(layout.documentWidth <= layout.viewportWidth + 1, `${label} document width is ${layout.documentWidth}.`);
     assert(layout.bodyWidth <= layout.viewportWidth + 1, `${label} body width is ${layout.bodyWidth}.`);
     assert(layout.offenders.length === 0, `${label} overflowed: ${layout.offenders.join(', ')}.`);

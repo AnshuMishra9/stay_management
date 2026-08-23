@@ -5,7 +5,7 @@
             <path d="M3 21V8l9-5 9 5v13"/><path d="M7 21v-6h10v6"/>
         </svg>
         <h1 style="font-size:1.15rem;margin:0 0 8px">No property is assigned</h1>
-        <p style="margin:0 0 18px">Your account is active, but it currently has no active property assignment. Contact your admin to restore access.</p>
+        <p style="margin:0 0 18px">Your account is active, but it currently has no active property assignment. Contact your plant admin to restore access.</p>
         <a class="erp-btn erp-btn-ghost" href="<?= site_url('logout') ?>">Logout</a>
     </div>
 </section>

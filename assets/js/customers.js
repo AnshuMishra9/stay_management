@@ -81,9 +81,9 @@
 
         // ---- Delete ----
         vm.deleteCustomer = function (c) {
-            var ok = window.confirm(
-                'Delete customer "' + c.customer_name + '" (' + c.customer_code + ')?\n\n' +
-                'Customers with stay or document history will be deactivated instead of deleted.'
+var ok = window.confirm(
+'Deactivate customer "' + c.customer_name + '" (' + c.customer_code + ')?\n\n' +
+'The record is never deleted — it stays in the database and disappears from the list.'
             );
             if (!ok) { return; }
 
@@ -92,19 +92,16 @@
             })
                 .then(function (res) {
                     if (res.data && res.data.status) {
-                        // Data changed → drop the cached lists (customers + bookings share rows).
+                        // Data changed — drop the cached lists (customers + bookings share rows).
                         erpQuery.invalidate('customers');
                         erpQuery.invalidate('bookings');
-                        // Drop the row locally for instant feedback, then resync.
-                        if (res.data.deactivated) {
-                            c.is_active = 0;
-                            alert(res.data.message || 'Customer deactivated.');
-                        } else {
-                            var i = vm.customers.indexOf(c);
-                            if (i > -1) { vm.customers.splice(i, 1); }
-                        }
+                        // Soft-deleted customers disappear from the list instantly.
+                        var i = vm.customers.indexOf(c);
+                        if (i > -1) { vm.customers.splice(i, 1); }
+                        if (window.ErpToast) { window.ErpToast.show(res.data.message || 'Customer deactivated.'); }
+                        else { alert(res.data.message || 'Customer deactivated.'); }
                     } else {
-                        alert((res.data && res.data.message) || 'Delete failed.');
+                        alert((res.data && res.data.message) || 'Deactivation failed.');
                     }
                 })
                 .catch(function (error) {
@@ -112,7 +109,7 @@
                         window.location.assign(base + 'inventory');
                         return;
                     }
-                    alert('Delete failed. Please try again.');
+                    alert('Deactivation failed. Please try again.');
                 });
         };
 

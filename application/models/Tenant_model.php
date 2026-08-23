@@ -1,30 +1,33 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/** Tenant/account persistence. Each admin owns exactly one tenant in v1. */
+/** Plant/account persistence (ex-tenants). Each admin owns exactly one plant.
+ *  DB columns are dream-aligned (plants.plant_id/plant_name/plant_status/
+ *  plant_ad_by/plant_ad_dt); SELECT aliases keep app-facing names stable. */
 class Tenant_model extends CI_Model
 {
-    protected $table = 'tenants';
+    protected $table = 'plants';
 
     public function get_by_id($tenant_id, $active_only = FALSE)
     {
-        $this->db->where('id', (int) $tenant_id);
+        $this->db->select('plant_id AS id, plant_name AS name, plant_status AS is_active, updated_at');
+        $this->db->where('plant_id', (int) $tenant_id);
         if ($active_only) {
-            $this->db->where('is_active', 1);
+            $this->db->where('plant_status', 1);
         }
         return $this->db->limit(1)->get($this->table)->row();
     }
 
-    /** Active tenants paired with their active admin, for support selectors. */
+    /** Active plants paired with their active admin, for support selectors. */
     public function list_active_admin_tenants()
     {
         return $this->db
-            ->select('t.id, t.name, a.id AS admin_id, a.name AS admin_name, a.mobile_no AS admin_mobile')
+            ->select('t.plant_id AS id, t.plant_name AS name, a.user_id AS admin_id, a.name AS admin_name, a.mobile_no AS admin_mobile')
             ->from($this->table.' t')
-            ->join('users a', 'a.tenant_id = t.id AND a.role = '.$this->db->escape(User_model::ROLE_ADMIN), 'inner')
-            ->where('t.is_active', 1)
-            ->where('a.is_active', 1)
-            ->order_by('t.name', 'ASC')
+            ->join('users a', 'a.fk_plant = t.plant_id AND a.role = '.$this->db->escape(User_model::ROLE_ADMIN), 'inner')
+            ->where('t.plant_status', 1)
+            ->where('a.status', 1)
+            ->order_by('t.plant_name', 'ASC')
             ->order_by('a.name', 'ASC')
             ->get()->result();
     }
@@ -32,32 +35,37 @@ class Tenant_model extends CI_Model
     public function get_active_admin_tenant($tenant_id)
     {
         return $this->db
-            ->select('t.id, t.name, a.id AS admin_id, a.name AS admin_name, a.mobile_no AS admin_mobile')
+            ->select('t.plant_id AS id, t.plant_name AS name, a.user_id AS admin_id, a.name AS admin_name, a.mobile_no AS admin_mobile')
             ->from($this->table.' t')
-            ->join('users a', 'a.tenant_id = t.id AND a.role = '.$this->db->escape(User_model::ROLE_ADMIN), 'inner')
-            ->where('t.id', (int) $tenant_id)
-            ->where('t.is_active', 1)
-            ->where('a.is_active', 1)
+            ->join('users a', 'a.fk_plant = t.plant_id AND a.role = '.$this->db->escape(User_model::ROLE_ADMIN), 'inner')
+            ->where('t.plant_id', (int) $tenant_id)
+            ->where('t.plant_status', 1)
+            ->where('a.status', 1)
             ->limit(1)
             ->get()->row();
     }
 
-    /** Tenant paired with its owner admin, including inactive support cases. */
+    /** Plant paired with its owner admin, including inactive support cases. */
     public function get_admin_tenant($tenant_id)
     {
         return $this->db
-            ->select('t.id, t.name, t.is_active, a.id AS admin_id, a.name AS admin_name,
-                      a.mobile_no AS admin_mobile, a.is_active AS admin_is_active')
+            ->select('t.plant_id AS id, t.plant_name AS name, t.plant_status AS is_active,
+                      a.user_id AS admin_id, a.name AS admin_name,
+                      a.mobile_no AS admin_mobile, a.status AS admin_is_active')
             ->from($this->table.' t')
-            ->join('users a', 'a.tenant_id = t.id AND a.role = '.$this->db->escape(User_model::ROLE_ADMIN), 'inner')
-            ->where('t.id', (int) $tenant_id)
+            ->join('users a', 'a.fk_plant = t.plant_id AND a.role = '.$this->db->escape(User_model::ROLE_ADMIN), 'inner')
+            ->where('t.plant_id', (int) $tenant_id)
             ->limit(1)
             ->get()->row();
     }
 
     public function insert(array $data)
     {
-        $data['created_at'] = date('Y-m-d H:i:s');
+        if (array_key_exists('name', $data)) { $data['plant_name'] = $data['name']; unset($data['name']); }
+        if (array_key_exists('is_active', $data)) { $data['plant_status'] = $data['is_active']; unset($data['is_active']); }
+        if (array_key_exists('created_by', $data)) { $data['plant_ad_by'] = $data['created_by']; unset($data['created_by']); }
+        $data['plant_ad_dt'] = date('Y-m-d H:i:s');
+        unset($data['created_at']);
         $this->db->insert($this->table, $data);
         return (int) $this->db->insert_id();
     }
@@ -65,9 +73,9 @@ class Tenant_model extends CI_Model
     public function update_name($tenant_id, $name)
     {
         return $this->db
-            ->where('id', (int) $tenant_id)
+            ->where('plant_id', (int) $tenant_id)
             ->update($this->table, array(
-                'name'       => $name,
+                'plant_name' => $name,
                 'updated_at' => date('Y-m-d H:i:s'),
             ));
     }
@@ -75,15 +83,15 @@ class Tenant_model extends CI_Model
     public function set_active($tenant_id, $is_active)
     {
         return $this->db
-            ->where('id', (int) $tenant_id)
+            ->where('plant_id', (int) $tenant_id)
             ->update($this->table, array(
-                'is_active'  => $is_active ? 1 : 0,
-                'updated_at' => date('Y-m-d H:i:s'),
+                'plant_status' => $is_active ? 1 : 0,
+                'updated_at'   => date('Y-m-d H:i:s'),
             ));
     }
 
     /**
-     * A tenant/admin pair is hard-deleteable only before it accumulates data,
+     * A plant/admin pair is hard-deleteable only before it accumulates data,
      * child users, properties, or OTP/audit references.
      */
     public function is_empty_for_admin($tenant_id, $admin_id)
@@ -92,22 +100,22 @@ class Tenant_model extends CI_Model
         $admin_id = (int) $admin_id;
 
         if ($this->db
-            ->where('tenant_id', $tenant_id)
-            ->where('id !=', $admin_id)
+            ->where('fk_plant', $tenant_id)
+            ->where('user_id !=', $admin_id)
             ->count_all_results('users') > 0
         ) {
             return FALSE;
         }
 
-        $tenant_tables = array(
+        $plant_tables = array(
             'properties', 'customers', 'room_categories', 'rooms',
             'booking_details', 'customer_identities',
         );
-        foreach ($tenant_tables as $table) {
+        foreach ($plant_tables as $table) {
             if (
                 $this->db->table_exists($table)
-                && $this->db->field_exists('tenant_id', $table)
-                && $this->db->where('tenant_id', $tenant_id)->count_all_results($table) > 0
+                && $this->db->field_exists('fk_plant', $table)
+                && $this->db->where('fk_plant', $tenant_id)->count_all_results($table) > 0
             ) {
                 return FALSE;
             }
@@ -115,20 +123,21 @@ class Tenant_model extends CI_Model
 
         return $this->db
             ->where('user_id', $admin_id)
-            ->count_all_results('otp_requests') === 0;
+            ->count_all_results('mobile_otp') === 0;
     }
 
-    /** Delete an already-proven-empty tenant and its sole admin atomically. */
+    /**
+     * Soft-delete a plant: neither the plant nor its owner admin is ever
+     * removed. Both are deactivated so the plant disappears everywhere while
+     * all data stays in the database.
+     */
     public function delete_empty_admin_tenant($tenant_id, $admin_id)
     {
-        if ( ! $this->is_empty_for_admin($tenant_id, $admin_id)) {
-            return FALSE;
-        }
-
         $this->db->trans_begin();
-        $this->db->where('user_id', (int) $admin_id)->delete('user_property_access');
-        $this->db->where('id', (int) $admin_id)->where('role', User_model::ROLE_ADMIN)->delete('users');
-        $this->db->where('id', (int) $tenant_id)->delete($this->table);
+        $this->set_active($tenant_id, 0);
+        $this->db->where('user_id', (int) $admin_id)
+                 ->where('role', User_model::ROLE_ADMIN)
+                 ->update('users', array('status' => 0, 'updated_at' => date('Y-m-d H:i:s')));
 
         if ($this->db->trans_status() === FALSE) {
             $this->db->trans_rollback();

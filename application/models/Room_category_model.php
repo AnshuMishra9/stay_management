@@ -9,6 +9,7 @@ class Room_category_model extends CI_Model
     {
         return $this->db
             ->where('property_id', (int) $property_id)
+            ->where('status', 1)
             ->order_by('display_order', 'ASC')
             ->order_by('category_name', 'ASC')
             ->get($this->table)->result();
@@ -26,7 +27,8 @@ class Room_category_model extends CI_Model
     {
         $this->db
             ->where('property_id', (int) $property_id)
-            ->where('category_name', $name);
+            ->where('category_name', $name)
+            ->where('status', 1);
         if ($except_id) {
             $this->db->where('category_id !=', (int) $except_id);
         }
@@ -41,7 +43,8 @@ class Room_category_model extends CI_Model
         }
         $this->db
             ->where('property_id', (int) $property_id)
-            ->where('short_code', $short_code);
+            ->where('short_code', $short_code)
+            ->where('status', 1);
         if ($except_id) {
             $this->db->where('category_id !=', (int) $except_id);
         }
@@ -51,9 +54,10 @@ class Room_category_model extends CI_Model
     public function taxes()
     {
         return $this->db
+            ->select('id AS tax_id, tax_name, rate AS tax_percentage')
             ->where('status', 1)
-            ->order_by('tax_percentage', 'ASC')
-            ->get('taxes')->result();
+            ->order_by('rate', 'ASC')
+            ->get('gst_rates')->result();
     }
 
     public function insert($property_id, array $data)
@@ -88,18 +92,14 @@ class Room_category_model extends CI_Model
             ->count_all_results('booking_details') > 0;
     }
 
+    /**
+     * Soft-delete a room category: the row is never removed, only deactivated.
+     * Rooms/booking history stays fully intact in the database.
+     */
     public function delete_or_deactivate($property_id, $id)
     {
-        if ($this->has_history($property_id, $id)) {
-            return $this->update($property_id, $id, array('status' => 0))
-                ? 'deactivated'
-                : FALSE;
-        }
-        return $this->db
-            ->where('property_id', (int) $property_id)
-            ->where('category_id', (int) $id)
-            ->delete($this->table)
-                ? 'deleted'
-                : FALSE;
+        return $this->update($property_id, $id, array('status' => 0))
+            ? 'deactivated'
+            : FALSE;
     }
 }

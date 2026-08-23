@@ -1,6 +1,6 @@
 <?php
 $editing = $admin && ! empty($admin->id);
-$page_title = $editing ? 'Edit admin' : 'Create admin';
+$page_title = $editing ? 'Edit plant' : 'Create plant';
 $back = site_url('admins');
 $this->load->view('access/management_head', array('page_title' => $page_title, 'back' => $back));
 ?>
@@ -13,7 +13,7 @@ $this->load->view('access/management_head', array('page_title' => $page_title, '
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#e8eef6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M12 13c-4.42 0-8 2.24-8 5v3h16v-3c0-2.76-3.58-5-8-5z"/>
                 </svg>
-                <?= $editing ? 'Edit admin' : 'Create admin' ?>
+                <?= $editing ? 'Edit plant' : 'Create plant' ?>
             </h1>
             <p class="erp-sub">The mobile number uses the existing OTP login flow</p>
         </div>
@@ -24,12 +24,12 @@ $this->load->view('access/management_head', array('page_title' => $page_title, '
     <?php endif; ?>
 
     <div class="erp-form-section">
-        <div class="erp-section-title">Admin Details</div>
+        <div class="erp-section-title">Plant Details</div>
         <input type="hidden" name="session_write_token" value="<?= html_escape($session_write_token) ?>">
         <input type="hidden" name="id" value="<?= $editing ? (int) $admin->id : 0 ?>">
         <div class="erp-grid-2" style="margin-bottom:16px">
             <div class="erp-form-field">
-                <label>Admin Name <span class="req">*</span></label>
+                <label>Owner Name <span class="req">*</span></label>
                 <input class="erp-input" id="admin_name" name="name" maxlength="150" required value="<?= html_escape($admin ? $admin->name : '') ?>">
             </div>
             <div class="erp-form-field">
@@ -38,20 +38,20 @@ $this->load->view('access/management_head', array('page_title' => $page_title, '
             </div>
         </div>
         <div class="erp-form-field">
-            <label>Account / Organization Name <span class="req">*</span></label>
+            <label>Plant Name <span class="req">*</span></label>
             <input class="erp-input" id="tenant_name" name="tenant_name" maxlength="150" required value="<?= html_escape($admin ? $admin->tenant_name : '') ?>">
-            <div class="mgmt-help">All properties and users under this admin are isolated inside this account.</div>
+            <div class="mgmt-help">All properties and users under this plant are isolated inside it.</div>
         </div>
     </div>
 
     <div class="erp-form-section">
         <div class="erp-section-title">Status</div>
-        <label class="erp-check"><input type="checkbox" id="admin_active" name="is_active" value="1" <?= ! $admin || (int) $admin->is_active === 1 ? 'checked' : '' ?>> Active account</label>
+        <label class="erp-check"><input type="checkbox" id="admin_active" name="is_active" value="1" <?= ! $admin || (int) $admin->is_active === 1 ? 'checked' : '' ?>> Active plant</label>
     </div>
 
     <div class="erp-form-foot">
         <a class="erp-btn erp-btn-ghost" href="<?= site_url('admins') ?>">Cancel</a>
-        <button class="erp-btn erp-btn-primary" type="submit"><?= $editing ? 'Update' : 'Save' ?> Admin</button>
+        <button class="erp-btn erp-btn-primary" type="submit"><?= $editing ? 'Update' : 'Save' ?> Plant</button>
     </div>
 </form>
 <?php $this->load->view('access/management_foot'); ?>

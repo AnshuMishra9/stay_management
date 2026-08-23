@@ -13,6 +13,13 @@
             <p class="erp-sub">Operational data is always isolated to one selected property</p>
         </div>
         <div class="erp-head-actions">
+            <form method="get" style="display:inline-flex;align-items:center">
+                <select name="status" class="erp-select" style="height:38px;width:auto" onchange="this.form.submit()" title="Deleted properties stay hidden as Inactive">
+                    <option value="">Active</option>
+                    <option value="0" <?= $status === '0' ? 'selected' : '' ?>>Inactive</option>
+                    <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>All</option>
+                </select>
+            </form>
             <a class="erp-btn erp-btn-soft" href="<?= site_url('properties/add') ?>">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                 Add Property
@@ -27,14 +34,14 @@
     <div class="erp-table-scroll">
         <table class="erp-table mgmt-table">
             <thead>
-                <tr><th>Property</th><th>Code</th><?php if ($auth_user->role === User_model::ROLE_SUPER_ADMIN): ?><th>Admin account</th><?php endif; ?><th>Status</th><th>Actions</th></tr>
+                <tr><th>Property</th><th>Code</th><?php if ($auth_user->role === User_model::ROLE_SUPER_ADMIN): ?><th>Plant</th><?php endif; ?><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
             <?php foreach ($properties as $property): ?>
                 <tr>
                     <td class="cell-strong"><?= html_escape($property->property_name) ?></td>
                     <td><?= html_escape($property->property_code) ?></td>
-                    <?php if ($auth_user->role === User_model::ROLE_SUPER_ADMIN): ?><td><?= html_escape($property->tenant_name) ?><div class="mgmt-help"><?= html_escape($property->admin_name ?: 'No active admin') ?></div></td><?php endif; ?>
+                    <?php if ($auth_user->role === User_model::ROLE_SUPER_ADMIN): ?><td><?= html_escape($property->tenant_name) ?><div class="mgmt-help"><?= html_escape($property->admin_name ?: 'No active owner') ?></div></td><?php endif; ?>
                     <td><span class="erp-badge <?= (int) $property->is_active === 1 ? 'erp-badge-active' : 'erp-badge-inactive' ?>"><?= (int) $property->is_active === 1 ? 'Active' : 'Inactive' ?></span></td>
                     <td>
                         <span class="erp-actions">
@@ -47,7 +54,7 @@
                             <form method="post" action="<?= site_url('properties/status/'.$property->id) ?>">
                                 <input type="hidden" name="session_write_token" value="<?= html_escape($session_write_token) ?>"><input type="hidden" name="is_active" value="<?= (int) $property->is_active === 1 ? 0 : 1 ?>"><button class="erp-btn erp-btn-sm erp-btn-ghost" type="submit"><?= (int) $property->is_active === 1 ? 'Deactivate' : 'Activate' ?></button>
                             </form>
-                            <form method="post" action="<?= site_url('properties/delete/'.$property->id) ?>" onsubmit="return confirm('Delete this empty property, or deactivate it when related data exists?');">
+                            <form method="post" action="<?= site_url('properties/delete/'.$property->id) ?>" onsubmit="return confirm('Deactivate this property? The record is never deleted and can be re-activated later.');">
                                 <input type="hidden" name="session_write_token" value="<?= html_escape($session_write_token) ?>"><button class="erp-btn erp-btn-sm erp-btn-danger" type="submit">Delete</button>
                             </form>
                         </span>

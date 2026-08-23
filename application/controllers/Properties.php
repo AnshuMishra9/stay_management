@@ -13,8 +13,10 @@ class Properties extends Secure_Controller
     public function index()
     {
         if ( ! $this->require_management_role()) { return; }
+        $status = $this->input->get('status');
         $this->load->view('properties/list', array(
-            'properties' => $this->Property_model->list_for_management($this->auth_user),
+            'properties' => $this->Property_model->list_for_management($this->auth_user, $status),
+            'status'     => $status,
             'flash'      => $this->session->flashdata('property_msg')
                 ?: $this->session->flashdata('access_msg'),
         ));
@@ -54,7 +56,7 @@ class Properties extends Secure_Controller
         $is_active = $this->input->post('is_active') ? 1 : 0;
         $errors = array();
         if ( ! $tenant && ! $property) {
-            $errors[] = 'Choose an active admin account for this property.';
+            $errors[] = 'Choose an active plant for this property.';
         }
         if ($name === '' || strlen($name) > 150) {
             $errors[] = 'Property name is required and must be 150 characters or fewer.';
@@ -62,7 +64,7 @@ class Properties extends Secure_Controller
         if ( ! preg_match('/^[A-Z0-9_-]{2,30}$/', $code)) {
             $errors[] = 'Property code must be 2 to 30 letters, numbers, underscores, or hyphens.';
         } elseif ($tenant_id && $this->Property_model->code_exists($tenant_id, $code, $id)) {
-            $errors[] = 'That property code already exists in this admin account.';
+            $errors[] = 'That property code already exists in this plant.';
         }
         if ($errors) {
             $draft = (object) array(
@@ -154,12 +156,9 @@ class Properties extends Secure_Controller
         ) { return; }
         $property = $id ? $this->Property_model->get_for_management($id, $this->auth_user) : NULL;
         if ( ! $property) { show_404(); return; }
-        if ($this->Property_model->delete_if_empty($property->id)) {
-            $text = 'Unused property deleted.';
-        } else {
-            $this->Property_model->set_active($property->id, 0);
-            $text = 'This property contains related data, so it was deactivated instead of deleted.';
-        }
+        // Soft-delete: the property row is never removed from the database.
+        $this->Property_model->set_active($property->id, 0);
+        $text = 'Property "'.$property->property_name.'" was deactivated. No data was deleted.';
         if ((int) $this->session->userdata('active_property_id') === (int) $property->id) {
             $this->clear_property_context();
             $this->session->set_flashdata('property_context_switched', (int) $property->id);

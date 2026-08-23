@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/** Super-admin management of tenant-owner admin accounts. */
+/** Super-admin management of plants (tenant-owner accounts). */
 class Admins extends Secure_Controller
 {
     public function __construct()
@@ -13,8 +13,10 @@ class Admins extends Secure_Controller
     public function index()
     {
         if ( ! $this->require_role(User_model::ROLE_SUPER_ADMIN)) { return; }
+        $status = $this->input->get('status');
         $this->load->view('admins/list', array(
-            'admins' => $this->User_model->list_admins(),
+            'admins' => $this->User_model->list_admins($status),
+            'status' => $status,
             'flash'  => $this->session->flashdata('admin_msg'),
         ));
     }
@@ -60,7 +62,7 @@ class Admins extends Secure_Controller
                 'name' => $name, 'mobile_no' => $mobile, 'is_active' => $is_active,
             ));
             $this->Tenant_model->update_name($admin->tenant_id, $tenant_name);
-            $message = 'Admin account updated successfully.';
+            $message = 'Plant updated successfully.';
         } else {
             $tenant_id = $this->Tenant_model->insert(array(
                 'name'       => $tenant_name,
@@ -80,19 +82,19 @@ class Admins extends Secure_Controller
                 $this->render_form((object) array(
                     'id' => 0, 'name' => $name, 'mobile_no' => $mobile,
                     'tenant_name' => $tenant_name, 'is_active' => $is_active,
-                ), array('Admin account could not be created.'));
+                ), array('Plant could not be created.'));
                 return;
             }
-            $message = 'Admin account created. The admin may now create properties.';
+            $message = 'Plant created. The plant admin may now create properties.';
         }
 
         if ($this->db->trans_status() === FALSE) {
             $this->db->trans_rollback();
-            show_error('The admin account could not be saved.', 500);
+            show_error('The plant could not be saved.', 500);
             return;
         }
         if ( ! $this->db->trans_commit()) {
-            show_error('The admin account could not be saved.', 500);
+            show_error('The plant could not be saved.', 500);
             return;
         }
         $this->session->set_flashdata('admin_msg', array('type' => 'success', 'text' => $message));
@@ -113,8 +115,8 @@ class Admins extends Secure_Controller
         $this->session->set_flashdata('admin_msg', array(
             'type' => 'success',
             'text' => $active
-                ? 'Admin account activated.'
-                : 'Admin account deactivated. Its normal users can no longer sign in.',
+                ? 'Plant activated.'
+                : 'Plant deactivated. Its normal users can no longer sign in.',
         ));
         redirect('admins');
     }
@@ -129,11 +131,11 @@ class Admins extends Secure_Controller
         $admin = $id ? $this->User_model->get_admin($id) : NULL;
         if ( ! $admin) { show_404(); return; }
 
+        // Soft-delete: plant and its owner admin are never removed.
         if ($this->Tenant_model->delete_empty_admin_tenant($admin->tenant_id, $admin->id)) {
-            $text = 'Unused admin account and tenant were deleted.';
+            $text = 'Plant "'.$admin->name.'" was deactivated. No data was deleted.';
         } else {
-            $this->User_model->set_active($admin->id, 0);
-            $text = 'This admin has history or related data, so it was deactivated instead of deleted.';
+            $text = 'The plant could not be deactivated.';
         }
         $this->session->set_flashdata('admin_msg', array('type' => 'success', 'text' => $text));
         redirect('admins');
@@ -143,7 +145,7 @@ class Admins extends Secure_Controller
     {
         $errors = array();
         if ($name === '' || strlen($name) > 150) {
-            $errors[] = 'Admin name is required and must be 150 characters or fewer.';
+            $errors[] = 'Owner name is required and must be 150 characters or fewer.';
         }
         if ( ! preg_match('/^[0-9]{10,15}$/', $mobile)) {
             $errors[] = 'Enter a valid 10 to 15 digit mobile number.';
@@ -151,7 +153,7 @@ class Admins extends Secure_Controller
             $errors[] = 'That mobile number already belongs to another account.';
         }
         if ($tenant_name === '' || strlen($tenant_name) > 150) {
-            $errors[] = 'Account/organization name is required and must be 150 characters or fewer.';
+            $errors[] = 'Plant name is required and must be 150 characters or fewer.';
         }
         return $errors;
     }

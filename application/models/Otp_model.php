@@ -4,17 +4,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 /**
  * Otp_model
  *
- * Handles the `otp_requests` table — the full history/audit trail of every
- * OTP generated. A NEW row is inserted for each request; previous rows are
- * never overwritten. The only in-place updates are on a single target row:
- * marking it verified or incrementing its attempt counter.
+ * Handles the `mobile_otp` table (ex-`otp_requests`) — the full history/audit
+ * trail of every OTP generated. A NEW row is inserted for each request;
+ * previous rows are never overwritten. The only in-place updates are on a
+ * single target row: marking it verified or incrementing its attempt counter.
  *
  * All queries use CodeIgniter Query Builder (escaped/prepared) — no raw SQL.
  */
 class Otp_model extends CI_Model
 {
     /** @var string */
-    protected $table = 'otp_requests';
+    protected $table = 'mobile_otp';
 
     /**
      * Insert a brand-new OTP request (never updates existing rows).
@@ -30,7 +30,7 @@ class Otp_model extends CI_Model
             'user_id'     => $user_id,
             'otp'         => $otp,
             'expires_at'  => $expires_at,
-            'is_verified' => 0,
+            'status'      => 0,
             'attempts'    => 0,
             'created_at'  => date('Y-m-d H:i:s'),
         ));
@@ -42,8 +42,8 @@ class Otp_model extends CI_Model
      * Find the latest still-valid OTP matching the submitted code.
      *
      * Mirrors:
-     *   SELECT * FROM otp_requests
-     *   WHERE user_id = ? AND otp = ? AND is_verified = 0 AND expires_at > NOW()
+     *   SELECT * FROM mobile_otp
+     *   WHERE user_id = ? AND otp = ? AND status = 0 AND expires_at > NOW()
      *   ORDER BY id DESC LIMIT 1
      *
      * NOW() is passed as a PHP timestamp so expiry math stays consistent with
@@ -58,7 +58,7 @@ class Otp_model extends CI_Model
         return $this->db
             ->where('user_id', $user_id)
             ->where('otp', $otp)
-            ->where('is_verified', 0)
+            ->where('status', 0)
             ->where('expires_at >', date('Y-m-d H:i:s'))
             ->order_by('id', 'DESC')
             ->limit(1)
@@ -93,9 +93,9 @@ class Otp_model extends CI_Model
     {
         $updated = $this->db
             ->where('id', $otp_id)
-            ->where('is_verified', 0)
+            ->where('status', 0)
             ->where('expires_at >', date('Y-m-d H:i:s'))
-            ->update($this->table, array('is_verified' => 1));
+            ->update($this->table, array('status' => 1));
         return $updated && (int) $this->db->affected_rows() === 1;
     }
 

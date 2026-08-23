@@ -116,9 +116,7 @@ class RoomCategories extends Property_Controller
             $this->current_property_id,
             $id
         );
-        $message = $result === 'deleted'
-            ? 'Room category deleted.'
-            : 'Room category has history and was deactivated.';
+        $message = 'Room category was deactivated. No data was deleted.';
         $this->session->set_flashdata('category_msg', array(
             'type' => $result ? 'success' : 'danger',
             'text' => $result ? $message : 'Room category could not be removed.',

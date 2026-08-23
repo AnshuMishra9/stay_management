@@ -76,9 +76,9 @@
                         <th></th>
                         <th>
                             <select class="erp-select" ng-model="vm.filters.status" ng-change="vm.onFilter()">
-                                <option value="">All</option>
-                                <option value="1">Active</option>
+                                <option value="">Active</option>
                                 <option value="0">Inactive</option>
+                                <option value="all">All</option>
                             </select>
                         </th>
                         <th></th>

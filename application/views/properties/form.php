@@ -29,13 +29,13 @@ $this->load->view('access/management_head', array('page_title' => $page_title, '
         <div class="erp-form-section">
             <div class="erp-section-title">Ownership</div>
             <div class="erp-form-field">
-                <label>Admin Account <span class="req">*</span></label>
+                <label>Plant <span class="req">*</span></label>
                 <?php if ($editing): ?>
-                    <input type="hidden" name="tenant_id" value="<?= (int) $property->tenant_id ?>"><input class="erp-input" disabled value="<?= html_escape($property->tenant_name.' — '.$property->admin_name) ?>">
+                    <input type="hidden" name="tenant_id" value="<?= (int) $property->tenant_id ?>"><input class="erp-input" disabled value="<?= html_escape($property->tenant_name.' â€” '.$property->admin_name) ?>">
                 <?php else: ?>
                     <select class="erp-select" id="tenant_id" name="tenant_id" required>
-                        <option value="">Choose admin account</option>
-                        <?php foreach ($tenants as $tenant): ?><option value="<?= (int) $tenant->id ?>" <?= $property && (int) $property->tenant_id === (int) $tenant->id ? 'selected' : '' ?>><?= html_escape($tenant->name.' — '.$tenant->admin_name.' ('.$tenant->admin_mobile.')') ?></option><?php endforeach; ?>
+                        <option value="">Choose plant</option>
+                        <?php foreach ($tenants as $tenant): ?><option value="<?= (int) $tenant->id ?>" <?= $property && (int) $property->tenant_id === (int) $tenant->id ? 'selected' : '' ?>><?= html_escape($tenant->name.' â€” '.$tenant->admin_name.' ('.$tenant->admin_mobile.')') ?></option><?php endforeach; ?>
                     </select>
                 <?php endif; ?>
             </div>

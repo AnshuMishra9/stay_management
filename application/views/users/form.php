@@ -15,7 +15,7 @@ $this->load->view('access/management_head', array('page_title' => $page_title, '
                 </svg>
                 <?= $editing ? 'Edit user' : 'Create user' ?>
             </h1>
-            <p class="erp-sub">A user belongs to one admin account and may be assigned one, many, or no properties</p>
+            <p class="erp-sub">A user belongs to one plant and may be assigned one, many, or no properties</p>
         </div>
     </div>
 
@@ -29,9 +29,9 @@ $this->load->view('access/management_head', array('page_title' => $page_title, '
         <div class="erp-form-section">
             <div class="erp-section-title">Account</div>
             <div class="erp-form-field">
-                <label>Admin Account <span class="req">*</span></label>
-                <?php if ($editing): ?><input type="hidden" name="tenant_id" value="<?= (int) $tenant_id ?>"><input class="erp-input" disabled value="<?= html_escape($user->tenant_name.' — '.$user->admin_name) ?>">
-                <?php else: ?><select class="erp-select" id="tenant_id" name="tenant_id" required onchange="if(this.value){window.location='<?= site_url('users/add') ?>?tenant_id='+encodeURIComponent(this.value)}"><option value="">Choose admin account</option><?php foreach ($admin_tenants as $tenant): ?><option value="<?= (int) $tenant->id ?>" <?= (int) $tenant_id === (int) $tenant->id ? 'selected' : '' ?>><?= html_escape($tenant->name.' — '.$tenant->admin_name.' ('.$tenant->admin_mobile.')') ?></option><?php endforeach; ?></select><div class="mgmt-help">Selecting an account reloads its active-property choices.</div><?php endif; ?>
+                <label>Plant <span class="req">*</span></label>
+                <?php if ($editing): ?><input type="hidden" name="tenant_id" value="<?= (int) $tenant_id ?>"><input class="erp-input" disabled value="<?= html_escape($user->tenant_name.' â€” '.$user->admin_name) ?>">
+                <?php else: ?><select class="erp-select" id="tenant_id" name="tenant_id" required onchange="if(this.value){window.location='<?= site_url('users/add') ?>?tenant_id='+encodeURIComponent(this.value)}"><option value="">Choose plant</option><?php foreach ($admin_tenants as $tenant): ?><option value="<?= (int) $tenant->id ?>" <?= (int) $tenant_id === (int) $tenant->id ? 'selected' : '' ?>><?= html_escape($tenant->name.' â€” '.$tenant->admin_name.' ('.$tenant->admin_mobile.')') ?></option><?php endforeach; ?></select><div class="mgmt-help">Selecting a plant reloads its active-property choices.</div><?php endif; ?>
             </div>
         </div>
     <?php endif; ?>
@@ -50,7 +50,7 @@ $this->load->view('access/management_head', array('page_title' => $page_title, '
         </div>
         <div class="erp-form-field">
             <label>Property Assignments</label>
-            <?php if (empty($properties)): ?><div class="erp-alert erp-alert-warning" style="margin:8px 0 0">This admin has no active properties. The user can still be saved and will see the no-property access page after login.</div>
+            <?php if (empty($properties)): ?><div class="erp-alert erp-alert-warning" style="margin:8px 0 0">This plant has no active properties. The user can still be saved and will see the no-property access page after login.</div>
             <?php else: ?><div class="mgmt-checkbox-list"><?php foreach ($properties as $property): ?><label class="mgmt-checkbox"><input type="checkbox" name="property_ids[]" value="<?= (int) $property->id ?>" <?= in_array((int) $property->id, array_map('intval', $selected_ids), TRUE) ? 'checked' : '' ?>><?= html_escape($property->property_name) ?> <span class="mgmt-help">(<?= html_escape($property->property_code) ?>)</span></label><?php endforeach; ?></div><?php endif; ?>
         </div>
         <label class="erp-check" style="margin-top:16px"><input type="checkbox" id="user_active" name="is_active" value="1" <?= ! $user || (int) $user->is_active === 1 ? 'checked' : '' ?>> Active user</label>

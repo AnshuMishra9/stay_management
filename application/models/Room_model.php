@@ -10,8 +10,16 @@ class Room_model extends CI_Model
     protected $list_columns = array(
         'r.id', 'r.property_id', 'r.room_code', 'r.room_no', 'r.category_id',
         'c.category_name', 'r.floor_no', 'r.selling_price',
-        'r.housekeeping_status', 'r.is_active', 'r.created_by', 'r.created_at',
+        'r.housekeeping_status', 'r.status AS is_active', 'r.added_by AS created_by', 'r.created_at',
     );
+
+    /** Translate app-facing keys to dream-style columns before writing. */
+    private function translate(array $data)
+    {
+        if (array_key_exists('is_active', $data)) { $data['status'] = $data['is_active']; unset($data['is_active']); }
+        if (array_key_exists('created_by', $data)) { $data['added_by'] = $data['created_by']; unset($data['created_by']); }
+        return $data;
+    }
 
     public function get_filtered($property_id, array $filters = array())
     {
@@ -32,8 +40,11 @@ class Room_model extends CI_Model
         if ( ! empty($filters['housekeeping_status'])) {
             $this->db->where('r.housekeeping_status', $filters['housekeeping_status']);
         }
-        if (isset($filters['status']) && $filters['status'] !== '' && $filters['status'] !== 'all') {
-            $this->db->where('r.is_active', (int) $filters['status']);
+        // Status filter: '' => Active only (deleted rooms stay hidden), '0' =>
+        // inactive only, 'all' => everything.
+        $status = isset($filters['status']) ? (string) $filters['status'] : '';
+        if ($status !== 'all') {
+            $this->db->where('r.status', $status === '0' ? 0 : 1);
         }
         return $this->db->order_by('r.id', 'DESC')->get()->result();
     }
@@ -89,7 +100,7 @@ class Room_model extends CI_Model
 
     public function room_no_exists($property_id, $room_no, $except_id = NULL)
     {
-        $this->db->where('property_id', (int) $property_id)->where('room_no', $room_no);
+        $this->db->where('property_id', (int) $property_id)->where('room_no', $room_no)->where('status', 1);
         if ($except_id) {
             $this->db->where('id !=', (int) $except_id);
         }
@@ -113,6 +124,7 @@ class Room_model extends CI_Model
 
     public function insert($property_id, array $data)
     {
+        $data = $this->translate($data);
         $data['property_id'] = (int) $property_id;
         $data['created_at'] = date('Y-m-d H:i:s');
         $this->db->insert($this->table, $data);
@@ -121,6 +133,7 @@ class Room_model extends CI_Model
 
     public function update($property_id, $id, array $data)
     {
+        $data = $this->translate($data);
         unset($data['property_id'], $data['id']);
         $data['updated_at'] = date('Y-m-d H:i:s');
         return $this->db
@@ -137,17 +150,13 @@ class Room_model extends CI_Model
             ->count_all_results('booking_details') > 0;
     }
 
-    /** Hard-delete an unused room; otherwise preserve history and deactivate it. */
+    /**
+     * Soft-delete a room: the row is never removed, only deactivated.
+     * Booking history stays fully intact in the database.
+     */
     public function delete_or_deactivate($property_id, $id)
     {
-        if ($this->has_booking_history($property_id, $id)) {
-            $ok = $this->update($property_id, $id, array('is_active' => 0));
-            return $ok ? 'deactivated' : FALSE;
-        }
-        $ok = $this->db
-            ->where('property_id', (int) $property_id)
-            ->where('id', (int) $id)
-            ->delete($this->table);
-        return $ok ? 'deleted' : FALSE;
+        $ok = $this->update($property_id, $id, array('is_active' => 0));
+        return $ok ? 'deactivated' : FALSE;
     }
 }

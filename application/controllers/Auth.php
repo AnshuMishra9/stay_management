@@ -205,7 +205,7 @@ class Auth extends CI_Controller
         }
 
         // The submitted code matches the latest row but it was already used.
-        if ((int) $latest->is_verified === 1 && hash_equals((string) $latest->otp, $otp)) {
+        if ((int) $latest->status === 1 && hash_equals((string) $latest->otp, $otp)) {
             return $this->_json(array(
                 'status'  => FALSE,
                 'message' => 'This OTP has already been used. Please request a new one.',

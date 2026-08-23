@@ -1434,43 +1434,26 @@ class Customers extends Property_Controller
             return $this->_json(array('status' => FALSE, 'message' => 'Customer not found.'), 404);
         }
 
-        // A customer is shared by every property in the tenant. Never cascade
-        // another property's booking/document history from this endpoint.
-        if ($this->Customer_model->has_history($this->current_tenant_id, $id)) {
-            $changed = $this->Customer_model->update(
-                $this->current_tenant_id,
-                $id,
-                array('is_active' => 0)
-            );
-            if ( ! $changed || $this->db->trans_status() === FALSE || ! $this->db->trans_commit()) {
-                $this->db->trans_rollback();
-                return $this->_json(array(
-                    'status' => FALSE,
-                    'message' => 'The customer could not be deactivated.',
-                ), 500);
-            }
-            return $this->_json(array(
-                'status'  => TRUE,
-                'deleted' => FALSE,
-                'deactivated' => TRUE,
-                'message' => 'Customer "'.$customer->customer_name.'" has stay or document history and was deactivated instead of deleted.',
-            ));
-        }
-
-        $deleted = $this->Customer_model->delete($this->current_tenant_id, $id);
-        if ( ! $deleted || $this->db->trans_status() === FALSE || ! $this->db->trans_commit()) {
+        // A customer is never deleted. Delete always means deactivate: the
+        // row (and every booking/document) stays in the database forever.
+        $changed = $this->Customer_model->update(
+            $this->current_tenant_id,
+            $id,
+            array('is_active' => 0)
+        );
+        if ( ! $changed || $this->db->trans_status() === FALSE || ! $this->db->trans_commit()) {
             $this->db->trans_rollback();
             return $this->_json(array(
                 'status' => FALSE,
-                'message' => 'The customer could not be deleted.',
-            ), 409);
+                'message' => 'The customer could not be deactivated.',
+            ), 500);
         }
 
         return $this->_json(array(
             'status'  => TRUE,
-            'deleted' => TRUE,
-            'deactivated' => FALSE,
-            'message' => 'Customer "'.$customer->customer_name.'" deleted.',
+            'deleted' => FALSE,
+            'deactivated' => TRUE,
+            'message' => 'Customer "'.$customer->customer_name.'" was deactivated. No data was deleted.',
         ));
     }
 
@@ -1768,7 +1751,7 @@ class Customers extends Property_Controller
         if (
             ! $identity
             || (int) $identity->customer_id !== (int) $customer_id
-            || (int) $identity->tenant_id !== (int) $this->current_tenant_id
+            || (int) ($identity->fk_plant ?? $identity->tenant_id ?? 0) !== (int) $this->current_tenant_id
             || (int) $identity->property_id !== (int) $this->current_property_id
         ) {
             return FALSE;
@@ -1987,10 +1970,13 @@ class Customers extends Property_Controller
         return $errors;
     }
 
+    /**
+     * Identity document files are NEVER deleted from disk (soft-delete policy).
+     * The DB row keeps its path; removed rows just get status = 0.
+     */
     private function _delete_identity_path($path)
     {
-        $absolute = $this->_secure_upload_file($path);
-        if ($absolute !== NULL) { @unlink($absolute); }
+        return;
     }
 
     /**

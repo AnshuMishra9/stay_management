@@ -27,10 +27,18 @@
     <?php if ($auth_user->role === User_model::ROLE_SUPER_ADMIN): ?>
         <form class="mgmt-filter-bar" method="get" action="<?= site_url('users') ?>">
             <div style="flex:1 1 260px;min-width:0">
-                <label for="filter_tenant">Admin account</label>
+                <label for="filter_tenant">Plant</label>
                 <select class="erp-select" id="filter_tenant" name="tenant_id">
-                    <option value="">All admin accounts</option>
+                    <option value="">All plants</option>
                     <?php foreach ($admin_tenants as $tenant): ?><option value="<?= (int) $tenant->id ?>" <?= (int) $tenant_id === (int) $tenant->id ? 'selected' : '' ?>><?= html_escape($tenant->name.' — '.$tenant->admin_name) ?></option><?php endforeach; ?>
+                </select>
+            </div>
+            <div style="min-width:0">
+                <label for="filter_status">Status</label>
+                <select class="erp-select" id="filter_status" name="status" onchange="this.form.submit()">
+                    <option value="">Active</option>
+                    <option value="0" <?= $status === '0' ? 'selected' : '' ?>>Inactive</option>
+                    <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>All</option>
                 </select>
             </div>
             <button class="erp-btn erp-btn-sm erp-btn-primary" type="submit">Filter</button>
@@ -40,7 +48,7 @@
     <div class="erp-table-scroll">
         <table class="erp-table mgmt-table">
             <thead>
-                <tr><th>User</th><th>Mobile</th><?php if ($auth_user->role === User_model::ROLE_SUPER_ADMIN): ?><th>Admin account</th><?php endif; ?><th>Assigned properties</th><th>Status</th><th>Actions</th></tr>
+                <tr><th>User</th><th>Mobile</th><?php if ($auth_user->role === User_model::ROLE_SUPER_ADMIN): ?><th>Plant</th><?php endif; ?><th>Assigned properties</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
             <?php foreach ($users as $user): ?>
@@ -50,7 +58,7 @@
                     <td><?= (int) $user->property_count ?></td><td><span class="erp-badge <?= (int) $user->is_active === 1 ? 'erp-badge-active' : 'erp-badge-inactive' ?>"><?= (int) $user->is_active === 1 ? 'Active' : 'Inactive' ?></span></td>
                     <td><span class="erp-actions"><a class="erp-btn erp-btn-sm erp-btn-primary" href="<?= site_url('users/edit/'.$user->id) ?>">Edit</a>
                     <form method="post" action="<?= site_url('users/status/'.$user->id) ?>"><input type="hidden" name="session_write_token" value="<?= html_escape($session_write_token) ?>"><input type="hidden" name="is_active" value="<?= (int) $user->is_active === 1 ? 0 : 1 ?>"><button class="erp-btn erp-btn-sm erp-btn-ghost" type="submit"><?= (int) $user->is_active === 1 ? 'Deactivate' : 'Activate' ?></button></form>
-                    <form method="post" action="<?= site_url('users/delete/'.$user->id) ?>" onsubmit="return confirm('Delete this unused user, or deactivate it when audit history exists?');"><input type="hidden" name="session_write_token" value="<?= html_escape($session_write_token) ?>"><button class="erp-btn erp-btn-sm erp-btn-danger" type="submit">Delete</button></form></span></td>
+                    <form method="post" action="<?= site_url('users/delete/'.$user->id) ?>" onsubmit="return confirm('Deactivate this user? The record is never deleted and can be re-activated later.');"><input type="hidden" name="session_write_token" value="<?= html_escape($session_write_token) ?>"><button class="erp-btn erp-btn-sm erp-btn-danger" type="submit">Delete</button></form></span></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>

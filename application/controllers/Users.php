@@ -19,9 +19,11 @@ class Users extends Secure_Controller
         } elseif ($this->input->get('tenant_id') !== NULL && $this->input->get('tenant_id') !== '') {
             $tenant_id = (int) $this->input->get('tenant_id');
         }
+        $status = $this->input->get('status');
         $this->load->view('users/list', array(
-            'users'             => $this->User_model->list_users($tenant_id),
+            'users'             => $this->User_model->list_users($tenant_id, $status),
             'tenant_id'         => $tenant_id,
+            'status'            => $status,
             'admin_tenants'     => $this->Tenant_model->list_active_admin_tenants(),
             'flash'             => $this->session->flashdata('user_msg'),
         ));
@@ -61,7 +63,7 @@ class Users extends Secure_Controller
         $property_ids = array_values(array_unique(array_filter(array_map('intval', $property_ids))));
         $errors = array();
         if ( ! $tenant) {
-            $errors[] = 'Choose an active admin account before creating a user.';
+            $errors[] = 'Choose an active plant before creating a user.';
         }
         if ($name === '' || strlen($name) > 150) {
             $errors[] = 'User name is required and must be 150 characters or fewer.';
@@ -76,7 +78,7 @@ class Users extends Secure_Controller
             && $tenant_id
             && ! $this->Property_model->active_ids_belong_to_tenant($property_ids, $tenant_id)
         ) {
-            $errors[] = 'Every assignment must be an active property in the selected admin account.';
+            $errors[] = 'Every assignment must be an active property in the selected plant.';
         }
         if ($errors) {
             $draft = (object) array(
@@ -155,12 +157,9 @@ class Users extends Secure_Controller
         ) { return; }
         $user = $id ? $this->User_model->get_managed_user($id) : NULL;
         if ( ! $user || ! $this->can_manage_user($user)) { show_404(); return; }
-        if ($this->User_model->delete_user_if_empty($user->id)) {
-            $text = 'Unused user account deleted.';
-        } else {
-            $this->User_model->set_active($user->id, 0);
-            $text = 'This user has login or audit history, so it was deactivated instead of deleted.';
-        }
+        // Soft-delete: the user row is never removed from the database.
+        $this->User_model->set_active($user->id, 0);
+        $text = 'User "'.$user->name.'" was deactivated. No data was deleted.';
         $this->session->set_flashdata('user_msg', array('type' => 'success', 'text' => $text));
         redirect('users');
     }

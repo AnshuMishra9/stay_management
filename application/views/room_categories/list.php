@@ -53,7 +53,7 @@
                         <td>
                             <div class="erp-actions">
                                 <a class="erp-icon-btn erp-icon-edit" href="<?= site_url('room-categories/edit/'.(int) $category->category_id) ?>" title="Edit">Edit</a>
-                                <form action="<?= site_url('room-categories/delete/'.(int) $category->category_id) ?>" method="post" onsubmit="return confirm('Remove this room category? Categories with history will be deactivated.');">
+                                <form action="<?= site_url('room-categories/delete/'.(int) $category->category_id) ?>" method="post" onsubmit="return confirm('Deactivate this room category? The record is never deleted and can be re-activated later.');">
                                     <input type="hidden" name="property_context_token" value="<?= html_escape($property_context_token) ?>">
                                     <button type="submit" class="erp-icon-btn erp-icon-delete" title="Delete">Delete</button>
                                 </form>

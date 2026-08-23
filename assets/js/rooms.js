@@ -87,8 +87,8 @@
         // ---- Delete ----
         vm.deleteRoom = function (r) {
             var ok = window.confirm(
-                'Delete room "' + r.room_no + '" (' + r.room_code + ')?\n\n' +
-                'Rooms with booking history will be deactivated instead of deleted.'
+                'Deactivate room "' + r.room_no + '" (' + r.room_code + ')?\n\n' +
+                'The record is never deleted — it stays in the database and disappears from the list.'
             );
             if (!ok) { return; }
 
@@ -97,17 +97,14 @@
             })
                 .then(function (res) {
                     if (res.data && res.data.status) {
-                        erpQuery.invalidate('rooms');   // data changed → drop cached lists
-                        if (res.data.action === 'deactivated') {
-                            r.is_active = 0;
-                            alert(res.data.message || 'Room deactivated.');
-                        } else {
-                            // A genuinely unused room was hard-deleted.
-                            var i = vm.rooms.indexOf(r);
-                            if (i > -1) { vm.rooms.splice(i, 1); }
-                        }
+                        erpQuery.invalidate('rooms');   // data changed — drop cached lists
+                        // Soft-deleted rooms disappear from the list instantly.
+                        var i = vm.rooms.indexOf(r);
+                        if (i > -1) { vm.rooms.splice(i, 1); }
+                        if (window.ErpToast) { window.ErpToast.show(res.data.message || 'Room deactivated.'); }
+                        else { alert(res.data.message || 'Room deactivated.'); }
                     } else {
-                        alert((res.data && res.data.message) || 'Delete failed.');
+                        alert((res.data && res.data.message) || 'Deactivation failed.');
                     }
                 })
                 .catch(function (error) {

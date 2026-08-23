@@ -19,7 +19,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  */
 class Inventory_model extends CI_Model
 {
-    /** Booking statuses (status_master.status_code) shown in inventory. */
+    /** Booking statuses (status_details.status_code) shown in inventory. */
     protected $occupying = array('room_booked', 'checked_in', 'checked_out');
 
     /**
@@ -33,7 +33,7 @@ class Inventory_model extends CI_Model
         return $this->db
             ->select('rc.category_id, rc.category_name, COUNT(r.id) AS total_rooms', FALSE)
             ->from('room_categories rc')
-            ->join('rooms r', 'r.category_id = rc.category_id AND r.property_id = rc.property_id AND r.is_active = 1', 'left')
+            ->join('rooms r', 'r.category_id = rc.category_id AND r.property_id = rc.property_id AND r.status = 1', 'left')
             ->where('rc.property_id', (int) $property_id)
             ->where('rc.status', 1)
             ->group_by('rc.category_id')
@@ -57,7 +57,7 @@ class Inventory_model extends CI_Model
             ->from('rooms r')
             ->join('room_categories rc', 'rc.category_id = r.category_id AND rc.property_id = r.property_id', 'left')
             ->where('r.property_id', (int) $property_id)
-            ->where('r.is_active', 1);
+            ->where('r.status', 1);
 
         // Filter by room number/name
         if (!empty($filters['room_no'])) {
@@ -95,7 +95,7 @@ class Inventory_model extends CI_Model
      * All inventory-visible bookings. The per-night overlap and effective stay
      * range are resolved by the caller in PHP.
      *
-     * The allotted-room join is guarded by is_active = 1 so it stays consistent
+     * The allotted-room join is guarded by status = 1 so it stays consistent
      * with categories_with_totals() (which counts active rooms only): a booking
      * on a de-activated room resolves to a NULL category and is skipped.
      *
@@ -110,8 +110,8 @@ class Inventory_model extends CI_Model
                       b.checked_in_at, b.checked_out_at, sm.status_code,
                       r.category_id AS room_cat')
             ->from('booking_details b')
-            ->join('status_master sm', 'sm.status_id = b.status_id', 'inner')
-            ->join('rooms r', 'r.id = b.room_id AND r.property_id = b.property_id AND r.is_active = 1', 'left')
+            ->join('status_details sm', 'sm.sd_id = b.sd_id', 'inner')
+            ->join('rooms r', 'r.id = b.room_id AND r.property_id = b.property_id AND r.status = 1', 'left')
             ->where('b.property_id', (int) $property_id)
             ->where_in('sm.status_code', $this->occupying)
             ->get()->result();
@@ -122,8 +122,8 @@ class Inventory_model extends CI_Model
     {
         return $this->db
             ->from('booking_details b')
-            ->join('status_master sm', 'sm.status_id = b.status_id', 'inner')
-            ->join('rooms r', 'r.id = b.room_id AND r.property_id = b.property_id AND r.is_active = 1', 'inner')
+            ->join('status_details sm', 'sm.sd_id = b.sd_id', 'inner')
+            ->join('rooms r', 'r.id = b.room_id AND r.property_id = b.property_id AND r.status = 1', 'inner')
             ->where('b.property_id', (int) $property_id)
             ->where('b.id', (int) $booking_id)
             ->where_in('sm.status_code', $this->occupying)
