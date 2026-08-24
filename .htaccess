@@ -2,6 +2,11 @@
     RewriteEngine On
     RewriteBase /stay_management/
 
+    # Keep source, configuration, test, database, and private-upload paths out
+    # of the public HTTP surface when the project root is used as DocumentRoot.
+    RewriteRule (^|/)\. - [F,L]
+    RewriteRule ^(?:application|db|implement|secure_uploads|system|tests)(?:/|$) - [F,L,NC]
+
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
 

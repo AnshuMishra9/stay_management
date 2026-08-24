@@ -1,7 +1,4 @@
-/* ============================================================
-   Login page — OTP authentication
-   Two-panel, fully responsive layout (Bootstrap 5 + custom).
-   ============================================================ */
+/* Responsive two-panel layout for OTP authentication. */
 
 :root {
     --brand:        #6d5df6;
@@ -26,7 +23,7 @@ body.auth-body {
     font-family: 'Segoe UI', 'Calibri Regular', system-ui, -apple-system, Roboto, Arial, sans-serif;
 }
 
-/* ---- Outer centering ---- */
+/* Page shell */
 .auth-wrapper {
     min-height: 100vh;
     display: flex;
@@ -35,7 +32,7 @@ body.auth-body {
     padding: 24px;
 }
 
-/* ---- The card that holds both panels ---- */
+/* Authentication card */
 .auth-card {
     width: 100%;
     max-width: 1080px;
@@ -47,9 +44,7 @@ body.auth-body {
     display: flex;
 }
 
-/* ============================================================
-   LEFT — visual / hero panel (image)
-   ============================================================ */
+/* Visual panel */
 .auth-visual {
     position: relative;
     flex: 1 1 46%;
@@ -85,9 +80,7 @@ body.auth-body {
 .auth-quote .auth-quote-name  { font-weight: 700; font-size: 1rem; }
 .auth-quote .auth-quote-role  { font-size: .85rem; opacity: .85; }
 
-/* ============================================================
-   RIGHT — form panel
-   ============================================================ */
+/* Form panel */
 .auth-form-panel {
     flex: 1 1 54%;
     display: flex;
@@ -101,7 +94,7 @@ body.auth-body {
     max-width: 380px;
 }
 
-/* Compact brand shown only on small screens (image panel is hidden) */
+/* Compact branding replaces the hidden visual panel on small screens. */
 .auth-brand-mobile {
     display: none;
     align-items: center;
@@ -124,7 +117,7 @@ body.auth-body {
     line-height: 1.5;
 }
 
-/* ---- Inputs (outlined + floating label) ---- */
+/* Form controls */
 .auth-form .form-floating > .form-control {
     border-radius: 12px;
     border: 1.5px solid var(--line);
@@ -147,7 +140,7 @@ body.auth-body {
     text-align: center;
 }
 
-/* ---- Buttons ---- */
+/* Buttons */
 .btn-brand {
     background: var(--brand);
     border: none;
@@ -175,7 +168,7 @@ body.auth-body {
 }
 .btn-link-brand:hover { text-decoration: underline; }
 
-/* ---- Helper rows / messages ---- */
+/* Supporting messages */
 .auth-meta-row {
     display: flex;
     justify-content: space-between;
@@ -192,7 +185,7 @@ body.auth-body {
     margin-bottom: 18px;
 }
 
-/* ---- Dev-only OTP display box ---- */
+/* Development-only OTP display */
 .dev-otp {
     margin-top: 18px;
     border: 1px dashed #c9c3fb;
@@ -219,16 +212,13 @@ body.auth-body {
 
 .countdown { font-variant-numeric: tabular-nums; }
 
-/* Spinner sizing inside buttons */
 .btn-spinner {
     width: 1.1rem;
     height: 1.1rem;
     border-width: .18em;
 }
 
-/* ============================================================
-   Responsive — collapse to single column
-   ============================================================ */
+/* Single-column layout */
 @media (max-width: 991.98px) {
     .auth-visual        { display: none; }
     .auth-brand-mobile  { display: flex; }

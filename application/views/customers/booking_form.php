@@ -1,5 +1,5 @@
 <?php
-/** Full-page shell for the shared New / Edit Booking form. */
+/** Full-page shell around the shared booking form card. */
 $booking = isset($booking) ? $booking : NULL;
 $customer = isset($customer) ? $customer : NULL;
 $is_edit = ($booking !== NULL);

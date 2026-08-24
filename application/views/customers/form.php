@@ -1,18 +1,13 @@
 <?php
 /**
- * Add / Edit CUSTOMER form — customer fields ONLY.
- * Bookings are made on their own form (customers/booking_form), because one
- * customer can have MANY bookings.
+ * Customer create/edit form; booking records are managed separately.
  *
- * $customer   -> customers row when editing, NULL when adding
- * $next_code  -> customer code to display (existing or next generated)
- * $country_opts -> dropdown option array
+ * Expects $customer (NULL when creating), $next_code, and $country_opts.
  */
 $is_edit = ($customer !== NULL);
 $posted  = ($this->input->server('REQUEST_METHOD') === 'POST');
 
-// Current value for a field (posted value wins on validation failure).
-// Return RAW (html_escape=FALSE); the template escapes once at output.
+// Preserve submitted values after validation; escape only when rendering.
 $val = function ($field, $fallback = '') use ($customer) {
     return set_value($field, $customer ? ($customer->$field ?? '') : $fallback, FALSE);
 };
@@ -42,7 +37,6 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
         <input type="hidden" name="customer_write_token" value="<?= html_escape($this->session->userdata('customer_write_token')) ?>">
         <input type="hidden" name="property_context_token" value="<?= html_escape($property_context_token ?? '') ?>">
 
-        <!-- Header -->
         <div class="erp-page-head">
             <div>
                 <h1>
@@ -57,7 +51,6 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
             <div class="erp-alert erp-alert-danger"><?= validation_errors() ?></div>
         <?php endif; ?>
 
-        <!-- ===== Customer Info ===== -->
         <div class="erp-form-section">
             <div class="erp-section-title">Customer Info</div>
 
@@ -114,7 +107,6 @@ $active      = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($customer 
             'identity_upload_error' => isset($identity_upload_error) ? $identity_upload_error : '',
         )); ?>
 
-        <!-- Footer actions -->
         <div class="erp-form-foot">
             <a href="<?= site_url('customers') ?>" class="erp-btn erp-btn-ghost">Cancel</a>
             <button type="submit" class="erp-btn erp-btn-primary">

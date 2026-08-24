@@ -1,18 +1,21 @@
 <?php
 /**
- * Disposable-DB regression for the SOFT-DELETE policy.
+ * Verifies soft-delete behavior against a disposable database.
  *
- * Rule under test: a delete request NEVER removes rows. It only flips
- * status to 0 (inactive), the record disappears from default reads,
- * and unique business keys (phone/room_no/code/mobile) become reusable.
+ * Delete operations must preserve rows by setting status to 0, hide inactive
+ * records from default reads, and release reusable business keys such as phone,
+ * room number, property code, and mobile number.
  *
- * Run: C:\xampp\php\php.exe tests\soft_delete_test.php
+ * The checked-in zero-data schema is imported into a randomly named database,
+ * and only that disposable database is removed during cleanup.
+ *
+ * Run: php tests\soft_delete_test.php
  */
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 $root = dirname(__DIR__);
-$snapshot_path = $root.DIRECTORY_SEPARATOR.'db'.DIRECTORY_SEPARATOR.'stay_management.sql';
+$schema_path = $root.DIRECTORY_SEPARATOR.'db'.DIRECTORY_SEPARATOR.'stay_management.sql';
 $database = 'stay_management_softdel_'.getmypid().'_'.bin2hex(random_bytes(4));
 $database_created = FALSE;
 $fixture_db = NULL;
@@ -38,14 +41,29 @@ if ( ! function_exists('get_instance')) {
     function &get_instance() { return $GLOBALS['CI_TEST_INSTANCE']; }
 }
 
-function import_snapshot(mysqli $server, $snapshot_path, $database)
+function import_schema(mysqli $server, $schema_path)
 {
-    if ( ! preg_match('/\Astay_management_[a-z0-9_]+\z/', $database)) {
-        throw new RuntimeException('Unsafe disposable database name refused.');
+    $sql = file_get_contents($schema_path);
+    if ($sql === FALSE || $sql === '') {
+        throw new RuntimeException('Database schema could not be read.');
     }
-    $sql = file_get_contents($snapshot_path);
-    $sql = str_replace('`stay_management`', '`'.$database.'`', $sql, $replacements);
-    if ($replacements < 3) { throw new RuntimeException('Snapshot markers missing.'); }
+
+    // Strip only the three reviewed live-database lifecycle statements before
+    // importing table DDL into the already-selected disposable test database.
+    $lifecycle_patterns = array(
+        '/^[ \t]*DROP[ \t]+DATABASE[ \t]+IF[ \t]+EXISTS[ \t]+`stay_management`[ \t]*;[ \t]*\r?$/mi',
+        '/^[ \t]*CREATE[ \t]+DATABASE[ \t]+`stay_management`[ \t]+DEFAULT[ \t]+CHARACTER[ \t]+SET[ \t]+utf8mb4[ \t]+COLLATE[ \t]+utf8mb4_general_ci[ \t]*;[ \t]*\r?$/mi',
+        '/^[ \t]*USE[ \t]+`stay_management`[ \t]*;[ \t]*\r?$/mi',
+    );
+    foreach ($lifecycle_patterns as $pattern) {
+        $sql = preg_replace($pattern, '', $sql, 1, $removed);
+        if ($removed !== 1) {
+            throw new RuntimeException('Database installer lifecycle is missing or ambiguous.');
+        }
+    }
+    if (preg_match('/^\s*(?:INSERT|REPLACE)\s+INTO\b|^\s*(?:CREATE|DROP|ALTER)\s+DATABASE\b|^\s*USE\s+/im', $sql)) {
+        throw new RuntimeException('Database installer contains data or unexpected database-control statements.');
+    }
     $server->multi_query($sql);
     do { if ($result = $server->store_result()) { $result->free(); } } while ($server->more_results() && $server->next_result());
 }
@@ -90,12 +108,14 @@ try {
     if ( ! preg_match('/\Astay_management_[a-z0-9_]+\z/', $database)) { throw new RuntimeException('Unsafe name.'); }
     $server_db = new mysqli('127.0.0.1', 'root', '');
     $server_db->set_charset('utf8mb4');
-    import_snapshot($server_db, $snapshot_path, $database);
+    $server_db->query('CREATE DATABASE `'.$database.'` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci');
     $database_created = TRUE;
+    $server_db->select_db($database);
+    import_schema($server_db, $schema_path);
     $fixture_db = new mysqli('127.0.0.1', 'root', '', $database);
     $fixture_db->set_charset('utf8mb4');
 
-    // ---- Seed: plant 901 / admin 901 / property 901 / category+room / customer+identity
+    // Use a complete tenant fixture so every policy check follows real relationships.
     $fixture_db->query("INSERT INTO plants (plant_id,plant_name,plant_status,plant_ad_by,plant_ad_dt) VALUES (901,'Soft Plant',1,NULL,NOW())");
     $fixture_db->query("INSERT INTO users (user_id,name,mobile_no,role,fk_plant,status,added_by,created_at) VALUES (901,'Soft Admin','9111100001','admin',901,1,NULL,NOW()),(902,'Soft User','9111100002','user',901,1,901,NOW())");
     $fixture_db->query("INSERT INTO properties (property_id,fk_plant,property_code,property_name,status,added_by,created_at) VALUES (901,901,'SOFT01','Soft Property',1,NULL,NOW())");
@@ -207,7 +227,9 @@ try {
             $cleanup->query('DROP DATABASE IF EXISTS `'.$database.'`');
             $cleanup->close();
             echo "\nDisposable database dropped: {$database}\n";
-        } catch (Throwable $e) { /* ignore */ }
+        } catch (Throwable $e) {
+            // Cleanup failure must not replace the primary regression result.
+        }
     }
 }
 

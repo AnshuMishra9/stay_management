@@ -1,7 +1,4 @@
-/* ============================================================
-   Stay Management ERP — Customers Master (AngularJS 1.x)
-   Live server-side filtering, detail modal, delete with cleanup.
-   ============================================================ */
+/* Customer list, filters, detail modal, and deactivation (AngularJS 1.x). */
 (function () {
     'use strict';
 
@@ -17,8 +14,7 @@
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
         var debounce = null;
 
-        // After a save/redirect (flash present) the cached data is stale — drop it once.
-        // Bookings read the same rows, so clear that namespace too.
+        // Booking lists reuse customer rows, so both caches must be invalidated.
         if (window.APP_FRESH) {
             erpQuery.invalidate('customers');
             erpQuery.invalidate('bookings');
@@ -29,12 +25,10 @@
         vm.loading   = true;
         vm.showModal = false;
         vm.detail    = {};
-        // Customer-only filters — bookings live on the Booking Details page.
         vm.filters   = {
             customer_code: '', name: '', phone: '', status: ''
         };
 
-        // ---- API (cached: instant from cache, revalidated in the background) ----
         vm.load = function () {
             var params = angular.extend({}, vm.filters);
             erpQuery.fetch('customers', base + 'customers/list_ajax', params, {}, {
@@ -43,7 +37,7 @@
             });
         };
 
-        // Debounced reload — fires 300ms after the last keystroke/selection.
+        // Coalesce rapid filter changes into one request.
         vm.onFilter = function () {
             if (debounce) { $timeout.cancel(debounce); }
             debounce = $timeout(vm.load, 300);
@@ -54,7 +48,6 @@
             vm.load();
         };
 
-        // ---- Detail modal ----
         vm.viewCustomer = function (id) {
             $http.get(base + 'customers/view/' + id)
                 .then(function (res) {
@@ -79,7 +72,6 @@
             vm.detail = {};
         };
 
-        // ---- Delete ----
         vm.deleteCustomer = function (c) {
 var ok = window.confirm(
 'Deactivate customer "' + c.customer_name + '" (' + c.customer_code + ')?\n\n' +
@@ -92,10 +84,9 @@ var ok = window.confirm(
             })
                 .then(function (res) {
                     if (res.data && res.data.status) {
-                        // Data changed — drop the cached lists (customers + bookings share rows).
+                        // Deactivation changes both customer and booking projections.
                         erpQuery.invalidate('customers');
                         erpQuery.invalidate('bookings');
-                        // Soft-deleted customers disappear from the list instantly.
                         var i = vm.customers.indexOf(c);
                         if (i > -1) { vm.customers.splice(i, 1); }
                         if (window.ErpToast) { window.ErpToast.show(res.data.message || 'Customer deactivated.'); }
@@ -113,7 +104,6 @@ var ok = window.confirm(
                 });
         };
 
-        // Initial load
         vm.load();
     }
 })();

@@ -11,14 +11,12 @@
 
 <body class="bg-secondary-subtle">
 
-<!-- Top navigation -->
 <?php $this->load->view('layouts/erp_navbar', array('active' => 'rooms')); ?>
 
 <div class="container py-5">
 
     <div class="card shadow-lg border-0 rounded-4">
 
-        <!-- Header -->
         <div class="card-header bg-primary text-white text-center py-4">
             <h2 class="mb-0" style="font-family: 'Calibri Bold';">
                 Room Master
@@ -27,7 +25,6 @@
 
         <div class="card-body">
 
-            <!-- Alert -->
             <div class="alert alert-success">
                 ✅ Bootstrap is loaded successfully!
             </div>
@@ -42,7 +39,6 @@
 
             <hr>
 
-            <!-- Buttons -->
             <div class="d-flex flex-wrap gap-2 mb-4">
 
                 <button class="btn btn-primary">Primary</button>
@@ -61,7 +57,6 @@
 
             </div>
 
-            <!-- Colored Boxes -->
             <div class="row g-3">
 
                 <div class="col-md-3">
@@ -92,7 +87,6 @@
 
             <hr>
 
-            <!-- Bootstrap Badge -->
             <span class="badge bg-primary">Primary</span>
             <span class="badge bg-success">Success</span>
             <span class="badge bg-danger">Danger</span>

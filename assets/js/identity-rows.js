@@ -818,8 +818,7 @@
     function cropHandleAt(point, crop) {
         var handles = cropHandlePoints(crop);
         var order = ['nw', 'ne', 'se', 'sw', 'n', 'e', 's', 'w'];
-        // A 24px radius creates an approximately 48px touch target without
-        // making the visible handles visually heavy on a small phone.
+        // A 24px radius provides an approximately 48px touch target.
         var hitSize = 24;
         for (var i = 0; i < order.length; i += 1) {
             var name = order[i];
@@ -878,10 +877,8 @@
         var ratios = { '16:9': 16 / 9, '9:16': 9 / 16 };
         var nextKey = ratios[value] ? value : 'free';
 
-        // Re-clicking an active ratio must be a no-op. When moving between
-        // portrait and landscape presets, keep one crop box per ratio. Using
-        // the already-fitted box as the next input would shrink the coverage
-        // on every 16:9 -> 9:16 -> 16:9 cycle.
+        // Preserve one crop per ratio; repeatedly fitting the current crop
+        // would shrink the selection on every portrait/landscape toggle.
         if (cropSession.aspectKey === nextKey) {
             updateCropRatioButtons();
             drawCrop();
@@ -1107,7 +1104,7 @@
         ctx.setLineDash([]);
         ctx.strokeRect(c.x, c.y, c.w, c.h);
 
-        // Rule-of-thirds guide inside the selected region.
+        // Draw rule-of-thirds guides within the selected region.
         ctx.save();
         ctx.beginPath();
         ctx.rect(c.x, c.y, c.w, c.h);
@@ -1126,7 +1123,7 @@
         ctx.stroke();
         ctx.restore();
 
-        // Eight large touch-friendly handles: four corners and four edges.
+        // Draw resize handles on each corner and edge.
         var handles = cropHandlePoints(c);
         Object.keys(handles).forEach(function (name) {
             var handle = handles[name];

@@ -1,8 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/** Checkins — split out of the former Customers god controller (SRP).
- *  URLs remain unchanged; see application/config/routes.php. */
+/** Check-in workflow for booked and currently occupied stays. */
 class Checkins extends Ops_Controller
 {
     public function __construct()
@@ -12,10 +11,6 @@ class Checkins extends Ops_Controller
     }
 
 
-    /**
-     * Check-in Details list page — lists ONLY "Checked in" bookings.
-     * Reached from the "Check-in Details" button on the Booking Details page.
-     */
     public function index()
     {
         $this->_render_booking_list(array(
@@ -35,7 +30,6 @@ class Checkins extends Ops_Controller
 
 
 
-    /** [AJAX] "Checked in" bookings (Check-in Details list). */
     public function checkins_ajax()
     {
         if ( ! $this->_require_property_context(TRUE)) { return; }
@@ -49,11 +43,7 @@ class Checkins extends Ops_Controller
 
 
 
-    /**
-     * Check-in page — a focused edit of just the fields needed at check-in:
-     * the customer's name + mobile, their identity proofs (same block as the
-     * customer master), and the booking status. Existing values are pre-loaded.
-     */
+    /** Limit arrival edits to guest identity, contact, and stay status data. */
     public function checkin($booking_id = NULL)
     {
         $booking = $booking_id ? $this->Customer_model->get_booking(
@@ -147,11 +137,6 @@ class Checkins extends Ops_Controller
 
 
 
-    /**
-     * Save the Check-in form: update the booking's customer (name + mobile),
-     * re-sync their identity proofs, and update the booking status (auto-
-     * stamping checked_in_at / checked_out_at from the status).
-     */
     public function checkin_save()
     {
         if ( ! $this->require_post() || ! $this->_require_property_context(FALSE)) { return; }
@@ -184,7 +169,6 @@ class Checkins extends Ops_Controller
             return;
         }
 
-        // --- Validation --------------------------------------------------
         $this->load->library('form_validation');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
@@ -216,10 +200,7 @@ class Checkins extends Ops_Controller
             );
         }
 
-        // --- Booking status (+ deterministic check-in/out stamps) --------
-        // Fill the timestamp the target status implies (keeping any existing
-        // one) and CLEAR the one it contradicts, so a status change never
-        // leaves a stale checked_in_at / checked_out_at behind.
+        // Keep only timestamps that are valid for the target workflow status.
         $status_id   = $page_context === 'checkins'
             ? $this->Customer_model->status_id_by_code('checked_in')
             : $this->_status_id();

@@ -1,5 +1,5 @@
 <?php
-// Residual mojibake audit: report any remaining suspicious byte clusters.
+// Reports byte sequences that commonly indicate mojibake in maintained sources.
 $root = dirname(__DIR__);
 $files = array_merge(
 	glob($root.'/application/views/**/*.php'),
@@ -7,9 +7,9 @@ $files = array_merge(
 	glob($root.'/assets/js/*.js')
 );
 $suspects = array(
-	"\xC3\xA2",           // 'â' prefix (double-encoding start)
-	"\xC3\xAF\xC2\xBF",   // 'ï¿½'
-	"\xC2\xA0\xC2\xA0",   // double nbsp junk
+	"\xC3\xA2",           // Common prefix in double-encoded punctuation.
+	"\xC3\xAF\xC2\xBF",   // Prefix in a double-encoded replacement character.
+	"\xC2\xA0\xC2\xA0",   // Repeated non-breaking-space bytes.
 );
 foreach ($files as $f) {
 	$txt = file_get_contents($f);

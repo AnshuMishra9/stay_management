@@ -1,11 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/**
- * Shared operational plumbing for the split stay-management controllers
- * (Customers / Bookings / Checkins / Checkouts). Everything here was
- * moved VERBATIM out of the former God controller.
- */
+/** Shared booking, stay, and identity-document operations. */
 class Ops_Controller extends Property_Controller
 {
     const UPLOAD_TYPES = 'jpg|jpeg|png|pdf';
@@ -24,11 +20,6 @@ class Ops_Controller extends Property_Controller
         }
     }
 
-    /* Moved verbatim from Customers.php */
-
-    /**
-     * Booking Details list page — lists ONLY "Room booked" bookings.
-     */
     public function bookings()
     {
         $this->_render_booking_list(array(
@@ -46,12 +37,6 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
-    /**
-     * Check-in Details list page — lists ONLY "Checked in" bookings.
-     * Reached from the "Check-in Details" button on the Booking Details page.
-     */
     public function checkins()
     {
         $this->_render_booking_list(array(
@@ -70,9 +55,6 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
-    /** Check-out Details list page — lists ONLY "Checked out" bookings. */
     public function checkedouts()
     {
         $this->_render_booking_list(array(
@@ -91,9 +73,6 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
-    /** Per-column filters shared by both booking lists. */
     protected function _booking_filters($status)
     {
         return array(
@@ -107,9 +86,6 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
-    /** Shared renderer for the two status-scoped booking lists. */
     protected function _render_booking_list(array $cfg)
     {
         $cfg['flash']      = $this->session->flashdata('booking_msg');
@@ -117,8 +93,6 @@ class Ops_Controller extends Property_Controller
         $this->load->view('customers/bookings', $cfg);
     }
 
-
-    /* Moved verbatim from Customers.php */
 
     /**
      * Resolve the posted status_id to a valid status_master id, defaulting to
@@ -131,8 +105,6 @@ class Ops_Controller extends Property_Controller
         return $code ? $id : $this->Customer_model->status_id_by_code('room_booked');
     }
 
-
-    /* Moved verbatim from Customers.php */
 
     /**
      * Re-render the shared booking form after validation or a late conflict.
@@ -185,8 +157,6 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
     /** Re-render the focused check-in editor after validation or a late race. */
     protected function _checkin_form_failure(
         $booking,
@@ -235,9 +205,6 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
-    /** JSON output helper. */
     protected function _json($payload, $http_status = 200)
     {
         $this->output
@@ -247,25 +214,17 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
-    /** Cast to int, or NULL when blank (keeps optional numeric columns clean). */
     protected function _int($v)
     {
         return ($v === NULL || $v === '') ? NULL : (int) $v;
     }
 
 
-    /* Moved verbatim from Customers.php */
-
-    /** Cast to a numeric value, or NULL when blank / non-numeric. */
     protected function _num($v)
     {
         return ($v === NULL || $v === '' || ! is_numeric($v)) ? NULL : (float) $v;
     }
 
-
-    /* Moved verbatim from Customers.php */
 
     /**
      * Normalise a datetime-local value ("Y-m-d\TH:i") into a MySQL DATETIME
@@ -279,9 +238,6 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
-    /** Normalise a date input into a real Y-m-d value. */
     protected function _date($v)
     {
         if ($v === NULL || ! is_string($v)) { return NULL; }
@@ -359,12 +315,6 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
-    // ---------------------------------------------------------------------
-    //  Helpers
-    // ---------------------------------------------------------------------
-
     /** Resolve a DB-relative upload path and prove it remains in the secure root. */
     protected function _secure_upload_file($relative)
     {
@@ -393,24 +343,14 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
     /**
-     * Upload a single document into the tenant/property/customer secure folder, replacing
-     * any previous file for that slot. Returns the DB-relative path, or NULL
-     * when no new file was submitted. Sets $error on failure.
-     *
-     * @param  string      $field      $_FILES field name
-     * @param  int         $customer_id tenant-scoped customer id
-     * @param  string      $base_name  logical file name (e.g. identity_12)
-     * @param  string|null $old_path   existing stored path (to be replaced)
-     * @param  string|null $error      out-param, populated on failure
-     * @return string|null
+     * Store a validated document under its tenant/property/customer boundary.
+     * A replacement removes the previous file only after the new file is safe.
      */
     protected function _handle_upload($field, $customer_id, $base_name, $old_path, &$error)
     {
         if (empty($_FILES[$field]['name'])) {
-            return NULL; // nothing uploaded for this slot
+            return NULL;
         }
 
         $tenant_id = (int) $this->current_tenant_id;
@@ -428,8 +368,6 @@ class Ops_Controller extends Property_Controller
             return NULL;
         }
 
-        // Use a new unpredictable name. The old document is deleted only after
-        // the replacement has passed validation and has been written safely.
         try {
             $suffix = bin2hex(random_bytes(12));
         } catch (Exception $exception) {
@@ -481,8 +419,6 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
     /** Normalize one identity_document_N[] entry without trusting its shape. */
     protected function _identity_upload_entry($field, $index)
     {
@@ -507,8 +443,6 @@ class Ops_Controller extends Property_Controller
         return $empty;
     }
 
-
-    /* Moved verbatim from Customers.php */
 
     /** Validate every submitted identity upload before any customer data changes. */
     protected function _identity_upload_error($customer_id = 0, $booking_id = NULL)
@@ -611,8 +545,6 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
     /** Prove an identity row belongs to both the customer and document scope. */
     protected function _identity_belongs_to_scope($identity, $customer_id, $booking_id)
     {
@@ -633,8 +565,6 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
     /** Per-session CSRF guard for the two forms that accept identity files. */
     protected function _valid_customer_write_token()
     {
@@ -643,8 +573,6 @@ class Ops_Controller extends Property_Controller
         return $expected !== '' && $received !== '' && hash_equals($expected, $received);
     }
 
-
-    /* Moved verbatim from Customers.php */
 
     /** Reject stale/cross-property AJAX reads and writes before scoped work. */
     protected function _require_property_context($json_response)
@@ -678,17 +606,10 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
     /**
-     * Persist the dynamic identity-proof rows for a customer:
-     *   - existing rows are updated, new rows inserted
-     *   - freshly uploaded front/back files replace their matching slots
-     *   - individually removed images are cleared from DB and secure storage
-     *   - rows removed on the form are deleted (with their files)
-     *
-     * @param int    $customer_id
-     * @param int|null $booking_id booking scope, NULL for current-property customer documents
+     * Synchronize submitted identity rows within customer and optional booking
+     * scope. Explicit removals clear DB references, while the retention policy
+     * leaves their files on disk and soft-deactivates omitted rows.
      */
     protected function _save_identities($customer_id, $booking_id = NULL)
     {
@@ -827,7 +748,7 @@ class Ops_Controller extends Property_Controller
             }
         }
 
-        // Remove identity rows the user deleted on the form (and their files).
+        // Rows omitted from the form are soft-deactivated for audit retention.
         foreach ($this->Customer_model->identities_to_remove(
             $this->current_tenant_id,
             $this->current_property_id,
@@ -848,11 +769,9 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
     /**
-     * Identity document files are NEVER deleted from disk (soft-delete policy).
-     * The DB row keeps its path; removed rows just get status = 0.
+     * Intentional no-op: user removals retain identity files for audit history.
+     * Upload replacements are handled separately after validation succeeds.
      */
     protected function _delete_identity_path($path)
     {
@@ -860,13 +779,9 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
     /**
      * Upload one indexed front/back input by re-mapping it to the single-file
      * field expected by CodeIgniter's upload library.
-     *
-     * @return string|null DB-relative path, or NULL when nothing uploaded.
      */
     protected function _upload_identity_file($source_field, $index, $customer_id, $base_name, $old_path, &$error)
     {
@@ -879,16 +794,11 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /* Moved verbatim from Customers.php */
-
-    /** Static dropdown option lists (extend as needed). */
     protected function _country_options()
     {
         return array('India', 'United Arab Emirates', 'United Kingdom', 'United States');
     }
 
-
-    /* Moved verbatim from Customers.php */
 
     /** Identity-proof types: value => label (drives the ID Proof dropdown). */
     protected function _identity_types()
@@ -956,7 +866,7 @@ class Ops_Controller extends Property_Controller
     }
 
 
-    /** Shared: checkout must be after check-in */
+    /** Checkout is the exclusive end of the nightly stay range. */
     public function valid_stay_dates($checkout)
     {
         $checkin = $this->_date($this->input->post('scheduled_check_in_date'));
@@ -966,7 +876,7 @@ class Ops_Controller extends Property_Controller
         return FALSE;
     }
 
-    /** Shared: reject room if another booking overlaps stay dates */
+    /** Reject rooms held by another live booking during the stay. */
     public function room_available_for_stay($room_id)
     {
         if ($room_id === NULL || $room_id === '') { return TRUE; }

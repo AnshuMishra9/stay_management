@@ -1,4 +1,11 @@
 <?php
+/**
+ * Shared operational navigation.
+ *
+ * Accepts optional $active and $back values. Authenticated user and property
+ * context are supplied by the base controller and exposed to client scripts
+ * so property-scoped requests and caches remain isolated.
+ */
 $active = isset($active) ? $active : '';
 $back = isset($back) ? $back : '';
 $nav_user = isset($auth_user) ? $auth_user : NULL;

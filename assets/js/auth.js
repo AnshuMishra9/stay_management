@@ -1,7 +1,4 @@
-/* ============================================================
-   Stay Management — OTP Login (AngularJS 1.x)
-   Handles the two-step flow: request OTP -> verify OTP.
-   ============================================================ */
+/* OTP request and verification flow for the login page. */
 (function () {
     'use strict';
 
@@ -11,35 +8,29 @@
     function LoginController($http, $interval) {
         var vm = this;
 
-        // Endpoint base (set on window by the view).
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
 
-        // Never retain operational data from a previous authenticated account.
+        // Prevent property-scoped data from crossing authenticated sessions.
         clearOperationalState();
 
-        // ---- View state ----
-        vm.step        = 1;      // 1 = mobile entry, 2 = OTP entry
+        vm.step        = 1;      // 1: mobile entry; 2: OTP entry
         vm.mobile      = '';
         vm.otp         = '';
         vm.loading     = false;
         vm.error       = '';
         vm.success     = '';
         vm.fieldError  = false;
-        vm.devOtp      = '';     // demo OTP echoed by the server
+        vm.devOtp      = '';     // Temporary server-provided OTP fallback; never persist it.
         vm.secondsLeft = 0;
 
         var timer = null;
 
-        // ---- Public methods ----
         vm.getOtp       = getOtp;
         vm.verifyOtp    = verifyOtp;
         vm.changeNumber = changeNumber;
         vm.onlyDigits   = onlyDigits;
         vm.timeLeft     = timeLeft;
 
-        // ---------------------------------------------------------------
-        //  Step 1/Resend: request an OTP for the entered mobile number
-        // ---------------------------------------------------------------
         function getOtp() {
             resetMessages();
 
@@ -68,9 +59,6 @@
                 .finally(function () { vm.loading = false; });
         }
 
-        // ---------------------------------------------------------------
-        //  Step 2: verify the OTP and log in
-        // ---------------------------------------------------------------
         function verifyOtp() {
             resetMessages();
 
@@ -92,12 +80,11 @@
                         vm.success = d.message || 'Login successful.';
                         stopCountdown();
                         clearOperationalState();
-                        // Follow the application's configured landing page.
                         window.location.href = d.redirect || base;
                     } else {
                         vm.error = d.message || 'Verification failed.';
                         vm.fieldError = true;
-                        // Server asks us to restart (expired / too many attempts).
+                        // A reset response requires a fresh OTP request.
                         if (d.reset) {
                             vm.otp = '';
                             stopCountdown();
@@ -109,9 +96,6 @@
                 .finally(function () { vm.loading = false; });
         }
 
-        // ---------------------------------------------------------------
-        //  Go back to the mobile-entry step
-        // ---------------------------------------------------------------
         function changeNumber() {
             stopCountdown();
             resetMessages();
@@ -121,7 +105,6 @@
             vm.secondsLeft = 0;
         }
 
-        // ---- Countdown handling ----
         function startCountdown(seconds) {
             stopCountdown();
             vm.secondsLeft = seconds;
@@ -147,7 +130,6 @@
             return m + ':' + (s < 10 ? '0' + s : s);
         }
 
-        // ---- Helpers ----
         function onlyDigits(ev) {
             var ch = String.fromCharCode(ev.which || ev.keyCode);
             if (!/[0-9]/.test(ch)) {
@@ -170,7 +152,7 @@
                         sessionStorage.removeItem(cacheKey);
                     }
                 }
-            } catch (storageError) { /* Storage can be unavailable. */ }
+            } catch (storageError) { /* sessionStorage may be unavailable. */ }
         }
 
         function networkError() {

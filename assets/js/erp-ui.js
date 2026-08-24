@@ -1,13 +1,7 @@
-/* ============================================================
-   Stay Management ERP — UI helpers (cosmetic only)
-   • ErpToast.show(msg, type)  → auto-dismissing save popup (≈4s)
-   • Server flash banners (.erp-alert) auto-dismiss ≈4.5s,
-     with a manual × button. No functional behaviour changes.
-   ============================================================ */
+/* Toast and auto-dismissing flash-message helpers. */
 (function () {
     'use strict';
 
-    /* ---------------- Toast ---------------- */
     var wrap = null;
 
     function ensureWrap() {
@@ -44,13 +38,12 @@
         t.appendChild(msg);
         host.appendChild(t);
         requestAnimationFrame(function () { t.classList.add('is-in'); });
-        setTimeout(function () { dismiss(t); }, 4000);   /* 3–5s window */
+        setTimeout(function () { dismiss(t); }, 4000);
         return t;
     }
 
     window.ErpToast = { show: show, dismiss: dismiss };
 
-    /* ---------------- Flash banners ---------------- */
     function leave(el) {
         if (!el || el.dataset.leaving) { return; }
         el.dataset.leaving = '1';

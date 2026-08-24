@@ -86,11 +86,11 @@ $route['users/delete/(:num)']    = 'users/delete/$1';
 $route['access/no-properties'] = 'access/no_properties';
 $route['access/forbidden']     = 'access/forbidden';
 
-// Protected pages
-$route['dashboard']       = 'rooms/index';   // legacy alias -> Room Master
-$route['inventory']       = 'inventory/index';   // room availability calendar
-$route['inventory/booking_form'] = 'bookings/inventory_booking_form'; // modal form fragment
-$route['inventory/booking_detail/(:num)'] = 'inventory/booking_detail/$1'; // occupied-room guest popup
+// Keep the dashboard alias for bookmarks and links created before Room Master.
+$route['dashboard']       = 'rooms/index';
+$route['inventory']       = 'inventory/index';
+$route['inventory/booking_form'] = 'bookings/inventory_booking_form';
+$route['inventory/booking_detail/(:num)'] = 'inventory/booking_detail/$1';
 
 // Customers Master
 $route['customers']              = 'customers/index';
@@ -98,8 +98,7 @@ $route['customers/list']         = 'customers/list_ajax';
 $route['customers/add']          = 'customers/form';
 $route['customers/edit/(:num)']  = 'customers/form/$1';
 
-// ---- Bookings / Checkins / Checkouts (split from the Customers god controller) ----
-// Every legacy URL is preserved 1:1 — only the routing targets changed.
+// Preserve legacy customer URLs while dispatching each workflow to its dedicated controller.
 $route['customers/bookings']                 = 'bookings/index';
 $route['customers/bookings_list']            = 'bookings/bookings_ajax';
 $route['customers/bookings_ajax']            = 'bookings/bookings_ajax';
@@ -126,9 +125,9 @@ $route['customers/checkedouts/details/(:num)'] = 'checkouts/checkedout_details/$
 $route['customers/checkedouts/edit/(:num)']  = 'checkouts/checkedout_edit/$1';
 $route['customers/checkout_save']            = 'checkouts/checkout_save';
 
-$route['customers/lookup']              = 'customers/lookup';              // [AJAX] customer by mobile
+$route['customers/lookup']              = 'customers/lookup';
 
-// Rooms Master (Room Manager)
+// Room management
 $route['rooms']              = 'rooms/index';
 $route['rooms/list']         = 'rooms/list_ajax';
 $route['rooms/add']          = 'rooms/form';

@@ -1,19 +1,16 @@
 <?php
 /**
- * Add / Edit Room form (simplified master).
- * $room       -> row object when editing, NULL when adding
- * $next_code  -> room code to display (existing or next generated)
- * $categories -> active room_categories (optional dropdown)
- * $hk_opts    -> housekeeping status options (Available / Not Available)
+ * Room create/edit form.
+ *
+ * Expects $room (NULL when creating), $next_code, $categories, and $hk_opts.
  */
 $is_edit = ($room !== NULL);
 
-// Helper: current value for a field (posted value wins on validation failure).
-// Return RAW (html_escape=FALSE); the template escapes once at output.
+// Preserve submitted values after validation; escape only when rendering.
 $val = function ($field, $fallback = '') use ($room) {
     return set_value($field, $room ? ($room->$field ?? '') : $fallback, FALSE);
 };
-// Checkbox helper (posted wins on re-render, else DB value, else default).
+// Submitted checkbox state takes precedence over stored and default values.
 $posted = ($this->input->server('REQUEST_METHOD') === 'POST');
 $chk = function ($field, $default = 0) use ($room, $posted) {
     if ($posted) { return $this->input->post($field) ? 1 : 0; }
@@ -36,7 +33,6 @@ $active  = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($room ? (int) 
 </head>
 <body class="erp-body">
 
-<!-- Top navigation (with mobile Back button) -->
 <?php $this->load->view('layouts/erp_navbar', array('active' => 'rooms', 'back' => site_url('rooms'))); ?>
 
 <div class="erp-wrap">
@@ -45,7 +41,6 @@ $active  = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($room ? (int) 
         <input type="hidden" name="id" value="<?= $is_edit ? (int) $room->id : '' ?>">
         <input type="hidden" name="property_context_token" value="<?= html_escape($property_context_token) ?>">
 
-        <!-- Header -->
         <div class="erp-page-head">
             <div>
                 <h1>
@@ -60,7 +55,6 @@ $active  = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($room ? (int) 
             <div class="erp-alert erp-alert-danger"><?= validation_errors() ?></div>
         <?php endif; ?>
 
-        <!-- ===== Basic Information ===== -->
         <div class="erp-form-section">
             <div class="erp-section-title">Basic Information</div>
 
@@ -112,7 +106,6 @@ $active  = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($room ? (int) 
             </div>
         </div>
 
-        <!-- ===== Pricing ===== -->
         <div class="erp-form-section">
             <div class="erp-section-title">Pricing</div>
 
@@ -126,7 +119,6 @@ $active  = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($room ? (int) 
             </div>
         </div>
 
-        <!-- ===== Housekeeping & Status ===== -->
         <div class="erp-form-section">
             <div class="erp-section-title">Housekeeping &amp; Status</div>
 
@@ -152,7 +144,6 @@ $active  = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($room ? (int) 
             </div>
         </div>
 
-        <!-- ===== Audit (read-only, edit only) ===== -->
         <?php if ($is_edit): ?>
         <div class="erp-form-section">
             <div class="erp-section-title">Audit</div>
@@ -179,7 +170,6 @@ $active  = $posted ? ($this->input->post('is_active') ? 1 : 0) : ($room ? (int) 
         </div>
         <?php endif; ?>
 
-        <!-- Footer actions -->
         <div class="erp-form-foot">
             <a href="<?= site_url('rooms') ?>" class="erp-btn erp-btn-ghost">Cancel</a>
             <button type="submit" id="roomSaveBtn" class="erp-btn erp-btn-primary">

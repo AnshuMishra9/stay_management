@@ -1,7 +1,6 @@
 <?php $page_title = 'Properties'; $this->load->view('access/management_head', compact('page_title')); ?>
 <div class="erp-card mgmt-card">
 
-    <!-- Page header -->
     <div class="erp-page-head">
         <div>
             <h1>

@@ -1,45 +1,9 @@
-/* ============================================================
-   Stay Management ERP — erpQuery
-   A tiny, reusable "stale-while-revalidate" cache for AngularJS
-   1.x list pages (a lightweight stand-in for TanStack Query).
-
-   What it gives every list page, for free:
-     • Cached list data is shown INSTANTLY (no spinner) when you
-       revisit a page or re-apply the same filters.
-     • In the background it refetches; if the data actually changed
-       it updates the view, otherwise it leaves it untouched
-       (no needless re-render / "refresh").
-     • Cache survives tab-to-tab navigation (uses sessionStorage).
-     • Freshness window (staleMs): within it, no refetch at all.
-     • Invalidate a namespace after add/edit/delete so stale data
-       never lingers.
-
-   ------------------------------------------------------------
-   HOW TO USE ON A NEW LIST PAGE  (3 small steps)
-   ------------------------------------------------------------
-   1) Load this file BEFORE your page controller, and add the
-      module dependency:
-        angular.module('myApp', ['erpQuery'])
-          .controller('MyCtrl', ['$http','$timeout','erpQuery', MyCtrl]);
-
-   2) In the controller, replace your $http list call with:
-        vm.load = function () {
-          erpQuery.fetch('mymaster', base + 'mymaster/list_ajax', vm.filters, {},
-            { data:    function (rows) { vm.rows = rows; },
-              loading: function (b)    { vm.loading = b; } });
-        };
-
-   3) After any change, clear the cache:
-        erpQuery.invalidate('mymaster');   // e.g. inside delete/save success
-      …and, after a form save that redirects back to the list, set
-        <script>window.APP_FRESH = <?= !empty($flash) ? 'true':'false' ?>;</script>
-      then pass  { fresh: consumeFresh() }  as the opts (see customers.js).
-   ============================================================ */
+/* Property-scoped stale-while-revalidate cache for AngularJS list pages. */
 angular.module('erpQuery', []).factory('erpQuery', ['$http', function ($http) {
     'use strict';
 
-    var PREFIX   = 'erpq:v2:';     // cache format includes authenticated property context
-    var STALE_MS = 10 * 60 * 1000; // default freshness window (10 min)
+    var PREFIX   = 'erpq:v2:'; // Increment when persisted cache semantics change.
+    var STALE_MS = 10 * 60 * 1000;
 
     function serialize(params) {
         if (!params) { return ''; }
@@ -60,7 +24,7 @@ angular.module('erpQuery', []).factory('erpQuery', ['$http', function ($http) {
     }
     function writeCache(key, data) {
         try { sessionStorage.setItem(key, JSON.stringify({ t: Date.now(), data: data })); }
-        catch (e) { /* quota / private mode — silently skip caching */ }
+        catch (e) { /* sessionStorage may be unavailable or full. */ }
     }
     function removeByPrefix(pre) {
         try {
@@ -68,20 +32,14 @@ angular.module('erpQuery', []).factory('erpQuery', ['$http', function ($http) {
                 var k = sessionStorage.key(i);
                 if (k && k.indexOf(pre) === 0) { sessionStorage.removeItem(k); }
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) { /* Cache cleanup is best-effort. */ }
     }
 
     return {
         /**
-         * Fetch a list with stale-while-revalidate caching.
-         *
-         * @param {string}   ns      namespace for invalidation (e.g. 'customers')
-         * @param {string}   url     endpoint
-         * @param {object}   params  query params (also part of the cache key)
-         * @param {object}   opts    { fresh:bool (skip cache), staleMs:number,
-         *                             pick:fn(res)->data }
-         * @param {object}   cb      { data:fn(rows, fromCache), loading:fn(bool),
-         *                             error:fn() }
+         * Returns cached data immediately, then revalidates stale entries.
+         * opts controls cache bypass, freshness, and response mapping; cb receives
+         * data(rows, fromCache), loading(active), and error() notifications.
          */
         fetch: function (ns, url, params, opts, cb) {
             opts = opts || {};
@@ -94,19 +52,17 @@ angular.module('erpQuery', []).factory('erpQuery', ['$http', function ($http) {
             var cached  = opts.fresh ? null : readCache(key);
             var hadCache = false;
 
-            // 1) Instant paint from cache (no spinner).
+            // Serve cached data immediately and show a spinner only on a cold cache.
             if (cached && cached.data !== undefined) {
                 hadCache = true;
                 if (cb.data)    { cb.data(cached.data, true); }
                 if (cb.loading) { cb.loading(false); }
-                // 2) Fresh enough? then don't hit the server at all.
                 if ((Date.now() - (cached.t || 0)) < staleMs) { return; }
-                // else: fall through and revalidate quietly (no spinner)
             } else if (cb.loading) {
-                cb.loading(true);   // nothing cached → show the spinner
+                cb.loading(true);
             }
 
-            // 3) Revalidate against the server.
+            // Revalidate stale entries without replacing an unchanged list.
             $http.get(url, {
                 params: params,
                 headers: { 'X-Property-Context-Token': window.APP_PROPERTY_CONTEXT_TOKEN || '' }
@@ -115,14 +71,15 @@ angular.module('erpQuery', []).factory('erpQuery', ['$http', function ($http) {
                 var prev = readCache(key);
                 var changed = !prev || JSON.stringify(prev.data) !== JSON.stringify(data);
                 writeCache(key, data);
-                if (changed && cb.data) { cb.data(data, false); }   // only re-render on real change
+                if (changed && cb.data) { cb.data(data, false); }
             }).catch(function (error) {
                 if (error && error.status === 409) {
+                    // A stale property token invalidates all contexts before redirect.
                     removeByPrefix('erpq:');
                     window.location.assign((window.APP_BASE || '/').replace(/\/?$/, '/') + 'inventory');
                     return;
                 }
-                if (!hadCache) {                 // no cache to fall back on
+                if (!hadCache) {
                     if (cb.data)  { cb.data([], false); }
                     if (cb.error) { cb.error(); }
                 }
@@ -131,10 +88,10 @@ angular.module('erpQuery', []).factory('erpQuery', ['$http', function ($http) {
             });
         },
 
-        /** Clear all cached lists for a namespace (call after add/edit/delete). */
+        /** Clears cached lists for one namespace after a mutation. */
         invalidate: function (ns) { removeByPrefix(PREFIX + contextKey() + ':' + ns + ':'); },
 
-        /** Clear the entire query cache (e.g. on logout). */
+        /** Clears every query cache when the authenticated context ends. */
         clearAll: function () { removeByPrefix('erpq:'); }
     };
 }]);

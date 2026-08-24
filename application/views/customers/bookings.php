@@ -1,5 +1,5 @@
 <?php
-// Shared list template — driven by the controller (bookings vs checkins).
+// Controller-provided configuration lets this view serve each booking workflow list.
 $title      = isset($title)      ? $title      : 'Booking Details';
 $sub        = isset($sub)        ? $sub        : 'Customers with a room booked';
 $ajax       = isset($ajax)       ? $ajax       : 'customers/bookings_ajax';
@@ -25,9 +25,10 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
     <style>[ng-cloak]{display:none!important;}</style>
     <script>
         window.APP_BASE = "<?= base_url() ?>";
-        window.APP_FRESH = <?= ! empty($flash) ? 'true' : 'false' ?>;   // a save just happened -> bypass cache once
-        window.APP_LIST_URL = "<?= site_url($ajax) ?>";                 // which list to fetch
-        window.APP_LIST_NS  = "<?= html_escape($ns) ?>";               // cache namespace
+        // A successful write bypasses the configured list cache once.
+        window.APP_FRESH = <?= ! empty($flash) ? 'true' : 'false' ?>;
+        window.APP_LIST_URL = "<?= site_url($ajax) ?>";
+        window.APP_LIST_NS  = "<?= html_escape($ns) ?>";
         window.APP_PROPERTY_CONTEXT_TOKEN = <?= json_encode($property_context_token ?? '') ?>;
         window.APP_PROPERTY_CONTEXT_KEY = <?= json_encode((string) ($current_tenant_id ?? '').':'.(string) ($current_property_id ?? '')) ?>;
     </script>
@@ -35,13 +36,11 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
 
 <body class="erp-body" ng-controller="BookingsController as vm">
 
-<!-- Top navigation (highlight the tab for the list being shown) -->
 <?php $this->load->view('layouts/erp_navbar', array('active' => $ns)); ?>
 
 <div class="erp-wrap">
     <div class="erp-card">
 
-        <!-- Page header -->
         <div class="erp-page-head">
             <div>
                 <h1>
@@ -67,14 +66,12 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
             </div>
         </div>
 
-        <!-- Flash message (after saving a booking) -->
         <?php if ( ! empty($flash)): ?>
             <div class="erp-alert erp-alert-<?= html_escape($flash['type']) ?>">
                 <?= html_escape($flash['text']) ?>
             </div>
         <?php endif; ?>
 
-        <!-- Table (filters sit in the header row, right under each column name) -->
         <div class="erp-table-scroll">
             <table class="erp-table">
                 <thead>
@@ -116,11 +113,9 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
                         <td><span class="erp-badge" ng-class="vm.statusClass(c.status_code)">{{ c.status_name }}</span></td>
                         <td>
                             <span class="erp-actions">
-                                <!-- View (present data) -->
                                 <button class="erp-icon-btn erp-icon-view" title="View" ng-click="vm.viewBooking(c.id)">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
                                 </button>
-                                <!-- Status-specific workflow page -->
                                 <a class="erp-icon-btn erp-icon-<?= html_escape($workflow_icon) ?>" title="<?= html_escape($workflow_title) ?>" href="<?= site_url($workflow_url) ?>/{{ c.id }}">
                                     <?php if ($workflow_icon === 'checkout'): ?>
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M14 17l5-5-5-5"/><path d="M19 12H7"/></svg>
@@ -128,7 +123,6 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
                                     <?php endif; ?>
                                 </a>
-                                <!-- Status-specific edit page -->
                                 <a class="erp-icon-btn erp-icon-edit" title="<?= html_escape($edit_title) ?>" href="<?= site_url($edit_url) ?>/{{ c.id }}">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </a>
@@ -138,7 +132,6 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
                 </tbody>
             </table>
 
-            <!-- Loading / empty states -->
             <div class="erp-state" ng-if="vm.loading" ng-cloak><span class="erp-spinner"></span><div style="margin-top:10px;">Loading bookings…</div></div>
             <div class="erp-state" ng-if="!vm.loading && vm.bookings.length === 0" ng-cloak>No bookings match your filters.</div>
         </div>
@@ -147,7 +140,6 @@ $edit_title     = isset($edit_title)     ? $edit_title     : 'Edit booking';
     </div>
 </div>
 
-<!-- ================= Booking Detail Modal (eye) ================= -->
 <div class="erp-modal-backdrop" ng-if="vm.showModal" ng-click="vm.closeModal($event)" ng-cloak>
     <div class="erp-modal" ng-click="$event.stopPropagation()">
         <div class="erp-modal-head">

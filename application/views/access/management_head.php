@@ -6,17 +6,12 @@
     <title><?= html_escape($page_title) ?> &middot; Stay Management</title>
     <link rel="stylesheet" href="<?= base_url('assets/css/erp.css') ?>?v=<?= @filemtime(FCPATH.'assets/css/erp.css') ?>">
     <style>
-        /* ============================================================
-           Management screens (Plants / Properties / Users / Access)
-           Same design language as the ERP ${1}&mdash;${2} purely
-           on the erp.css design tokens.
-           ============================================================ */
         .mgmt-shell { padding: 26px 24px 56px; max-width: 1500px; margin: 0 auto; }
         .mgmt-help { color: var(--muted); font-size: .82rem; margin-top: 2px; }
         .mgmt-required::after { content: ' *'; color: var(--red); }
         .mgmt-table { min-width: 760px; }
 
-        /* Plant filter bar (users list) */
+        /* Plant-scoped user filters. */
         .mgmt-filter-bar {
             display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
             padding: 14px 20px; border-bottom: 1px solid var(--line);
@@ -28,7 +23,7 @@
         }
         .mgmt-filter-bar .erp-select { min-width: 260px; }
 
-        /* Property chooser cards (properties/select) */
+        /* Property selection cards. */
         .mgmt-property-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
             gap: 18px;
@@ -44,7 +39,7 @@
             stroke: var(--brand); box-shadow: inset 0 0 0 1px rgba(109,93,246,.15);
         }
 
-        /* Property assignment checkbox tiles (user form) */
+        /* Property access assignment controls. */
         .mgmt-checkbox-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
         .mgmt-checkbox {
             display: flex; align-items: center; gap: 9px; cursor: pointer;
@@ -56,14 +51,11 @@
         .mgmt-checkbox input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--brand); flex: none; }
         .mgmt-checkbox .mgmt-help { margin-top: 0; font-weight: 500; }
 
-        /* Empty / access states */
         .mgmt-empty { text-align: center; padding: 46px 22px; color: var(--muted); }
         .mgmt-empty h1, .mgmt-empty h2 { color: var(--text); font-weight: 800; }
 
-        /* Validation error list */
         .erp-alert ul { margin: 4px 0 0 18px; padding: 0; }
 
-        /* Warning flash (only used on management screens) */
         .erp-alert-warning { background: #fef3c7; border: 1px solid #fde68a; color: #92400e; }
 
         @media (max-width: 700px) {

@@ -40,3 +40,15 @@ user_guide_src/cilexer/pycilexer.egg-info/*
 
 # Environment secrets
 .env
+
+# Historical populated backups and deployment-specific mappings remain in the
+# external private archive. The canonical zero-data db/stay_management.sql is
+# intentionally tracked and is therefore not ignored here.
+/db/dream_project.sql
+/db/plants_migration/backup_before_migration.sql
+/db/add_admin_multitenancy.sql
+/db/MULTITENANCY.md
+/db/drop_database.sql
+
+# Browser-debug response capture; maintained tests must assert in memory.
+/tests/debug_booking_response.html

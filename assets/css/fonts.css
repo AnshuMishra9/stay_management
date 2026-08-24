@@ -1,8 +1,4 @@
-/* ============================================================
-   Calibri web fonts
-   Font files live in assets/fonts/, so paths are relative to
-   this file: ../fonts/<file>.woff
-   ============================================================ */
+/* Font sources are relative to this stylesheet. */
 
 @font-face {
     font-family: 'Calibri Regular';

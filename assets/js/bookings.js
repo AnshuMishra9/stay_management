@@ -1,9 +1,4 @@
-/* ============================================================
-   Stay Management ERP — Booking Details (AngularJS 1.x)
-   Lists ONLY "Room booked" bookings (status is fixed on the server;
-   there is no status filter here). Columns: booking no, customer,
-   room no, room category, status. Free-text search on booking/customer.
-   ============================================================ */
+/* Status-scoped booking lists and detail modal (AngularJS 1.x). */
 (function () {
     'use strict';
 
@@ -19,12 +14,11 @@
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
         var debounce = null;
 
-        // Which status-scoped booking list this page shows.
+        // Each view supplies its status-specific endpoint and cache namespace.
         var listUrl = window.APP_LIST_URL || (base + 'customers/bookings_ajax');
         var listNs  = window.APP_LIST_NS  || 'bookings';
 
-        // After a save/redirect (flash present) the cached lists are stale. A
-        // status change moves a booking between lists, so drop every list cache.
+        // Status transitions can move rows between list namespaces.
         if (window.APP_FRESH) {
             erpQuery.invalidate('bookings');
             erpQuery.invalidate('checkins');
@@ -61,7 +55,7 @@
             return match ? match[1] : '';
         }
 
-        // status_code -> badge css class (status_master is the source of truth).
+        // status_master remains the source of truth for these status codes.
         var STATUS_CLASS = {
             room_booked: 'erp-badge-confirmed',
             checked_in:  'erp-badge-checkedin',
@@ -71,7 +65,6 @@
         };
         vm.statusClass = function (code) { return STATUS_CLASS[code] || 'erp-badge-active'; };
 
-        // ---- API (cached: instant from cache, revalidated in the background) ----
         vm.load = function () {
             var params = angular.extend({}, vm.filters);
             erpQuery.fetch(listNs, listUrl, params, {}, {
@@ -80,7 +73,7 @@
             });
         };
 
-        // Debounced reload — fires 300ms after the last keystroke.
+        // Coalesce rapid filter changes into one request.
         vm.onFilter = function () {
             if (debounce) { $timeout.cancel(debounce); }
             debounce = $timeout(vm.load, 300);
@@ -97,7 +90,6 @@
             vm.load();
         };
 
-        // ---- Detail modal (eye) ----
         vm.viewBooking = function (id) {
             $http.get(base + 'customers/booking_view/' + id)
                 .then(function (res) {
@@ -123,7 +115,6 @@
             vm.detail = {};
         };
 
-        // Initial load
         vm.load();
     }
 })();

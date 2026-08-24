@@ -1,5 +1,8 @@
 <?php
-// Lightweight, dependency-free security regression tests.
+/**
+ * Exercises upload validation without booting CodeIgniter or writing to
+ * application storage.
+ */
 define('BASEPATH', __DIR__.DIRECTORY_SEPARATOR);
 require dirname(__DIR__).'/application/libraries/Identity_upload_guard.php';
 
@@ -34,14 +37,14 @@ function expect_result($label, $actual, $should_be_valid)
     echo "FAIL: {$label}\n";
 }
 
-// Genuine 1x1 PNG.
+// Known-good binary fixture used to verify signature detection.
 $png = base64_decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
 );
 expect_result('valid PNG is accepted', $guard->validate(make_upload('front.png', $png), TRUE, FALSE), TRUE);
 expect_result('valid PNG is accepted even when original name contains a path', $guard->validate(make_upload('../../front.png', $png), TRUE, FALSE), TRUE);
 
-// Extension and browser Content-Type must not disguise another format.
+// Trust detected content rather than the filename or browser MIME claim.
 expect_result('PNG renamed to JPG is rejected', $guard->validate(make_upload('front.jpg', $png, 'image/jpeg'), TRUE, FALSE), FALSE);
 expect_result('SVG script renamed to JPG is rejected', $guard->validate(make_upload('front.jpg', '<svg onload="alert(1)"></svg>', 'image/jpeg'), TRUE, FALSE), FALSE);
 expect_result('PHP extension is rejected', $guard->validate(make_upload('shell.php', '<?php echo 1; ?>'), TRUE, FALSE), FALSE);
@@ -67,4 +70,3 @@ if ($failures) {
 }
 
 echo "\nAll identity upload security tests passed.\n";
-

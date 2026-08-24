@@ -1,15 +1,7 @@
 <?php
 /**
- * Booking Check-in — a focused edit of just the fields that matter at
- * check-in: the customer's name + mobile, their identity proofs (same block
- * as the customer master), and the booking status. All pre-loaded; editable;
- * saved back to the customer + booking.
- *
- * $booking        -> booking_details row
- * $customer       -> that booking's customer
- * $status_opts    -> status_master rows (dropdown)
- * $identity_types -> code => label
- * $identities     -> existing customer_identities rows
+ * Shared check-in editor for customer, identity, stay, room, and status data.
+ * Route wrappers configure the page context, navigation, and status lock.
  */
 $page_title = isset($page_title) ? $page_title : 'Check-in';
 $page_subtitle = isset($page_subtitle)
@@ -21,6 +13,7 @@ $page_context = isset($page_context) ? $page_context : 'bookings';
 $lock_status = isset($lock_status) ? (bool) $lock_status : FALSE;
 $submit_label = isset($submit_label) ? $submit_label : 'Update';
 
+// Preserve submitted customer values after validation; escape only at output.
 $cval = function ($field, $fallback = '') use ($customer) {
     return set_value($field, $customer ? ($customer->$field ?? '') : $fallback, FALSE);
 };
@@ -60,7 +53,6 @@ $scheduled_check_out = $booking->scheduled_check_out_date
         <input type="hidden" name="customer_write_token" value="<?= html_escape($this->session->userdata('customer_write_token')) ?>">
         <input type="hidden" name="property_context_token" value="<?= html_escape($property_context_token ?? '') ?>">
 
-        <!-- Header -->
         <div class="erp-page-head">
             <div>
                 <h1>
@@ -80,7 +72,6 @@ $scheduled_check_out = $booking->scheduled_check_out_date
             <div class="erp-alert erp-alert-danger" role="alert"><?= html_escape($page_error) ?></div>
         <?php endif; ?>
 
-        <!-- ===== Customer ===== -->
         <div class="erp-form-section">
             <div class="erp-section-title">Customer</div>
             <div class="erp-grid-2 erp-checkin-grid">
@@ -97,14 +88,12 @@ $scheduled_check_out = $booking->scheduled_check_out_date
             </div>
         </div>
 
-        <!-- ===== Identity Proof (same block as the customer master) ===== -->
         <?php $this->load->view('customers/components/identity_proof', array(
             'identity_types' => $identity_types,
             'identities'     => $identities,
             'identity_upload_error' => isset($identity_upload_error) ? $identity_upload_error : '',
         )); ?>
 
-        <!-- ===== Status ===== -->
         <div class="erp-form-section erp-checkin-status-section">
             <div class="erp-section-title">Status</div>
             <div class="erp-grid-2 erp-checkin-grid">
@@ -158,7 +147,6 @@ $scheduled_check_out = $booking->scheduled_check_out_date
             </div>
         </div>
 
-        <!-- Footer actions -->
         <div class="erp-form-foot">
             <a href="<?= site_url($back_url) ?>" class="erp-btn erp-btn-ghost">Cancel</a>
             <button type="submit" class="erp-btn erp-btn-primary"><?= html_escape($submit_label) ?></button>

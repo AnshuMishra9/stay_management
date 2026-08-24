@@ -1,8 +1,4 @@
-/* ============================================================
-   Stay Management ERP — Searchable Select
-   Companion styles for assets/js/searchable-select.js.
-   Reuses the erp.css palette so it blends with .erp-select.
-   ============================================================ */
+/* Styles for the progressively enhanced native select. */
 
 .erp-ss { position: relative; max-width: 100%; }
 
@@ -13,12 +9,11 @@
     overflow: hidden; clip: rect(0 0 0 0); border: 0; opacity: 0; pointer-events: none;
 }
 
-/* Trigger looks exactly like an .erp-select (with the same chevron). */
 .erp-ss-trigger {
     width: 100%; text-align: left; cursor: pointer;
     display: flex; align-items: center;
     font-family: inherit; font-weight: 500;
-    /* Don't inherit the table-header <th>'s bold/uppercase when used as a filter. */
+    /* Neutralize typography inherited from table headers. */
     text-transform: none; letter-spacing: normal;
 }
 .erp-ss-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -28,21 +23,20 @@
     border-color: var(--brand); box-shadow: 0 0 0 3.5px rgba(109,93,246,.16);
 }
 
-/* Dropdown panel — width NEVER exceeds the trigger's width */
+/* Constrain the panel to its trigger's column. */
 .erp-ss-panel {
     position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; right: 0;
     width: auto; max-width: 100%; min-width: 0;
     background: #fff; border: 1px solid var(--input-brd); border-radius: 12px;
     box-shadow: var(--shadow-lg, 0 24px 55px rgba(30,35,60,.22));
     padding: 8px; display: none;
-    /* Reset the heavy/uppercase style that leaks in from a table-header <th>. */
+    /* Neutralize typography inherited from table headers. */
     font-weight: 500; text-transform: none; letter-spacing: normal;
 }
 .erp-ss.is-open .erp-ss-panel { display: block; }
-/* Flip upward when there isn't room below (near the bottom of a card). */
+/* JavaScript applies this when there is insufficient space below. */
 .erp-ss.erp-ss--up .erp-ss-panel { top: auto; bottom: calc(100% + 6px); }
 
-/* Search box */
 .erp-ss-search-wrap { position: relative; margin-bottom: 6px; }
 .erp-ss-search-ic {
     position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
@@ -55,7 +49,6 @@
 }
 .erp-ss-search:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(109,93,246,.14); background: #fff; }
 
-/* Options list */
 .erp-ss-list {
     list-style: none; margin: 0; padding: 0; max-height: 246px; overflow-y: auto;
 }
@@ -66,18 +59,16 @@
 .erp-ss-opt:hover,
 .erp-ss-opt.is-active { background: var(--brand-soft); color: var(--brand-dark); }
 .erp-ss-opt.is-selected { font-weight: 600; color: var(--brand-dark); }
-.erp-ss-opt-empty { color: var(--muted); }   /* the "All / Select" reset row */
+.erp-ss-opt-empty { color: var(--muted); } /* Empty option resets the selection. */
 .erp-ss-opt.is-selected::after {
     content: '✓'; float: right; color: var(--brand); font-weight: 700;
 }
 .erp-ss-empty { padding: 12px; text-align: center; color: var(--muted); font-size: .88rem; }
 
-/* "Showing 9 of N · type to search" hint */
 .erp-ss-hint {
     margin-top: 6px; padding: 7px 10px; font-size: .76rem; color: var(--muted);
     text-align: center; border-top: 1px solid var(--line);
 }
 
-/* Custom scrollbar (subtle) */
 .erp-ss-list::-webkit-scrollbar { width: 8px; }
 .erp-ss-list::-webkit-scrollbar-thumb { background: #d9def0; border-radius: 8px; }

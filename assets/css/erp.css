@@ -1,14 +1,10 @@
-/* ============================================================
-   Stay Management ERP — modern light theme (polished)
-   Shared styling for master pages (Customers, etc.)
-   Class names kept stable so views need no markup changes.
-   ============================================================ */
+/* Shared ERP layout, components, and responsive behavior. */
 
 :root {
-    --brand:        #6d5df6;   /* indigo accent (matches login)  */
+    --brand:        #6d5df6;
     --brand-dark:   #5646e0;
-    --brand-soft:   #eef0fe;   /* nav/button resting bg           */
-    --brand-soft-hover: #dcd6fb;   /* nav/button hover bg (darker) */
+    --brand-soft:   #eef0fe;
+    --brand-soft-hover: #dcd6fb;
     --violet:       #8b5cf6;
     --cyan:         #0ea5e9;
     --green:        #16a34a;
@@ -21,11 +17,11 @@
 
     --bg:           #eef1f9;
     --card:         #ffffff;
-    --head:         #f6f7fd;   /* table header / subtle fills     */
-    --line:         #e7e9f2;   /* borders / dividers              */
+    --head:         #f6f7fd;
+    --line:         #e7e9f2;
     --input-brd:    #d9def0;
-    --text:         #1e2333;   /* primary text                    */
-    --muted:        #767e97;   /* muted text / labels             */
+    --text:         #1e2333;
+    --muted:        #767e97;
     --radius:       12px;
     --shadow:       0 1px 2px rgba(30,35,60,.05), 0 8px 24px rgba(30,35,60,.06);
     --shadow-md:    0 10px 30px rgba(93,70,224,.10);
@@ -39,7 +35,8 @@ body.erp-body {
     color: var(--text);
     font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
     min-height: 100vh;
-    overflow-x: hidden;   /* nothing spills past the viewport (table scrolls in its own box) */
+    /* Wide tables scroll within their own containers. */
+    overflow-x: hidden;
     background:
         radial-gradient(1100px 460px at 100% -8%, rgba(139,92,246,.14) 0%, rgba(139,92,246,0) 60%),
         radial-gradient(900px 420px at -5% 0%, rgba(14,165,233,.10) 0%, rgba(14,165,233,0) 55%),
@@ -47,9 +44,7 @@ body.erp-body {
     background-attachment: fixed;
 }
 
-/* ============================================================
-   Top navbar  (brand left · tabs + logout right)
-   ============================================================ */
+/* Navigation */
 .erp-nav {
     display: flex; align-items: center; justify-content: space-between;
     gap: 10px; padding: 0 24px;
@@ -68,14 +63,13 @@ body.erp-body {
 }
 a.erp-nav-brand { cursor: pointer; transition: opacity .15s ease; }
 a.erp-nav-brand:hover { opacity: .82; }
-.erp-nav-brand-static { cursor: default; }   /* on the landing page: not clickable */
+.erp-nav-brand-static { cursor: default; }
 .erp-nav-brand svg {
-    width: 24px; height: 24px;                /* mobile size (unchanged) */
+    width: 24px; height: 24px;
     padding: 6px; border-radius: 10px; box-sizing: content-box;
     background: var(--grad-brand); box-shadow: 0 6px 14px rgba(109,93,246,.4);
 }
 .erp-nav-brand svg path { stroke: #fff; }
-/* Bigger brand logo on desktop / large screens */
 @media (min-width: 768px) {
     .erp-nav-brand { font-size: 1.32rem; gap: 13px; }
     .erp-nav-brand svg { width: 32px; height: 32px; padding: 8px; border-radius: 12px; }
@@ -107,18 +101,17 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-manage-user strong { font-size:.85rem; }
 .erp-manage-user span { margin-top:2px; color:var(--muted); font-size:.72rem; }
 
-/* Mobile-only Back button (shown on Add/Edit form pages), placed at the far right */
+/* Form pages replace linked brand navigation with a back action on mobile. */
 .erp-nav-back {
     display: none; align-items: center; gap: 6px;
     padding: 8px 14px; border-radius: 10px; font-weight: 600; font-size: .88rem;
     text-decoration: none; color: var(--text);
     background: #fff; border: 1px solid var(--input-brd); box-shadow: var(--shadow);
-    margin-left: auto;                        /* push it to the right end of the row */
+    margin-left: auto;
 }
 .erp-nav-back:hover { background: var(--head); color: var(--brand-dark); }
 .erp-nav-back svg { width: 16px; height: 16px; }
 
-/* Mobile: logo is NOT clickable (only works on desktop); show the Back button */
 @media (max-width: 767.98px) {
     a.erp-nav-brand { pointer-events: none; cursor: default; }
     .erp-nav-back { display: inline-flex; }
@@ -139,11 +132,10 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-nav-link.active { background: var(--grad-brand); color: #fff; box-shadow: 0 8px 18px rgba(109,93,246,.4); }
 .erp-nav-link svg { width: 18px; height: 18px; }
 
-/* ---- Layout ---- */
+/* Layout */
 .erp-wrap { padding: 26px 24px; max-width: 1500px; margin: 0 auto; }
 
 .erp-card {
-    /* thin gradient accent bar along the top edge */
     background: var(--grad-brand) top left / 100% 4px no-repeat, var(--card);
     border: 1px solid var(--line);
     border-radius: 18px;
@@ -151,7 +143,7 @@ a.erp-nav-brand:hover { opacity: .82; }
     overflow: hidden;
 }
 
-/* ---- Page header (compact) ---- */
+/* Page header */
 .erp-page-head {
     display: flex; align-items: center; justify-content: space-between;
     gap: 14px; padding: 11px 20px; border-bottom: 1px solid var(--line);
@@ -171,7 +163,7 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-head-total { font-weight: 800; font-size: .98rem; color: var(--brand-dark); white-space: nowrap; }
 .erp-head-total span { color: var(--muted); font-weight: 600; }
 
-/* ---- Master tab bar (below navbar, IN-PAGE so it scrolls, horizontally scrollable) ---- */
+/* Horizontally scrollable page tabs */
 .erp-subnav {
     background: var(--card); border-bottom: 1px solid var(--line);
     overflow-x: auto; -webkit-overflow-scrolling: touch;
@@ -193,7 +185,7 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-subnav::-webkit-scrollbar { height: 5px; }
 .erp-subnav::-webkit-scrollbar-thumb { background: var(--input-brd); border-radius: 3px; }
 
-/* ---- In-table filter row (filters sit UNDER the column names, scroll with the table) ---- */
+/* Filters remain aligned with columns while the table scrolls. */
 .erp-filter-row th {
     position: static; background: var(--head); padding: 7px 10px 9px;
     border-bottom: 1px solid var(--line);
@@ -210,13 +202,11 @@ a.erp-nav-brand:hover { opacity: .82; }
     color: var(--brand-dark); font-weight: 600; font-size: .82rem; cursor: pointer;
 }
 .erp-filter-clear:hover { background: var(--brand-soft); border-color: #c9cff0; }
-/* Searchable-select dropdown inside a filter cell: match the column width
-   (never overflow into neighbouring columns); wrap long option labels instead
-   of truncating them so the full text is still readable. */
+/* Keep enhanced selects within their table column and preserve full labels. */
 .erp-filter-row .erp-ss-panel { min-width: 0; }
 .erp-filter-row .erp-ss-opt   { white-space: normal; }
 
-/* ---- Buttons ---- */
+/* Buttons */
 .erp-btn {
     display: inline-flex; align-items: center; gap: 8px;
     border: 1px solid transparent; border-radius: 11px;
@@ -229,8 +219,6 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-btn-primary { background: var(--grad-brand); box-shadow: 0 10px 22px rgba(109,93,246,.35); }
 .erp-btn-primary:hover { filter: brightness(1.06); color: #fff; box-shadow: 0 12px 26px rgba(109,93,246,.45); }
 .erp-btn-cyan    { background: linear-gradient(135deg, #0ea5e9, #22d3ee); color: #fff; }
-/* Soft theme button — brand-soft at rest, a touch darker on hover, full
-   theme gradient on click. Used for Add Customer & Booking Details. */
 .erp-btn-soft    { background: var(--brand-soft); color: var(--brand-dark); box-shadow: 0 4px 12px rgba(109,93,246,.12); }
 .erp-btn-soft:hover  { background: var(--brand-soft-hover); color: var(--brand-dark); box-shadow: 0 8px 18px rgba(109,93,246,.24); }
 .erp-btn-soft:active { background: var(--grad-brand); color: #fff; filter: none; box-shadow: 0 10px 22px rgba(109,93,246,.45); }
@@ -240,12 +228,10 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-btn-danger:hover { filter: brightness(1.05); color: #fff; }
 .erp-btn-sm      { padding: 8px 14px; font-size: .85rem; }
 
-/* ---- Filters ---- */
+/* Filters */
 .erp-filters { padding: 18px 22px; border-bottom: 1px solid var(--line); background: var(--grad-soft); }
 .erp-filter-grid {
     display: grid;
-    /* Compact columns so all filters sit on one tidy row on desktop and
-       wrap evenly on smaller screens (no wide, ragged wrapping). */
     grid-template-columns: repeat(auto-fit, minmax(min(105px, 100%), 1fr));
     gap: 14px 10px;
     align-items: end;
@@ -257,7 +243,7 @@ a.erp-nav-brand:hover { opacity: .82; }
     min-height: 14px; line-height: 1;
 }
 
-/* ---- Inputs ---- */
+/* Inputs */
 .erp-input, .erp-select, .erp-textarea {
     width: 100%; max-width: 100%; min-width: 0; background: #fff;
     border: 1px solid var(--input-brd); border-radius: 10px;
@@ -276,7 +262,7 @@ a.erp-nav-brand:hover { opacity: .82; }
     background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px;
 }
 
-/* ---- Table ---- */
+/* Tables */
 .erp-table-scroll { overflow-x: auto; }
 .erp-table { width: 100%; border-collapse: collapse; min-width: 1080px; }
 .erp-table thead th {
@@ -296,7 +282,7 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-table tbody td.cell-strong:first-child { color: var(--brand-dark); }
 .erp-muted { color: var(--muted); }
 
-/* ---- Status badge ---- */
+/* Status badges */
 .erp-badge {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 5px 12px; border-radius: 999px; font-size: .76rem; font-weight: 700;
@@ -307,13 +293,13 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-badge-inactive { background: var(--red-soft);   color: #be123c; }
 .erp-badge-inactive::before { background: #e11d48; box-shadow: 0 0 0 3px rgba(225,29,72,.15); }
 
-/* Booking-lifecycle badges (colour reads the stage at a glance). */
-.erp-badge-enquiry    { background: #eef2ff; color: #4338ca; }   /* indigo — just an enquiry     */
-.erp-badge-confirmed  { background: #e0f2fe; color: #0369a1; }   /* sky    — booking confirmed    */
-.erp-badge-checkedin  { background: var(--green-soft); color: #15803d; } /* green — guest is in     */
-.erp-badge-checkedout { background: #ede9fe; color: #6d28d9; }   /* violet — stay completed       */
-.erp-badge-cancelled  { background: var(--red-soft); color: #be123c; }   /* red   — cancelled         */
-.erp-badge-noshow     { background: #fef3c7; color: #b45309; }   /* amber  — booked but no-show   */
+/* Booking lifecycle variants */
+.erp-badge-enquiry    { background: #eef2ff; color: #4338ca; }
+.erp-badge-confirmed  { background: #e0f2fe; color: #0369a1; }
+.erp-badge-checkedin  { background: var(--green-soft); color: #15803d; }
+.erp-badge-checkedout { background: #ede9fe; color: #6d28d9; }
+.erp-badge-cancelled  { background: var(--red-soft); color: #be123c; }
+.erp-badge-noshow     { background: #fef3c7; color: #b45309; }
 .erp-badge-enquiry::before,
 .erp-badge-confirmed::before,
 .erp-badge-checkedin::before,
@@ -321,7 +307,7 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-badge-cancelled::before,
 .erp-badge-noshow::before { background: currentColor; }
 
-/* ---- Row action icons (soft colour-tinted) ---- */
+/* Row actions */
 .erp-actions { display: inline-flex; gap: 7px; }
 .erp-icon-btn {
     display: inline-flex; align-items: center; justify-content: center;
@@ -337,7 +323,7 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-icon-delete:hover { background: #e11d48; color: #fff; box-shadow: 0 8px 16px rgba(225,29,72,.4); }
 .erp-icon-btn svg { width: 16px; height: 16px; }
 
-/* ---- Empty / loading states ---- */
+/* Empty and loading states */
 .erp-state { padding: 46px 22px; text-align: center; color: var(--muted); }
 .erp-spinner {
     width: 26px; height: 26px; border: 3px solid var(--brand-soft);
@@ -347,14 +333,14 @@ a.erp-nav-brand:hover { opacity: .82; }
 @keyframes erp-spin { to { transform: rotate(360deg); } }
 .erp-count { color: var(--muted); font-size: .85rem; padding: 14px 22px; border-top: 1px solid var(--line); background: var(--head); }
 
-/* ---- Alerts ---- */
+/* Alerts */
 .erp-alert { margin: 16px 22px; padding: 12px 40px 12px 16px; border-radius: 12px; font-size: .9rem; position: relative;
     transition: opacity .4s ease, transform .4s ease, max-height .4s ease, margin .4s ease, padding .4s ease, border-width .4s ease;
     overflow: hidden; }
 .erp-alert-success { background: var(--green-soft); border: 1px solid #bbf7d0; color: #166534; }
 .erp-alert-danger  { background: var(--red-soft);   border: 1px solid #fecdd3; color: #9f1239; }
 .erp-alert-warning { background: #fef3c7; border: 1px solid #fde68a; color: #92400e; }
-/* Auto-dismiss (erp-ui.js): smooth collapse so content below reflows gently */
+/* Coordinate the exit transition with erp-ui.js element removal. */
 .erp-alert.erp-alert--leaving {
     opacity: 0; transform: translateY(-8px);
     max-height: 0 !important; margin-top: 0 !important; margin-bottom: 0 !important;
@@ -367,7 +353,7 @@ a.erp-nav-brand:hover { opacity: .82; }
 }
 .erp-alert-close:hover { background: rgba(0,0,0,.12); }
 
-/* ---- Toast (save popups — auto-dismiss ≈4s) ---- */
+/* Toasts */
 .erp-toast-wrap {
     position: fixed; top: 18px; right: 18px; z-index: 3000;
     display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
@@ -393,9 +379,7 @@ a.erp-nav-brand:hover { opacity: .82; }
     .erp-toast { width: 100%; }
 }
 
-/* ============================================================
-   Modal (customer detail)
-   ============================================================ */
+/* Modals */
 .erp-modal-backdrop {
     position: fixed; inset: 0; background: rgba(23,26,45,.55);
     backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
@@ -429,9 +413,7 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-doc-link:hover { text-decoration: underline; }
 .erp-hr { border: none; border-top: 1px solid var(--line); margin: 20px 0; }
 
-/* ============================================================
-   Form page (Add / Edit)
-   ============================================================ */
+/* Forms */
 .erp-form-section { padding: 22px; }
 .erp-form-section + .erp-form-section { border-top: 1px solid var(--line); }
 .erp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -463,7 +445,7 @@ a.erp-nav-brand:hover { opacity: .82; }
 .erp-checkin-card .idn-section { padding-bottom: 12px; }
 .erp-checkin-card .erp-checkin-status-section { padding-top: 12px; }
 
-/* ---- Responsive ---- */
+/* Responsive forms */
 @media (max-width: 700px) {
     .erp-grid-2 { grid-template-columns: 1fr; }
     .erp-page-head h1 { font-size: 1.3rem; }
@@ -475,9 +457,7 @@ a.erp-nav-brand:hover { opacity: .82; }
     .erp-detail-grid { gap: 12px 14px; }
 }
 
-/* ============================================================
-   Flatpickr date-range picker — themed to the ERP purple palette
-   ============================================================ */
+/* Flatpickr theme */
 .flatpickr-calendar {
     border: 1px solid var(--line);
     border-radius: 14px;
@@ -512,9 +492,7 @@ span.flatpickr-weekday { color: var(--muted); font-weight: 700; font-size: .72re
     box-shadow: -5px 0 0 var(--brand-soft), 5px 0 0 var(--brand-soft);
 }
 .flatpickr-day.flatpickr-disabled, .flatpickr-day.prevMonthDay, .flatpickr-day.nextMonthDay { color: #c7cbdb; }
-/* The range input itself uses the standard .erp-input look (set in HTML). */
-
-/* ===== Identity Proof repeatable rows (customer form + booking check-in) ===== */
+/* Repeatable identity-proof rows */
 .idn-row { position: relative; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; background: var(--head); }
 .idn-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .idn-remove { position: absolute; top: 8px; right: 10px; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: var(--red-soft); color: var(--red); font-size: 18px; line-height: 1; cursor: pointer; }
@@ -716,7 +694,7 @@ body.idn-crop-open { overflow: hidden; }
     .idn-crop-foot { flex: 0 0 auto; align-items: center; flex-direction: row; padding: 7px 10px; }
 }
 
-/* Check-in action button (Booking Details) */
+/* Booking check-in action */
 .erp-icon-checkin { background: #e7f9ef; color: #16a34a; border-color: #c9efd8; }
 .erp-icon-checkin:hover { background: #16a34a; color: #fff; box-shadow: 0 8px 16px rgba(22,163,74,.4); }
 .erp-icon-checkout { background: #fff3e7; color: #c2410c; border-color: #fed7aa; }

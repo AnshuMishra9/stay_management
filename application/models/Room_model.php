@@ -40,7 +40,7 @@ class Room_model extends CI_Model
         if ( ! empty($filters['housekeeping_status'])) {
             $this->db->where('r.housekeeping_status', $filters['housekeeping_status']);
         }
-        // Status filter: '' => Active only (deleted rooms stay hidden), '0' =>
+        // Status filter: '' => active only (deactivated rooms stay hidden), '0' =>
         // inactive only, 'all' => everything.
         $status = isset($filters['status']) ? (string) $filters['status'] : '';
         if ($status !== 'all') {

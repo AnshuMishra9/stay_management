@@ -1,12 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/**
- * Customer_model
- *
- * All database access for the Customers Master. Uses CodeIgniter Query
- * Builder throughout (escaped/prepared) â€” no raw SQL.
- */
+/** Tenant-scoped customer profiles with property-scoped stay and identity persistence. */
 class Customer_model extends CI_Model
 {
     /** @var string */
@@ -15,7 +10,7 @@ class Customer_model extends CI_Model
     /** Prefix used when auto-generating the human-facing customer code. */
     const CODE_PREFIX = 'CUST';
 
-    /** Columns shown in the list grid (customer info only â€” bookings live in
+    /** Columns shown in the list grid (customer info only; bookings live in
      *  `booking_details`, so no booking columns here). Aliased from the
      *  dream-style columns (pin_code/status) to app-facing names. */
     protected $list_columns = array(
@@ -46,17 +41,7 @@ class Customer_model extends CI_Model
                 $prefix.created_at, $prefix.updated_at";
     }
 
-    // ---------------------------------------------------------------------
-    //  Reads
-    // ---------------------------------------------------------------------
-
-    /**
-     * Return customers matching the supplied filters (AND logic).
-     *
-     * @param  array $filters  Keys: customer_code, name, phone, city,
-     *                         district, state, status.
-     * @return array           Array of row objects (list columns only).
-     */
+    /** Customer filters use AND logic; text filters are partial matches. */
     public function get_filtered($tenant_id, array $filters = array())
     {
         $tenant_id = (int) $tenant_id;
@@ -68,7 +53,6 @@ class Customer_model extends CI_Model
             ->select(implode(',', $this->list_columns))
             ->where('fk_plant', $tenant_id);
 
-        // Partial (LIKE) text filters.
         $like_map = array(
             'customer_code' => 'customer_code',
             'name'          => 'customer_name',
@@ -80,7 +64,7 @@ class Customer_model extends CI_Model
             }
         }
 
-        // Status filter: '' => Active only (soft-deleted stay hidden), '0' =>
+        // Status filter: '' => active only (deactivated rows stay hidden), '0' =>
         // inactive only, 'all' => everything.
         $status = isset($filters['status']) ? (string) $filters['status'] : '';
         if ($status !== 'all') {
@@ -93,12 +77,6 @@ class Customer_model extends CI_Model
             ->result();
     }
 
-    /**
-     * Fetch a single customer (all columns) by primary key.
-     *
-     * @param  int $id
-     * @return object|null
-     */
     public function get_by_id($tenant_id, $id)
     {
         if ((int) $id <= 0 || (int) $tenant_id <= 0) {
@@ -115,13 +93,7 @@ class Customer_model extends CI_Model
             ->row();
     }
 
-    /**
-     * Find a customer by their mobile number â€” used by the Booking form so
-     * typing a known mobile pulls up that customer's saved details.
-     *
-     * @param  string $phone
-     * @return object|null
-     */
+    /** Mobile numbers identify shared customer profiles across a tenant. */
     public function get_by_phone($tenant_id, $phone)
     {
         $phone = trim((string) $phone);
@@ -139,15 +111,9 @@ class Customer_model extends CI_Model
             ->row();
     }
 
-    /**
-     * Distinct non-empty values of a column, for building filter dropdowns.
-     *
-     * @param  string $column  Whitelisted column name.
-     * @return array
-     */
+    /** Restrict dynamic column names before building filter options. */
     public function distinct_values($tenant_id, $column)
     {
-        // Whitelist to keep the identifier safe.
         $allowed = array('country');
         if ( ! in_array($column, $allowed, TRUE) || (int) $tenant_id <= 0) {
             return array();
@@ -169,12 +135,6 @@ class Customer_model extends CI_Model
         }, $rows);
     }
 
-    /**
-     * All active states from the `state_details` master, alphabetically.
-     * Used to populate the searchable State picker on the customer form.
-     *
-     * @return array  Array of state-name strings.
-     */
     public function all_states()
     {
         if ( ! $this->db->table_exists('state_details')) {
@@ -191,10 +151,6 @@ class Customer_model extends CI_Model
         return array_map(function ($r) { return $r->state_name; }, $rows);
     }
 
-    /**
-     * Active booking channels (Walk-in, MMT, Booking.comâ€¦) for the dropdown.
-     * @return array of {channel_id, channel_name, channel_category}
-     */
     public function booking_channels()
     {
         if ( ! $this->db->table_exists('booking_channels')) {
@@ -207,10 +163,6 @@ class Customer_model extends CI_Model
             ->get('booking_channels')->result();
     }
 
-    /**
-     * Active room categories for the "Room Category" dropdown.
-     * @return array of {category_id, category_name}
-     */
     public function room_categories($property_id)
     {
         if ( ! $this->db->table_exists('room_categories') || (int) $property_id <= 0) {
@@ -251,11 +203,6 @@ class Customer_model extends CI_Model
      *
      * When the manual form has no API-supplied stay range, availability is
      * evaluated for the current night (today through tomorrow).
-     *
-     * @param  int|null $current_booking_id booking being edited (excluded)
-     * @param  string|null $check_in         Y-m-d (inclusive)
-     * @param  string|null $check_out        Y-m-d (exclusive)
-     * @return array of {id, room_no, category_id, selling_price}
      */
     public function available_rooms($tenant_id, $property_id, $current_booking_id = NULL, $check_in = NULL, $check_out = NULL)
     {
@@ -353,8 +300,6 @@ class Customer_model extends CI_Model
      * Lock active room rows in a stable order for an atomic availability check.
      * Every booking writer that uses this protocol serializes on the physical
      * room before checking and inserting an overlapping stay.
-     *
-     * @return array locked active room ids
      */
     public function lock_rooms_for_booking($tenant_id, $property_id, array $room_ids)
     {
@@ -497,20 +442,7 @@ class Customer_model extends CI_Model
             : NULL;
     }
 
-    /**
-     * Booking list filtered to a single status (status_master.status_code).
-     * Used by BOTH the "Booking Details" page (room_booked, the default) and
-     * the "Check-in Details" page (checked_in). Columns shown: booking no,
-     * customer name, allotted room no + that room's category, and the status.
-     *
-     * @param  array $filters  Keys: status (status_code; defaults to
-     *                         'room_booked'), booking_no, customer_name,
-     *                         room_no, room_category (all partial/LIKE), date
-     *                         (exact actual check-in/check-out date).
-     * @return array  rows: id, booking_number, customer_id, customer_code,
-     *                customer_name, allotted_room_no, room_category, stay_date,
-     *                status_name.
-     */
+    /** Status-scoped booking list with filters aligned to displayed values. */
     public function get_bookings($tenant_id, $property_id, array $filters = array())
     {
         $property_id = (int) $property_id;
@@ -544,15 +476,13 @@ class Customer_model extends CI_Model
             ->where('b.property_id', $property_id)
             ->where('b.fk_plant', $tenant_id);
 
-        // Filter to a single status (defaults to "Room booked").
         $this->db->where('sm.status_code', $status);
 
-        // Per-column LIKE filters.
         if ( ! empty($filters['booking_no']))    { $this->db->like('b.booking_number', $filters['booking_no']); }
         if ( ! empty($filters['customer_name'])) { $this->db->like('c.customer_name', $filters['customer_name']); }
         if ( ! empty($filters['room_no']))       { $this->db->like('r.room_no', $filters['room_no']); }
         // Room Category matches the displayed value (allotted room's category,
-        // else the booked category) â€” filter on the same COALESCE expression.
+        // else the booked category); filter on the same COALESCE expression.
         if ( ! empty($filters['room_category'])) {
             $needle = $this->db->escape('%'.$filters['room_category'].'%');
             $this->db->where("COALESCE(r_cat.category_name, b_cat.category_name) LIKE $needle", NULL, FALSE);
@@ -592,7 +522,6 @@ class Customer_model extends CI_Model
             ->result();
     }
 
-    /** status_code for a given status_id (drives the check-in/out auto-stamp). */
     public function status_code($status_id)
     {
         $row = $this->db
@@ -604,7 +533,6 @@ class Customer_model extends CI_Model
         return $row ? $row->status_code : NULL;
     }
 
-    /** status_id for a given status_code (e.g. the default 'room_booked'). */
     public function status_id_by_code($code)
     {
         $row = $this->db
@@ -616,10 +544,6 @@ class Customer_model extends CI_Model
         return $row ? (int) $row->status_id : NULL;
     }
 
-    /**
-     * The (latest) booking row for a customer, or NULL. Used to prefill the
-     * booking section when editing an existing booking.
-     */
     public function get_booking($tenant_id, $property_id, $booking_id)
     {
         if ((int) $booking_id <= 0 || (int) $property_id <= 0 || (int) $tenant_id <= 0) {
@@ -649,14 +573,7 @@ class Customer_model extends CI_Model
         )->row();
     }
 
-    /**
-     * Full booking detail for the View modal: the booking row joined to its
-     * customer, allotted room + that room's category, status (status_master)
-     * and channel. Identity proofs are fetched separately by the caller.
-     *
-     * @param  int $booking_id
-     * @return object|null
-     */
+    /** Identity documents are fetched separately to preserve their access boundary. */
     public function get_booking_detail($tenant_id, $property_id, $booking_id)
     {
         if ((int) $booking_id <= 0 || (int) $property_id <= 0 || (int) $tenant_id <= 0) {
@@ -694,13 +611,6 @@ class Customer_model extends CI_Model
         return 'BKG'.str_pad((string) $next, 5, '0', STR_PAD_LEFT);
     }
 
-    /**
-     * Create a NEW booking for a customer (a customer can have many).
-     *
-     * @param  int   $customer_id
-     * @param  array $data  booking columns
-     * @return int   new booking id
-     */
     public function create_booking($tenant_id, $property_id, $customer_id, array $data)
     {
         $customer = $this->get_by_id($tenant_id, $customer_id);
@@ -720,7 +630,6 @@ class Customer_model extends CI_Model
         return (int) $this->db->insert_id();
     }
 
-    /** Update an existing booking (booking_number / customer stay put). */
     public function update_booking($tenant_id, $property_id, $booking_id, array $data)
     {
         if (array_key_exists('status_id', $data)) { $data['sd_id'] = $data['status_id']; unset($data['status_id']); }
@@ -733,15 +642,9 @@ class Customer_model extends CI_Model
             ->update('booking_details', $data);
     }
 
-    // ---------------------------------------------------------------------
-    //  Code generation
-    // ---------------------------------------------------------------------
-
     /**
      * Generate the next sequential customer code, e.g. CUST00007.
      * Based on the highest existing numeric suffix (gap-tolerant).
-     *
-     * @return string
      */
     public function next_code($tenant_id)
     {
@@ -749,7 +652,7 @@ class Customer_model extends CI_Model
             return self::CODE_PREFIX.'00001';
         }
         // Highest numeric suffix + 1 (gap-tolerant AND independent of insert
-        // order â€” codes like CUST00018 may belong to a lower-id row).
+        // order; codes like CUST00018 may belong to a lower-id row).
         $row  = $this->db->query(
             'SELECT COALESCE(MAX(CAST(SUBSTRING(customer_code, '.(strlen(self::CODE_PREFIX) + 1).') AS UNSIGNED)), 0) AS maxn '
             .'FROM '.$this->table.' WHERE fk_plant = ? AND customer_code LIKE '.$this->db->escape(self::CODE_PREFIX.'%'),
@@ -760,16 +663,6 @@ class Customer_model extends CI_Model
         return self::CODE_PREFIX.str_pad((string) $next, 5, '0', STR_PAD_LEFT);
     }
 
-    // ---------------------------------------------------------------------
-    //  Writes
-    // ---------------------------------------------------------------------
-
-    /**
-     * Insert a new customer.
-     *
-     * @param  array $data
-     * @return int   New row id.
-     */
     public function insert($tenant_id, array $data)
     {
         if ((int) $tenant_id <= 0) {
@@ -783,13 +676,6 @@ class Customer_model extends CI_Model
         return (int) $this->db->insert_id();
     }
 
-    /**
-     * Update an existing customer.
-     *
-     * @param  int   $id
-     * @param  array $data
-     * @return bool
-     */
     public function update($tenant_id, $id, array $data)
     {
         $data = $this->translate($data);
@@ -845,16 +731,9 @@ class Customer_model extends CI_Model
             ->row();
     }
 
-    // ---------------------------------------------------------------------
-    //  Identity proofs  (customer_identities â€” one customer -> many)
-    // ---------------------------------------------------------------------
-
     /**
-     * All identity-proof rows for a customer (Aadhar / PAN / Passport / â€¦).
-     *
-     * @param  int      $customer_id
-     * @param  int|null $booking_id NULL means customer-level documents only
-     * @return array of identity rows including front/back document paths
+     * NULL booking scope selects customer-level documents; otherwise documents
+     * are isolated to the specified stay.
      */
     public function get_identities($tenant_id, $property_id, $customer_id, $booking_id = NULL)
     {
@@ -894,7 +773,6 @@ class Customer_model extends CI_Model
             ->row();
     }
 
-    /** Insert one identity row; returns its new id. */
     public function insert_identity($tenant_id, $property_id, array $data)
     {
         $customer_id = isset($data['customer_id']) ? (int) $data['customer_id'] : 0;
@@ -924,21 +802,7 @@ class Customer_model extends CI_Model
             ->update('customer_identities', $data);
     }
 
-    /**
-     * Identity rows for a customer that are NOT in the kept-id list â€” i.e. the
-     * ones removed on the form. Returned so the caller can delete their files
-     * before the rows go.
-     *
-     * @param  int      $customer_id
-     * @param  array    $keep_ids
-     * @param  int|null $booking_id NULL scopes removal to customer-level rows
-     * @return array
-     */
-    /**
-     * Identity rows for a customer that are NOT in the kept-id list â€” i.e. the
-     * ones removed on the form (active rows only). Returned so the caller can
-     * soft-delete them; files are never removed from disk.
-     */
+    /** Active scoped rows omitted from the form and eligible for soft deletion. */
     public function identities_to_remove($tenant_id, $property_id, $customer_id, array $keep_ids, $booking_id = NULL)
     {
         $this->db

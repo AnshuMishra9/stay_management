@@ -1,13 +1,10 @@
 <?php
 /**
- * Inventory availability calendar.
- * $dates[]        -> Y-m-d for each column
- * $rows[]         -> per category { name, total, avail{date=>n}, booked{date=>n} }
- * $avail_totals{} -> all-rooms available per date
- * Backend booking states are presented here as a single "Booked" status.
- * $total_rooms    -> total active rooms matching the filters
- * $room_page*     -> bounded room-page metadata; totals still cover all matches
- * $start/$selected,$window_start,$prev,$next,$end,$today -> Y-m-d
+ * Per-room availability calendar.
+ *
+ * Date columns come from $dates and per-date room state from $rooms. Summary
+ * totals cover every filtered room even when the visible rows are paginated.
+ * All non-available backend states are grouped as booked in the summary.
  */
 $fmt = function ($d) use ($today, $selected) {
     $t = strtotime($d);
@@ -110,7 +107,6 @@ sort($visible_pages);
             .inv-filter-actions .erp-btn { flex:1; justify-content:center; }
         }
 
-        /* horizontal scroll for the wide calendar, with a visible slim scrollbar */
         .inv-scroll { overflow-x:auto; }
         .inv-scroll::-webkit-scrollbar { height:10px; }
         .inv-scroll::-webkit-scrollbar-thumb { background:#cfd6ea; border-radius:6px; }
@@ -119,7 +115,6 @@ sort($visible_pages);
 
         table.inv-table { width:100%; border-collapse:separate; border-spacing:0; min-width:1120px; table-layout:fixed; }
         .inv-table th, .inv-table td { border-bottom:1px solid var(--line); }
-        /* sticky first column (Room Type) */
         .inv-roomcol { position:sticky; left:0; z-index:3; background:#fff; text-align:left;
             padding:12px 16px; width:220px; min-width:220px;
             border-right:1px solid var(--line); box-shadow:6px 0 8px -6px rgba(30,35,60,.14); }
@@ -128,7 +123,6 @@ sort($visible_pages);
         .inv-rt-name { font-weight:700; color:var(--text); font-size:.92rem; white-space:nowrap; }
         .inv-rt-sub  { color:var(--muted); font-size:.75rem; margin-top:2px; white-space:nowrap; }
 
-        /* date header cells (fixed comfortable width) */
         .inv-dh { text-align:center; padding:8px 4px; background:var(--head); width:60px;
             font-weight:600; text-transform:none; letter-spacing:normal; position:sticky; top:0; z-index:4; }
         .inv-dh .d-wd  { display:block; font-size:.68rem; color:var(--muted); font-weight:600; }
@@ -139,7 +133,6 @@ sort($visible_pages);
         .inv-selected { background:#e8f2ff !important; box-shadow:inset 0 -3px 0 #2563eb; }
         .inv-selected .d-day { color:#1d4ed8; }
 
-        /* availability cells */
         .inv-cell { text-align:center; padding:10px 4px; width:60px; }
         .inv-a { display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:28px;
             padding:0 7px; border-radius:8px; font-weight:800; font-size:.9rem; }
@@ -182,7 +175,6 @@ sort($visible_pages);
         .inv-legend .k { display:inline-flex; align-items:center; gap:6px; }
         .inv-swatch { width:14px; height:14px; border-radius:4px; display:inline-block; }
 
-        /* Compact floating selection popup, with the current range controls. */
         .inv-selection-popup { position:fixed; right:18px; bottom:18px; z-index:1040;
             width:min(320px, calc(100vw - 20px)); background:#fff; border:1px solid #dce2f2;
             border-radius:12px; box-shadow:0 14px 38px rgba(24,29,68,.2); overflow:hidden; }
@@ -244,7 +236,7 @@ sort($visible_pages);
             .inv-detail-modal { max-height:calc(100vh - 16px); }
         }
         @media (max-width:600px) {
-            /* Keep this page compact without changing the shared desktop navbar. */
+            /* Limit responsive overrides to this view; the desktop navbar stays shared. */
             .erp-nav { padding:0 10px; }
             .erp-nav-brand { padding:8px 0; font-size:.98rem; gap:8px; }
             .erp-nav-brand svg { width:20px; height:20px; padding:5px; border-radius:8px; }
@@ -312,7 +304,6 @@ sort($visible_pages);
 <div class="erp-wrap">
     <div class="erp-card">
 
-        <!-- Header -->
         <div class="erp-page-head">
             <div>
                 <h1>
@@ -341,7 +332,6 @@ sort($visible_pages);
             </div>
         <?php endif; ?>
 
-        <!-- Filters -->
         <form method="get" class="inv-filterbar" id="invFilterForm">
             <input type="hidden" name="start" value="<?= html_escape($start) ?>">
             <div class="inv-filter-title">
@@ -366,7 +356,6 @@ sort($visible_pages);
             </div>
         </form>
 
-        <!-- Compact floating selection popup with First/Last night range controls. -->
         <aside class="inv-selection-popup" id="invSelectionPopup" hidden aria-live="polite" aria-label="Selected booking range">
             <div class="inv-selection-head">
                 <div>
@@ -393,7 +382,6 @@ sort($visible_pages);
             </div>
         </aside>
 
-        <!-- Calendar -->
         <div class="inv-scroll">
             <table class="inv-table">
                 <thead>
@@ -409,7 +397,6 @@ sort($visible_pages);
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- All rooms summary -->
                     <tr class="inv-total-row">
                         <td class="inv-roomcol">
                             <div class="inv-rt-name">All Rooms</div>
@@ -437,7 +424,6 @@ sort($visible_pages);
                         <?php endforeach; ?>
                     </tr>
 
-                    <!-- Individual rooms -->
                     <?php foreach ($rooms as $room): ?>
                         <tr>
                             <td class="inv-roomcol">
@@ -542,7 +528,7 @@ sort($visible_pages);
     </div>
 </div>
 
-<!-- Occupied-room guest details. Its action is selected from the freshly loaded booking status. -->
+<!-- Resolve the detail action only after loading the booking's current status. -->
 <div class="erp-modal-backdrop inv-detail-backdrop" id="invGuestBackdrop" data-inv-booking-detail-modal hidden>
     <section class="erp-modal inv-detail-modal" id="invGuestModal" role="dialog" aria-modal="true" aria-labelledby="invGuestModalTitle" aria-describedby="invGuestModalSubtitle">
         <div class="erp-modal-head inv-detail-head">
@@ -560,7 +546,7 @@ sort($visible_pages);
     </section>
 </div>
 
-<!-- The same shared New Booking form is loaded here without leaving Inventory. -->
+<!-- Inject the shared booking form here so Inventory retains its active filters. -->
 <div class="erp-modal-backdrop inv-booking-backdrop" id="invBookingBackdrop" hidden>
     <section class="erp-modal inv-booking-modal" id="invBookingModal" role="dialog" aria-modal="true" aria-labelledby="invBookingModalTitle">
         <div class="erp-modal-head">
@@ -575,7 +561,7 @@ sort($visible_pages);
 <script src="<?= base_url('assets/js/booking-form.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/booking-form.js') ?>"></script>
 <script src="<?= base_url('assets/js/inventory-booking.js') ?>?v=<?= @filemtime(FCPATH.'assets/js/inventory-booking.js') ?>"></script>
 <script>
-    // Apply inventory filters automatically; no separate submit button needed.
+    // Auto-submit filters because this view intentionally has no apply button.
     (function () {
         var form = document.getElementById('invFilterForm');
         var roomInput = document.getElementById('invRoomName');
@@ -596,7 +582,7 @@ sort($visible_pages);
         }
     })();
 
-    // Keep the chosen date in the centre while preserving active filters.
+    // Preserve active filters when changing the calendar's centre date.
     (function () {
         var el = document.getElementById('invStart');
         if (el) {

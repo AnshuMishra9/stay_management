@@ -1,7 +1,7 @@
 <?php
 /**
- * Unified test runner — executes every PHP regression suite in isolation
- * and reports a single aggregated result.
+ * Executes each PHP regression suite in a separate process and returns one
+ * aggregate result.
  *
  * Usage:
  *   php run_tests.php

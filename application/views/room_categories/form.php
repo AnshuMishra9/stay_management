@@ -1,6 +1,7 @@
 <?php
 $is_edit = $category !== NULL;
 $posted = $this->input->server('REQUEST_METHOD') === 'POST';
+// Preserve submitted values after validation; escape only when rendering.
 $value = function ($field, $fallback = '') use ($category) {
     return set_value($field, $category && isset($category->$field) ? $category->$field : $fallback, FALSE);
 };

@@ -1,23 +1,9 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/**
- * Customers (Master)
- *
- * Protected module (extends Secure_Controller) — an authenticated session is
- * required for every action, including document streaming.
- *
- *   index()        -> renders the list grid page
- *   list_ajax()    -> [AJAX] JSON of filtered customers (live filtering)
- *   view($id)      -> [AJAX] JSON of one customer, all fields + document URLs
- *   form($id=null) -> renders the Add / Edit form (prefilled when editing)
- *   save()         -> [POST] insert or update + handle secure file uploads
- *   delete($id)    -> [AJAX/POST] delete row + remove the customer's files
- *   file($id,$t)   -> streams an Aadhar/PAN document from outside the web root
- */
+/** Tenant-scoped customer records and property-scoped identity-document access. */
 class Customers extends Ops_Controller
 {
-    /** Allowed upload extensions / size (KB). */
     const UPLOAD_TYPES   = 'jpg|jpeg|png|pdf';
     const UPLOAD_MAX_KB  = 4096;
     const MAX_IDENTITY_ROWS = 20;
@@ -30,13 +16,6 @@ class Customers extends Ops_Controller
         $this->load->library('Identity_upload_guard');
     }
 
-    // ---------------------------------------------------------------------
-    //  Pages
-    // ---------------------------------------------------------------------
-
-    /**
-     * Customers Master list page.
-     */
     public function index()
     {
         $data = array(
@@ -45,10 +24,7 @@ class Customers extends Ops_Controller
         $this->load->view('customers/list', $data);
     }
 
-    /**
-     * Add / Edit CUSTOMER form (customer fields only — no booking here).
-     * Pass an id to edit; omit to add.
-     */
+    /** Customer master data is edited independently from individual stays. */
     public function form($id = NULL)
     {
         $customer = NULL;
@@ -75,13 +51,6 @@ class Customers extends Ops_Controller
         $this->load->view('customers/form', $data);
     }
 
-    // ---------------------------------------------------------------------
-    //  AJAX / JSON endpoints
-    // ---------------------------------------------------------------------
-
-    /**
-     * Return filtered customers as JSON (consumed by the live filter UI).
-     */
     public function list_ajax()
     {
         if ( ! $this->_require_property_context(TRUE)) { return; }
@@ -97,10 +66,7 @@ class Customers extends Ops_Controller
         return $this->_json(array('status' => TRUE, 'data' => $rows));
     }
 
-    /**
-     * [AJAX] Look a customer up by MOBILE NO, so the Booking form can auto-fill
-     * an existing customer's saved details the moment the number is typed.
-     */
+    /** Resolve an existing tenant customer for booking-form autofill. */
     public function lookup()
     {
         if ( ! $this->_require_property_context(TRUE)) { return; }
@@ -116,9 +82,6 @@ class Customers extends Ops_Controller
         return $this->_json(array('status' => TRUE, 'found' => TRUE, 'data' => $customer));
     }
 
-    /**
-     * Return one customer's full detail (all fields + document URLs).
-     */
     public function view($id = NULL)
     {
         if ( ! $this->_require_property_context(TRUE)) { return; }
@@ -127,7 +90,6 @@ class Customers extends Ops_Controller
             return $this->_json(array('status' => FALSE, 'message' => 'Customer not found.'), 404);
         }
 
-        // Attach identity proofs (with a label + streamed-document URL each).
         $labels = $this->_identity_types();
         $customer->identities = array_map(function ($idn) use ($labels) {
             return array(
@@ -146,13 +108,6 @@ class Customers extends Ops_Controller
         return $this->_json(array('status' => TRUE, 'data' => $customer));
     }
 
-    // ---------------------------------------------------------------------
-    //  Writes
-    // ---------------------------------------------------------------------
-
-    /**
-     * Insert or update a customer (multipart form submit).
-     */
     public function save()
     {
         if ( ! $this->require_post() || ! $this->_require_property_context(FALSE)) { return; }
@@ -171,7 +126,6 @@ class Customers extends Ops_Controller
             return;
         }
 
-        // --- Validation --------------------------------------------------
         $this->load->library('form_validation');
         $this->form_validation->set_rules('customer_name', 'Customer Name', 'required|trim|max_length[150]');
         $this->form_validation->set_rules('phone', 'Mobile No', 'required|trim|max_length[20]');
@@ -182,7 +136,6 @@ class Customers extends Ops_Controller
             $identity_upload_error = 'A customer with this mobile number already exists in this account.';
         }
         if ($this->form_validation->run() === FALSE || $identity_upload_error !== NULL) {
-            // Re-render the form with errors + submitted values.
             $data = array(
                 'customer'       => $existing,
                 'next_code'      => $is_edit ? $existing->customer_code : $this->Customer_model->next_code($this->current_tenant_id),
@@ -202,10 +155,9 @@ class Customers extends Ops_Controller
         // Immutable code: keep on edit, generate fresh on add (never trust POST).
         $code = $is_edit ? $existing->customer_code : NULL;
 
-        // --- Scalar fields (CUSTOMER only — bookings are a separate form) --
         $data = array(
             'customer_name' => $this->input->post('customer_name', TRUE),
-            'phone'         => $submitted_phone,                         // Mobile No
+            'phone'         => $submitted_phone,
             'pincode'       => $this->input->post('pincode', TRUE),
             'country'       => $this->input->post('country', TRUE),
             'is_active'     => $this->input->post('is_active') !== NULL ? 1 : 0,
@@ -268,7 +220,6 @@ class Customers extends Ops_Controller
             return;
         }
 
-        // --- Identity proofs (dynamic rows + their uploaded documents) -------
         $identity_save_errors = $this->_save_identities($cust_id);
 
         if ($identity_save_errors) {
@@ -282,9 +233,7 @@ class Customers extends Ops_Controller
         redirect('customers');
     }
 
-    /**
-     * Delete a customer and remove their uploaded documents/folder.
-     */
+    /** Deactivate a customer without destroying booking or document history. */
     public function delete($id = NULL)
     {
         if ( ! $this->require_post() || ! $this->_require_property_context(TRUE)) { return; }
@@ -303,8 +252,6 @@ class Customers extends Ops_Controller
             return $this->_json(array('status' => FALSE, 'message' => 'Customer not found.'), 404);
         }
 
-        // A customer is never deleted. Delete always means deactivate: the
-        // row (and every booking/document) stays in the database forever.
         $changed = $this->Customer_model->update(
             $this->current_tenant_id,
             $id,
@@ -326,16 +273,10 @@ class Customers extends Ops_Controller
         ));
     }
 
-    // ---------------------------------------------------------------------
-    //  Secure document streaming
-    // ---------------------------------------------------------------------
-
     /**
      * Stream an uploaded identity-proof document by its identity id. Files live
-     * outside the public tree; access is only possible here, behind the guard.
-     *
-     * @param int $identity_id
-     * @param int $slot 1 = front/file, 2 = back image
+     * behind direct-access deny rules; this route also enforces tenant,
+     * property, customer, and document ownership before serving bytes.
      */
     public function identity_file($identity_id = NULL, $slot = 1)
     {

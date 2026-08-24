@@ -1,40 +1,21 @@
-/* ============================================================
-   Stay Management ERP — Searchable Select (vanilla JS)
-   Auto-enhances EVERY  <select class="erp-select">  on the page into a
-   styled, searchable combobox (progressive enhancement).
-
-   • No library. Works on plain server-rendered forms AND on AngularJS
-     filter selects (ng-model / ng-change) — it dispatches a native
-     `change` event and mirrors external value changes (e.g. a "Clear"
-     button) by hooking the select's value setter.
-   • Search box appears automatically when a list is long; short lists
-     just get the nicer styled panel. Select-only → always an existing
-     value (no duplicates / free text).
-   • Opt out on any select with  data-no-search  (or remove .erp-select).
-
-   Usage: just include this file + searchable-select.css. Nothing else.
-   ============================================================ */
+/* Progressively enhances .erp-select while preserving native select behavior. */
 (function () {
     'use strict';
 
-    // Show the search box once a list has more than this many real options.
     var SEARCH_THRESHOLD = 7;
-    // Collapsed lists show at most this many options; the rest are found via
-    // search. Override per-select with  data-visible="N".
+    // data-visible overrides the default cap for unfiltered options.
     var DEFAULT_VISIBLE = 9;
 
     function enhance(native) {
         if (native.dataset.ssReady || native.hasAttribute('data-no-search')) { return; }
         native.dataset.ssReady = '1';
 
-        // ---- Wrapper (created automatically around the native select) ----
         var wrap = document.createElement('div');
         wrap.className = 'erp-ss';
         native.parentNode.insertBefore(wrap, native);
         wrap.appendChild(native);
         native.classList.add('erp-ss-native', 'erp-ss-hidden');
 
-        // ---- Options (keep the empty "All / Select" as a reset row) ------
         function readOptions() {
             return Array.prototype.map.call(native.options, function (o) {
                 return { value: o.value, label: o.text, disabled: o.disabled };
@@ -53,7 +34,6 @@
 
         var visibleLimit = parseInt(native.getAttribute('data-visible'), 10) || DEFAULT_VISIBLE;
 
-        // ---- Build trigger + panel --------------------------------------
         var trigger = document.createElement('button');
         trigger.type = 'button';
         trigger.className = 'erp-ss-trigger erp-select';
@@ -86,7 +66,6 @@
         var highlight = -1;
         var rendered  = [];
 
-        // ---- Sync trigger text from the native select's current value ----
         function syncTrigger() {
             var opt = native.options[native.selectedIndex];
             var isEmpty = native.value === '';
@@ -97,7 +76,7 @@
             });
         }
 
-        // Mirror ANY external value change (Angular "Clear", programmatic set).
+        // Mirror external writes, including Angular model resets.
         var valDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
         if (valDesc && valDesc.configurable) {
             Object.defineProperty(native, 'value', {
@@ -107,18 +86,17 @@
             });
         }
 
-        // ---- Rendering ---------------------------------------------------
         function render(term) {
             term = (term || '').trim().toLowerCase();
 
             var capped = false;
             if (term) {
-                // Searching: show ALL matches (no cap), skip the empty reset row.
+                // Search results are uncapped and exclude the reset option.
                 rendered = options.filter(function (o) {
                     return o.value !== '' && o.label.toLowerCase().indexOf(term) !== -1;
                 });
             } else {
-                // Collapsed: empty reset row (if any) + first `visibleLimit` real options.
+                // Unfiltered panels retain the reset option before capped results.
                 var reals = options.filter(function (o) { return o.value !== ''; });
                 capped = reals.length > visibleLimit;
                 var shown = capped ? reals.slice(0, visibleLimit) : reals;
@@ -146,7 +124,6 @@
                 });
             }
 
-            // "Showing 9 of N &middot; type to search" hint (only when the list is capped).
             if (capped) {
                 hint.textContent = 'Showing ' + visibleLimit + ' of ' + realCount
                     + (searchVisible ? ' &middot; type to search' : '');
@@ -169,13 +146,12 @@
         function choose(i) {
             var o = rendered[i];
             if (!o) { return; }
-            native.value = o.value;                    // triggers syncTrigger (setter hook)
+            native.value = o.value;
             native.dispatchEvent(new Event('change', { bubbles: true }));
             close();
             trigger.focus();
         }
 
-        // ---- Open / close (with up-flip when short on space below) -------
         function openPanel() {
             if (open) { return; }
             open = true;
@@ -200,8 +176,7 @@
             trigger.setAttribute('aria-expanded', 'false');
         }
 
-        // Dependent selects can refresh after native options are enabled or
-        // disabled, while keeping this themed trigger and dropdown panel.
+        // Dependent selects call this after enabling or disabling native options.
         native._erpSsRefresh = function () {
             options = readOptions();
             emptyOpt = options.filter(function (o) { return o.value === ''; })[0];
@@ -210,7 +185,6 @@
             render(search ? search.value : '');
         };
 
-        // ---- Events ------------------------------------------------------
         trigger.addEventListener('click', function () { open ? close() : openPanel(); });
 
         if (search) {
@@ -239,7 +213,6 @@
             if (open && !wrap.contains(e.target)) { close(); }
         });
 
-        // ---- Initial state ----------------------------------------------
         syncTrigger();
     }
 
@@ -250,7 +223,6 @@
         );
     }
 
-    // Expose a manual hook (e.g. for dynamically added selects).
     window.SearchableSelect = {
         init: init,
         enhance: enhance,

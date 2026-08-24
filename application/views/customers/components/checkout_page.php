@@ -1,12 +1,9 @@
 <?php
 /**
- * Shared presentation for:
- * - Check-in Details -> Check-out confirmation
- * - Check-out Details -> completed record
- * - Check-out Details -> read-only edit page
+ * Shared checkout confirmation and completed-record view.
  *
- * Booking/customer fields remain disabled. On the confirmation page only the
- * status can be changed from Checked In to Checked Out.
+ * Customer and booking fields remain read-only; confirmation mode permits only
+ * the Checked In to Checked Out status transition.
  */
 $display = function ($value, $fallback = '—') {
     return ($value === NULL || $value === '') ? $fallback : $value;

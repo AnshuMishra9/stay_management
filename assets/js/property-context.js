@@ -1,3 +1,4 @@
+/* Keeps property-scoped client state synchronized across tabs. */
 (function (global, doc) {
     'use strict';
 
@@ -13,7 +14,7 @@
                     global.sessionStorage.removeItem(key);
                 }
             }
-        } catch (error) { /* Storage can be disabled. */ }
+        } catch (error) { /* sessionStorage may be unavailable. */ }
     }
 
     function announceChange(reason) {
@@ -22,7 +23,7 @@
                 reason: reason || 'property',
                 at: Date.now()
             }));
-        } catch (error) { /* Server token still protects stale tabs. */ }
+        } catch (error) { /* The server token still rejects stale property state. */ }
     }
 
     doc.addEventListener('input', function (event) {
@@ -61,9 +62,7 @@
             });
         }
 
-        // The server emits this marker only after it has authorized and saved
-        // the new property context. Broadcasting here avoids another tab
-        // racing ahead of the switch POST and repainting the old hotel.
+        // Broadcast only after the server confirms the new property context.
         if (global.APP_PROPERTY_CONTEXT_SWITCHED) {
             clearPropertyState();
             announceChange('property');

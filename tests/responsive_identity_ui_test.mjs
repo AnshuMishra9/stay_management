@@ -4,9 +4,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 
-const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const appBase = 'http://localhost/stay_management';
-const mobile = process.env.STAY_TEST_MOBILE || '9988776655';
+/**
+ * Browser regression for identity upload, crop, camera, and responsive layouts.
+ * Existing-booking checks modify browser state only; the check-in form is never
+ * submitted.
+ */
+const chromePath = process.env.STAY_CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+const appBase = process.env.STAY_TEST_BASE || 'http://localhost/stay_management';
+const mobile = process.env.STAY_TEST_MOBILE || '';
 const existingBookingId = Number.parseInt(process.env.STAY_EXISTING_BOOKING_ID || '', 10) || 0;
 const emptyBookingId = Number.parseInt(process.env.STAY_EMPTY_BOOKING_ID || '', 10) || 0;
 const mobileUserAgent = 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Mobile Safari/537.36';
@@ -35,6 +40,7 @@ function sessionCookie(response) {
 }
 
 async function login() {
+    if (!mobile) { throw new Error('Set STAY_TEST_MOBILE to an authorized non-production test account.'); }
     const otpResponse = await fetch(appBase + '/auth/send_otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -1,8 +1,5 @@
 <?php
-/**
- * Two-image identity document uploader used inside one identity row.
- * $idn may be NULL for a new row.
- */
+/** Identity document inputs for one row; $idn is NULL for a new identity. */
 $front_path = ($idn && ! empty($idn->document_path)) ? $idn->document_path : '';
 $back_path  = ($idn && isset($idn->document_path_2) && ! empty($idn->document_path_2))
     ? $idn->document_path_2

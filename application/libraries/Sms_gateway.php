@@ -4,24 +4,15 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 /**
  * SMS gateway abstraction.
  *
- * Production integrations plug in by implementing Sms_gateway_driver and
- * registering a driver in the factory below (or via the SMS_DRIVER env var).
- * The default 'log' driver never sends anything â€” it writes to the CI log,
- * which keeps local/development flows fully offline.
- *
- * Usage:
- *   $this->load->library('sms_gateway');
- *   $this->sms_gateway->driver()->send_otp($mobile, $otp);
+ * SMS_DRIVER selects the implementation. The default log driver never sends
+ * a message, keeping development and unconfigured deployments offline.
  */
 interface Sms_gateway_driver
 {
-	/** Deliver an OTP message. Returns TRUE on success. */
 	public function send_otp($mobile, $otp);
 }
 
-/**
- * Logs instead of sending â€” safe default for development/testing.
- */
+/** Development driver that records delivery attempts without sending them. */
 class Sms_gateway_log implements Sms_gateway_driver
 {
 	public function send_otp($mobile, $otp)
@@ -32,10 +23,7 @@ class Sms_gateway_log implements Sms_gateway_driver
 	}
 }
 
-/**
- * Fast2SMS HTTP driver skeleton â€” fill the endpoint/key via env
- * (SMS_API_KEY) and enable by setting SMS_DRIVER=fast2sms.
- */
+/** Fast2SMS driver configured through SMS_API_KEY and SMS_SENDER_ID. */
 class Sms_gateway_fast2sms implements Sms_gateway_driver
 {
 	public function send_otp($mobile, $otp)
@@ -59,10 +47,7 @@ class Sms_gateway_fast2sms implements Sms_gateway_driver
 	}
 }
 
-/**
- * Twilio driver skeleton â€” requires SMS_API_KEY (sid:token) and
- * SMS_SENDER_ID (from number). Enable with SMS_DRIVER=twilio.
- */
+/** Twilio driver; SMS_API_KEY contains the SID and token as "sid:token". */
 class Sms_gateway_twilio implements Sms_gateway_driver
 {
 	public function send_otp($mobile, $otp)
@@ -89,9 +74,6 @@ class Sms_gateway_twilio implements Sms_gateway_driver
 	}
 }
 
-/**
- * Factory / facade used by controllers.
- */
 class Sms_gateway
 {
 	/** @var Sms_gateway_driver */
@@ -107,7 +89,6 @@ class Sms_gateway
 		return $this->driver;
 	}
 
-	/** Convenience passthrough: send an OTP message. */
 	public function send_otp($mobile, $otp)
 	{
 		return $this->driver->send_otp($mobile, $otp);
@@ -119,7 +100,6 @@ class Sms_gateway
 			'log'       => 'Sms_gateway_log',
 			'fast2sms'  => 'Sms_gateway_fast2sms',
 			'twilio'    => 'Sms_gateway_twilio',
-			// msg91 can be added here following the same pattern.
 		);
 		if ($name === 'msg91' && class_exists('Sms_gateway_msg91')) {
 			return new Sms_gateway_msg91();

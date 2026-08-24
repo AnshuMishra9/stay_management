@@ -1,12 +1,14 @@
 <?php
 /**
- * OTP exposure guard — security regression test.
+ * Verifies the otp_exposure_allowed() environment gate for raw OTP values.
+ * It does not invoke Auth::send_otp; response wiring requires integration coverage.
  *
- * The raw OTP must NEVER appear in the send_otp response unless the
- * process is running in 'development' AND DEV_EXPOSE_OTP=true.
+ * Raw OTP values may appear only when ENVIRONMENT is "development" and
+ * DEV_EXPOSE_OTP=true.
  *
- * Each scenario runs in a fresh PHP process (see run at bottom) so the
- * ENVIRONMENT constant can be defined per-case without redefinition.
+ * Invoke this file once per scenario with the environment and flag as CLI
+ * arguments so ENVIRONMENT is defined independently for each process.
+ * Example: php tests\otp_exposure_test.php development true
  */
 
 if ( ! function_exists('otp_exposure_allowed')) {
@@ -30,7 +32,7 @@ function expect($label, $actual, $expected)
 $env  = isset($argv[1]) ? $argv[1] : '';
 $flag = isset($argv[2]) ? $argv[2] : '';
 
-// Simulate the boot environment for this isolated process.
+// Mirror the application's boot-time environment in this isolated process.
 putenv("CI_ENVIRONMENT={$env}");
 putenv("DEV_EXPOSE_OTP={$flag}");
 define('ENVIRONMENT', $env);

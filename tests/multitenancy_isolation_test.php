@@ -1,18 +1,18 @@
 <?php
 /**
- * Disposable-DB integration regression for tenant/property isolation.
+ * Verifies database and model-level tenant/property isolation.
  *
- * The live database name is refused. The current checked-in snapshot is
- * rewritten to a random stay_management_test_* database, real CI models and
- * DB constraints are exercised, then only that validated database is dropped.
+ * The test creates a random stay_management_test_* database, imports the
+ * checked-in zero-data schema, exercises real CodeIgniter models and database
+ * constraints, then drops only that validated disposable database.
  *
- * Run: C:\xampp\php\php.exe tests\multitenancy_isolation_test.php
+ * Run: php tests\multitenancy_isolation_test.php
  */
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 $root = dirname(__DIR__);
-$snapshot_path = $root.DIRECTORY_SEPARATOR.'db'.DIRECTORY_SEPARATOR.'stay_management.sql';
+$schema_path = $root.DIRECTORY_SEPARATOR.'db'.DIRECTORY_SEPARATOR.'stay_management.sql';
 $database = 'stay_management_test_'.getmypid().'_'.bin2hex(random_bytes(4));
 $database_created = FALSE;
 $server_db = NULL;
@@ -66,21 +66,28 @@ function row_ids(array $rows, $field = 'id')
     return $ids;
 }
 
-function import_snapshot(mysqli $server, $snapshot_path, $database)
+function import_schema(mysqli $server, $schema_path)
 {
-    if ( ! preg_match('/\Astay_management_test_[a-z0-9_]+\z/', $database)) {
-        throw new RuntimeException('Unsafe disposable database name refused.');
-    }
-    $sql = file_get_contents($snapshot_path);
+    $sql = file_get_contents($schema_path);
     if ($sql === FALSE || $sql === '') {
-        throw new RuntimeException('Database snapshot could not be read.');
+        throw new RuntimeException('Database schema could not be read.');
     }
-    $sql = str_replace('`stay_management`', '`'.$database.'`', $sql, $replacements);
-    if ($replacements < 3) {
-        throw new RuntimeException('Snapshot rewrite did not match expected database markers.');
+
+    // Tests import only table DDL into an already-selected disposable database;
+    // the canonical installer's fixed live-database lifecycle must never run here.
+    $lifecycle_patterns = array(
+        '/^[ \t]*DROP[ \t]+DATABASE[ \t]+IF[ \t]+EXISTS[ \t]+`stay_management`[ \t]*;[ \t]*\r?$/mi',
+        '/^[ \t]*CREATE[ \t]+DATABASE[ \t]+`stay_management`[ \t]+DEFAULT[ \t]+CHARACTER[ \t]+SET[ \t]+utf8mb4[ \t]+COLLATE[ \t]+utf8mb4_general_ci[ \t]*;[ \t]*\r?$/mi',
+        '/^[ \t]*USE[ \t]+`stay_management`[ \t]*;[ \t]*\r?$/mi',
+    );
+    foreach ($lifecycle_patterns as $pattern) {
+        $sql = preg_replace($pattern, '', $sql, 1, $removed);
+        if ($removed !== 1) {
+            throw new RuntimeException('Database installer lifecycle is missing or ambiguous.');
+        }
     }
-    if (preg_match('/\b(?:DROP|CREATE)\s+DATABASE[^;]*`stay_management`|\bUSE\s+`stay_management`/i', $sql)) {
-        throw new RuntimeException('Live database reference remained after snapshot rewrite.');
+    if (preg_match('/^\s*(?:INSERT|REPLACE)\s+INTO\b|^\s*(?:CREATE|DROP|ALTER)\s+DATABASE\b|^\s*USE\s+/im', $sql)) {
+        throw new RuntimeException('Database installer contains data or unexpected database-control statements.');
     }
     $server->multi_query($sql);
     do {
@@ -91,6 +98,10 @@ function import_snapshot(mysqli $server, $snapshot_path, $database)
 function seed_fixtures(mysqli $db)
 {
     $statements = array(
+        "INSERT INTO users (user_id,name,mobile_no,role,fk_plant,status,added_by) VALUES
+            (1,'Fixture Super Admin','9000000001','super_admin',NULL,1,NULL)",
+        "INSERT INTO status_details (sd_id,status_code,sd_name,display_order,sd_status) VALUES
+            (1,'room_booked','Room booked',1,1)",
         "INSERT INTO plants (plant_id,plant_name,plant_status,plant_ad_by) VALUES
             (101,'Admin A Account',1,1),(201,'Admin B Account',1,1)",
         "INSERT INTO users (user_id,name,mobile_no,role,fk_plant,status,added_by) VALUES
@@ -145,7 +156,7 @@ if ( ! function_exists('get_instance')) {
     }
 }
 
-/** Load only CodeIgniter Query Builder and the real persistence models. */
+// Use real persistence models without booting the web application.
 function bootstrap_models($root, $database)
 {
     if ( ! defined('BASEPATH')) { define('BASEPATH', $root.DIRECTORY_SEPARATOR.'system'.DIRECTORY_SEPARATOR); }
@@ -185,13 +196,15 @@ try {
     if ($database === 'stay_management' || ! preg_match('/\Astay_management_test_[a-z0-9_]+\z/', $database)) {
         throw new RuntimeException('Refusing unsafe database name.');
     }
-    if ( ! is_file($snapshot_path)) {
-        throw new RuntimeException('Missing database snapshot: '.$snapshot_path);
+    if ( ! is_file($schema_path)) {
+        throw new RuntimeException('Missing database schema: '.$schema_path);
     }
     $server_db = new mysqli('127.0.0.1', 'root', '');
     $server_db->set_charset('utf8mb4');
-    import_snapshot($server_db, $snapshot_path, $database);
+    $server_db->query('CREATE DATABASE `'.$database.'` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci');
     $database_created = TRUE;
+    $server_db->select_db($database);
+    import_schema($server_db, $schema_path);
     $fixture_db = new mysqli('127.0.0.1', 'root', '', $database);
     $fixture_db->set_charset('utf8mb4');
     seed_fixtures($fixture_db);
@@ -260,7 +273,7 @@ try {
     $rooms = $models['rooms'];
     $customers = $models['customers'];
 
-    $super = $users->get_active_by_mobile('9876543210');
+    $super = $users->get_active_by_mobile('9000000001');
     $admin_a = $users->get_active_by_mobile('9000000101');
     $admin_b = $users->get_active_by_mobile('9000000201');
     $user_single = $users->get_active_by_mobile('9000000111');

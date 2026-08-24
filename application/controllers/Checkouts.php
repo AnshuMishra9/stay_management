@@ -1,8 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/** Checkouts — split out of the former Customers god controller (SRP).
- *  URLs remain unchanged; see application/config/routes.php. */
+/** Checkout workflow; completed stays remain read-only. */
 class Checkouts extends Ops_Controller
 {
     public function __construct()
@@ -12,7 +11,6 @@ class Checkouts extends Ops_Controller
     }
 
 
-    /** Check-out Details list page — lists ONLY "Checked out" bookings. */
     public function index()
     {
         $this->_render_booking_list(array(
@@ -32,7 +30,6 @@ class Checkouts extends Ops_Controller
 
 
 
-    /** [AJAX] "Checked out" bookings (Check-out Details list). */
     public function checkedouts_ajax()
     {
         if ( ! $this->_require_property_context(TRUE)) { return; }
@@ -46,7 +43,6 @@ class Checkouts extends Ops_Controller
 
 
 
-    /** Check-out confirmation page for a currently checked-in booking. */
     public function checkout($booking_id = NULL)
     {
         $this->_render_checkout_page($booking_id, 'confirm');
@@ -54,7 +50,6 @@ class Checkouts extends Ops_Controller
 
 
 
-    /** Read-only record page opened from the Check-out Details workflow button. */
     public function checkedout_details($booking_id = NULL)
     {
         $this->_render_checkout_page($booking_id, 'details');
@@ -73,7 +68,6 @@ class Checkouts extends Ops_Controller
 
 
 
-    /** Render one of the status-specific check-out pages. */
     protected function _render_checkout_page($booking_id, $mode)
     {
         $booking = $booking_id ? $this->Customer_model->get_booking_detail(
@@ -132,7 +126,6 @@ class Checkouts extends Ops_Controller
 
 
 
-    /** Complete check-out after the user changes Status to Checked Out. */
     public function checkout_save()
     {
         if ( ! $this->require_post() || ! $this->_require_property_context(FALSE)) { return; }

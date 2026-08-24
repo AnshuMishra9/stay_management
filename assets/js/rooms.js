@@ -1,8 +1,4 @@
-/* ============================================================
-   Stay Management ERP — Rooms Master (AngularJS 1.x)
-   Live server-side filtering, detail modal, delete with cleanup.
-   Mirrors customers.js.
-   ============================================================ */
+/* Room list, filters, detail modal, and deactivation (AngularJS 1.x). */
 (function () {
     'use strict';
 
@@ -14,7 +10,7 @@
         var base = (window.APP_BASE || '/').replace(/\/?$/, '/');
         var debounce = null;
 
-        // After a save/redirect (flash present) the cached data is stale — drop it once.
+        // Consume the post-save freshness marker once.
         if (window.APP_FRESH) {
             erpQuery.invalidate('rooms');
             window.APP_FRESH = false;
@@ -29,7 +25,6 @@
             housekeeping_status: '', status: ''
         };
 
-        // ---- API (cached: instant from cache, revalidated in the background) ----
         vm.load = function () {
             erpQuery.fetch('rooms', base + 'rooms/list_ajax', vm.filters, {}, {
                 data:    function (rows) { vm.rooms = rows; },
@@ -37,7 +32,7 @@
             });
         };
 
-        // Debounced reload — fires 300ms after the last keystroke/selection.
+        // Coalesce rapid filter changes into one request.
         vm.onFilter = function () {
             if (debounce) { $timeout.cancel(debounce); }
             debounce = $timeout(vm.load, 300);
@@ -48,7 +43,6 @@
             vm.load();
         };
 
-        // ---- Display helpers ----
         vm.hkClass = function (s) {
             switch (s) {
                 case 'Available':     return 'erp-chip-green';
@@ -57,7 +51,6 @@
             }
         };
 
-        // ---- Detail modal ----
         vm.viewRoom = function (id) {
             $http.get(base + 'rooms/view/' + id, {
                 headers: { 'X-Property-Context-Token': window.APP_PROPERTY_CONTEXT_TOKEN || '' }
@@ -84,7 +77,6 @@
             vm.detail = {};
         };
 
-        // ---- Delete ----
         vm.deleteRoom = function (r) {
             var ok = window.confirm(
                 'Deactivate room "' + r.room_no + '" (' + r.room_code + ')?\n\n' +
@@ -97,8 +89,7 @@
             })
                 .then(function (res) {
                     if (res.data && res.data.status) {
-                        erpQuery.invalidate('rooms');   // data changed — drop cached lists
-                        // Soft-deleted rooms disappear from the list instantly.
+                        erpQuery.invalidate('rooms');
                         var i = vm.rooms.indexOf(r);
                         if (i > -1) { vm.rooms.splice(i, 1); }
                         if (window.ErpToast) { window.ErpToast.show(res.data.message || 'Room deactivated.'); }
@@ -116,7 +107,6 @@
                 });
         };
 
-        // Initial load
         vm.load();
     }
 })();

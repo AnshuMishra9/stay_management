@@ -5,10 +5,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * Inventory_model
  *
  * Derives room AVAILABILITY per date from the physical rooms and the active
- * bookings. There is no manually-set inventory â€” availability is computed:
+ * bookings. There is no manually-set inventory; availability is computed:
  *
  *     available(category, date) = active rooms in category
- *                               âˆ’ rooms occupied by active bookings that night
+ *                               - rooms occupied by active bookings that night
  *
  * A booking occupies a room on night D when D is within [check-in, check-out)
  * and its status is "occupying" (Room booked / Checked in). Completed stays
@@ -59,12 +59,10 @@ class Inventory_model extends CI_Model
             ->where('r.property_id', (int) $property_id)
             ->where('r.status', 1);
 
-        // Filter by room number/name
         if (!empty($filters['room_no'])) {
             $this->db->like('r.room_no', $filters['room_no']);
         }
 
-        // Filter by category
         if (!empty($filters['category_id'])) {
             $this->db->where('r.category_id', (int) $filters['category_id']);
         }
@@ -74,11 +72,6 @@ class Inventory_model extends CI_Model
             ->get()->result();
     }
 
-    /**
-     * Get all active room categories for filter dropdown.
-     *
-     * @return array of {category_id, category_name}
-     */
     public function get_all_categories($property_id)
     {
         return $this->db
@@ -138,8 +131,8 @@ class Inventory_model extends CI_Model
      * @param  int    $days
      * @param  array  $filters - optional filters: room_no, category_id
      * @return array {
-     *     dates:        [Y-m-d, â€¦],
-     *     rooms:        [ {id, room_no, category_id, category_name, avail:{date=>n}, booked:{date=>n}}, â€¦ ],
+     *     dates:        [Y-m-d, ...],
+     *     rooms:        [ {id, room_no, category_id, category_name, avail:{date=>n}, booked:{date=>n}}, ... ],
      *     avail_totals: {date=>n},   booked_totals:{date=>n},
      *     total_rooms:  int
      * }
@@ -174,7 +167,7 @@ class Inventory_model extends CI_Model
         foreach ($this->occupying_bookings($property_id) as $b) {
             $room_id = $b->room_id;
             if (!$room_id || !isset($state[$room_id])) {
-                continue;   // no room assigned or room not active
+                continue;
             }
 
             // Effective stay range: scheduled dates win; otherwise fall back to
@@ -211,7 +204,7 @@ class Inventory_model extends CI_Model
             } elseif ($b->status_code === 'checked_in') {
                 $cout = NULL;
             } else {
-                $cout = date('Y-m-d', strtotime($cin.' +1 day'));   // single night
+                $cout = date('Y-m-d', strtotime($cin.' +1 day')); // Undated reservations occupy one night.
             }
 
             foreach ($dates as $dt) {
@@ -251,7 +244,7 @@ class Inventory_model extends CI_Model
             foreach ($dates as $dt) {
                 $current_status = $state[$rid][$dt];
                 $bk = $current_status === 'available' ? 0 : 1;
-                $av = 1 - $bk;  // 1 available if not occupied, 0 if occupied
+                $av = 1 - $bk;
                 $avail[$dt]  = $av;
                 $booked[$dt] = $bk;
                 $room_status[$dt] = $current_status;

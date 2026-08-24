@@ -1,9 +1,7 @@
-/* ============================================================
-   Inventory night-range selection and in-page New Booking modal.
-
-   A selected calendar cell is one occupied night. An inclusive selection
-   D1..D2 is submitted as [D1, D2 + 1 day), so the checkout date is free.
-   ============================================================ */
+/*
+ * Inventory selects occupied nights; D1..D2 maps to [D1, D2 + 1 day)
+ * so the checkout date remains available for another stay.
+ */
 (function (global) {
     'use strict';
 

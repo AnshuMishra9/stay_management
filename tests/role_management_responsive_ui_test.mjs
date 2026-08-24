@@ -13,7 +13,7 @@ mkdirSync(screenshotDir, { recursive: true });
 const roles = [
     {
         key: 'super',
-        mobile: process.env.STAY_SUPER_TEST_MOBILE || '9876543210',
+        mobile: process.env.STAY_SUPER_TEST_MOBILE || '',
         session: process.env.STAY_SUPER_SESSION || '',
         roleLabel: 'Super Admin',
         managePaths: ['/stay_management/admins', '/stay_management/properties', '/stay_management/users'],
@@ -28,7 +28,7 @@ const roles = [
     },
     {
         key: 'admin',
-        mobile: process.env.STAY_ADMIN_TEST_MOBILE || '9988776655',
+        mobile: process.env.STAY_ADMIN_TEST_MOBILE || '',
         session: process.env.STAY_ADMIN_SESSION || '',
         roleLabel: 'Admin',
         managePaths: ['/stay_management/properties', '/stay_management/users'],
@@ -41,7 +41,7 @@ const roles = [
     },
     {
         key: 'user',
-        mobile: process.env.STAY_USER_TEST_MOBILE || '1231231231',
+        mobile: process.env.STAY_USER_TEST_MOBILE || '',
         session: process.env.STAY_USER_SESSION || '',
         roleLabel: 'User',
         managePaths: [],
@@ -69,12 +69,12 @@ function sessionCookie(response) {
     return values.length ? values[values.length - 1] : '';
 }
 
-// Tests may receive pre-authenticated session ids through the environment for
-// a strictly GET-only run. The OTP fallback uses the application's existing
-// test login contract; after authentication every tested application request
-// is read-only.
+// Pre-authenticated sessions keep authentication and validation GET-only. The
+// OTP fallback may establish a property context; after session setup, every
+// validation request is read-only.
 async function login(role) {
     if (role.session) { return role.session; }
+    assert(role.mobile, `Set a non-production test mobile or session for the ${role.roleLabel} scenario.`);
 
     const otpResponse = await fetch(appBase + '/auth/send_otp', {
         method: 'POST',
@@ -94,9 +94,8 @@ async function login(role) {
     const verifyPayload = await verifyResponse.json();
     assert(verifyPayload.status && cookie, `${role.roleLabel} OTP login failed.`);
 
-    // A Super Admin can legitimately have multiple live properties. Select
-    // the first authorized property so operational-page checks do not depend
-    // on the old single-Legacy-Property fixture assumption.
+    // A Super Admin may have multiple active properties. Select the first
+    // authorized property so later checks have a deterministic context.
     if (/\/properties\/select(?:$|[?#])/.test(String(verifyPayload.redirect || ''))) {
         const selectResponse = await getWithSession(cookie, '/properties/select');
         const selectHtml = await selectResponse.text();
@@ -397,8 +396,8 @@ try {
         sessions[role.key] = await login(role);
     }
 
-    // HTTP-level role boundary: normal Admin must never render Super's admin
-    // account list/form. These are GET requests and cannot change live data.
+    // Verify role denial at the HTTP layer. These GET requests cannot change
+    // application data.
     for (const path of ['/admins', '/admins/add']) {
         const denied = await getWithSession(sessions.admin, path);
         assert(denied.status === 403, `Admin ${path} returned ${denied.status}, expected 403.`);

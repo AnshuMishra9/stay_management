@@ -42,7 +42,6 @@ class Inventory extends Property_Controller
             $selected = date('Y-m-d');
         }
 
-        // Get filter parameters
         $room_no = $this->input->get('room_no');
         $category_id = $this->input->get('category_id');
         $filters = array(
@@ -96,7 +95,6 @@ class Inventory extends Property_Controller
         $data['end']   = end($data['dates']);
         $data['flash'] = $this->session->flashdata('inventory_msg');
 
-        // Pass filters and categories for dropdown
         $data['filters'] = $filters;
         $data['categories'] = $this->Inventory_model->get_all_categories($this->current_property_id);
 

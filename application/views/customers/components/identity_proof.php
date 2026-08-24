@@ -1,12 +1,9 @@
 <?php
 /**
- * Reusable Identity Proof block for the customer and check-in forms.
+ * Shared identity rows for customer and check-in forms.
  *
- * Expects:
- *   $identity_types -> array code => label
- *   $identities     -> existing customer_identities rows (or empty)
- *
- * The enclosing form must use enctype="multipart/form-data".
+ * Expects $identity_types and $identities. The parent form must use
+ * multipart/form-data so selected documents reach the upload handler.
  */
 ?>
 <div class="erp-form-section idn-section">

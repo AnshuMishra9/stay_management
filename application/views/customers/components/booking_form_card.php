@@ -1,10 +1,9 @@
 <?php
 /**
- * Shared New / Edit Booking form card.
+ * Shared booking form for the full page and Inventory modal.
  *
- * Rendered by the normal Booking page and by the Inventory booking modal.
- * Inventory reservations use scheduled dates; actual check-in/out timestamps
- * remain empty until the corresponding operational workflow is completed.
+ * Inventory reservations store scheduled dates only; operational workflows
+ * set the actual check-in and check-out timestamps later.
  */
 $booking = isset($booking) ? $booking : NULL;
 $customer = isset($customer) ? $customer : NULL;
@@ -19,7 +18,7 @@ $active_property_name = isset($current_property) && $current_property
     ? (string) $current_property->property_name
     : '';
 
-// Posted values win after validation, followed by stored/default values.
+// Submitted values take precedence over stored and controller-provided defaults.
 $val = function ($field, $fallback = '') use ($customer) {
     return set_value($field, $customer ? ($customer->$field ?? '') : $fallback, FALSE);
 };
@@ -46,7 +45,7 @@ if ($sel_status === '' || $sel_status === NULL || $inventory_mode) {
     }
 }
 
-// Stored DATETIME -> datetime-local input value.
+// Convert stored SQL DATETIME values for datetime-local inputs.
 $dtlocal = function ($field) use ($bval) {
     $value = $bval($field);
     return $value ? str_replace(' ', 'T', substr($value, 0, 16)) : '';

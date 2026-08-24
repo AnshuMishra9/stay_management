@@ -6,7 +6,6 @@ $this->load->view('access/management_head', array('page_title' => $page_title, '
 ?>
 <form class="erp-card mgmt-card" style="max-width:920px;margin:0 auto" method="post" action="<?= site_url('properties/save') ?>" novalidate>
 
-    <!-- Page header -->
     <div class="erp-page-head">
         <div>
             <h1>

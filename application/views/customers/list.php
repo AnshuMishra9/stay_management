@@ -10,7 +10,8 @@
     <style>[ng-cloak]{display:none!important;}</style>
     <script>
         window.APP_BASE = "<?= base_url() ?>";
-        window.APP_FRESH = <?= ! empty($flash) ? 'true' : 'false' ?>;   // a save just happened -> bypass cache once
+        // Bypass the cached list once after a successful write.
+        window.APP_FRESH = <?= ! empty($flash) ? 'true' : 'false' ?>;
         window.APP_PROPERTY_CONTEXT_TOKEN = <?= json_encode($property_context_token ?? '') ?>;
         window.APP_PROPERTY_CONTEXT_KEY = <?= json_encode((string) ($current_tenant_id ?? '').':'.(string) ($current_property_id ?? '')) ?>;
     </script>
@@ -18,13 +19,11 @@
 
 <body class="erp-body" ng-controller="CustomersController as vm">
 
-<!-- Top navigation -->
 <?php $this->load->view('layouts/erp_navbar', array('active' => 'customers')); ?>
 
 <div class="erp-wrap">
     <div class="erp-card">
 
-        <!-- Page header -->
         <div class="erp-page-head">
             <div>
                 <h1>
@@ -48,14 +47,12 @@
             </div>
         </div>
 
-        <!-- Flash message (after add/edit/upload) -->
         <?php if ( ! empty($flash)): ?>
             <div class="erp-alert erp-alert-<?= html_escape($flash['type']) ?>">
                 <?= html_escape($flash['text']) ?>
             </div>
         <?php endif; ?>
 
-        <!-- Table (filters sit in the header row, right under each column name) -->
         <div class="erp-table-scroll">
             <table class="erp-table">
                 <thead>
@@ -98,15 +95,12 @@
                         </td>
                         <td>
                             <span class="erp-actions">
-                                <!-- View -->
                                 <button class="erp-icon-btn erp-icon-view" title="View" ng-click="vm.viewCustomer(c.id)">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
                                 </button>
-                                <!-- Edit -->
                                 <a class="erp-icon-btn erp-icon-edit" title="Edit" href="<?= site_url('customers/form') ?>/{{ c.id }}">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </a>
-                                <!-- Delete -->
                                 <button class="erp-icon-btn erp-icon-delete" title="Delete" ng-click="vm.deleteCustomer(c)">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></svg>
                                 </button>
@@ -116,7 +110,6 @@
                 </tbody>
             </table>
 
-            <!-- Loading / empty states -->
             <div class="erp-state" ng-if="vm.loading" ng-cloak><span class="erp-spinner"></span><div style="margin-top:10px;">Loading customers…</div></div>
             <div class="erp-state" ng-if="!vm.loading && vm.customers.length === 0" ng-cloak>No customers match your filters.</div>
         </div>
@@ -125,7 +118,6 @@
     </div>
 </div>
 
-<!-- ================= Detail Modal ================= -->
 <div class="erp-modal-backdrop" ng-if="vm.showModal" ng-click="vm.closeModal($event)" ng-cloak>
     <div class="erp-modal" ng-click="$event.stopPropagation()">
         <div class="erp-modal-head">

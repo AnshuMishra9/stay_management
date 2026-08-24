@@ -14,7 +14,6 @@ class Identity_upload_guard
     const MAX_IMAGE_PIXELS = 25000000;
     const MAX_DIMENSION    = 10000;
 
-    /** Return TRUE only for an actual submitted file (not an empty slot). */
     public function is_present($file)
     {
         return is_array($file)

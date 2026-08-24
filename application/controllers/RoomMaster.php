@@ -1,12 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/**
- * RoomMaster (Dashboard)
- *
- * Protected page — extends Secure_Controller, so an authenticated session is
- * required. Direct URL access without logging in redirects to the login page.
- */
 class RoomMaster extends Property_Controller
 {
     public function index()

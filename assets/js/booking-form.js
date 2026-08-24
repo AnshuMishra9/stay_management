@@ -1,14 +1,10 @@
-/* ============================================================
-   Stay Management ERP — shared Booking form behaviour.
-
-   BookingForm.init(root) is idempotent so the same form can run on the
-   full Booking page or after it is injected into the Inventory modal.
-   ============================================================ */
+/* Shared booking form behavior; init() supports full-page and modal forms. */
 (function (global) {
     'use strict';
 
     var base = (global.APP_BASE || '/').replace(/\/?$/, '/');
 
+    // Bind every booking request to the server-authorized property context.
     function addPropertyContextHeader(xhr) {
         xhr.setRequestHeader(
             'X-Property-Context-Token',
@@ -41,7 +37,6 @@
             el.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
-        // ---- Existing-customer lookup by mobile number -----------------
         var lookupTimer = null;
         var autofilled = false;
 
@@ -78,7 +73,6 @@
             phoneEl.addEventListener('blur', lookup);
         }
 
-        // ---- Linked Room Category / Allot Room dropdowns ---------------
         var roomCategory = form.querySelector('#bk_room_category');
         var room = form.querySelector('#bk_room');
         var total = form.querySelector('#bk_total');
@@ -153,8 +147,7 @@
             if (!roomCategory || !room) { return; }
             var selected = room.options[room.selectedIndex];
             var categoryId = selected ? selected.getAttribute('data-category-id') : '';
-            // Selecting an uncategorized room must also clear a previously
-            // selected category; otherwise the filter immediately deselects it.
+            // Clear a stale category before filtering an uncategorized room.
             roomCategory.value = categoryId || '';
             refreshSelect(roomCategory);
             filterRoomsByCategory();
@@ -177,7 +170,6 @@
             }
         }
 
-        // ---- Stay range, live room availability, and totals -------------
         var checkIn = form.querySelector('#bk_checkin');
         var checkOut = form.querySelector('#bk_checkout');
         var bookingIdEl = form.querySelector('[name="booking_id"]');
@@ -186,6 +178,7 @@
             ? checkOut.value.slice(0, 10)
             : '';
 
+        // UTC ordinals keep night counts independent of the browser timezone.
         function calendarOrdinal(value) {
             var match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value || '');
             if (!match) { return null; }
@@ -235,6 +228,7 @@
             xhr.open('GET', base + 'customers/available_rooms?' + query, true);
             addPropertyContextHeader(xhr);
             xhr.onload = function () {
+                // Ignore a response superseded by a newer availability request.
                 if (requestId !== availabilityRequest) { return; }
                 if (handleStaleContext(xhr)) { return; }
 

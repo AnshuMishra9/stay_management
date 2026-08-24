@@ -1,7 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/** Application base controller. */
 class MY_Controller extends CI_Controller
 {
     public function __construct()
@@ -335,7 +334,7 @@ class Property_Controller extends Secure_Controller
     }
 }
 
-// Split-controller base (Bookings/Checkins/Checkouts/Customers extend this).
+// CodeIgniter loads MY_Controller only; load the second-level base explicitly.
 require_once(APPPATH.'core/Ops_Controller.php');
 
 

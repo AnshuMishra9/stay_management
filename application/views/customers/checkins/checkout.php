@@ -1,5 +1,5 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-// Dedicated Check-in Details -> Check-out confirmation page.
+// Render the shared checkout view in controller-configured confirmation mode.
 $this->load->view('customers/components/checkout_page');
